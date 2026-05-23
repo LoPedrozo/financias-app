@@ -1,0 +1,65 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
+
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --border: #e8eaef;
+  --text: #1a1f2b;
+  --text-soft: #6b7280;
+  --text-faint: #9aa3b0;
+  --accent: #c9a86a;
+  --accent-soft: #f3ecdc;
+  --green: #5a9b78;
+  --green-soft: #e6f2ec;
+  --red: #d05a5a;
+  --red-soft: #fbeaea;
+  --shadow: 0 1px 3px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.04);
+  --radius: 16px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: "Sora", sans-serif;
+  letter-spacing: -0.02em;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, select {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8dce3;
+  border-radius: 4px;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
