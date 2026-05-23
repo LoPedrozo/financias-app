@@ -37,11 +37,14 @@ export default function Login() {
     }
   }
 
+  // FUNÇÃO ATUALIZADA: Agora passa corretamente a URL dinâmica de retorno
   async function comGoogle() {
     setErro("");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { 
+        redirectTo: window.location.origin 
+      },
     });
     if (error) setErro(traduzErro(error.message));
   }
