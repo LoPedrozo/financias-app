@@ -9,6 +9,7 @@ export interface Lancamento {
   categoria: string;
   mes: number; // 0-11
   ano: number;
+  data: string | null; // ISO YYYY-MM-DD; null para lançamentos antigos
   created_at: string;
 }
 
