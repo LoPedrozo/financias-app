@@ -118,7 +118,7 @@ export default function ModalNovo({
 
   return (
     <div style={styles.overlay} onClick={onFechar}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+      <div style={styles.modal} className="modal-mobile" onClick={(e) => e.stopPropagation()}>
         <div style={styles.head}>
           <h3 style={styles.titulo}>
             {editando ? "Editar lançamento" : "Novo lançamento"}

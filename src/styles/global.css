@@ -63,3 +63,21 @@ input, select {
     transform: translateY(0);
   }
 }
+
+@media (max-width: 640px) {
+  .page-root {
+    padding: 18px 14px 48px !important;
+  }
+  .app-title {
+    font-size: 19px !important;
+  }
+  .card-valor {
+    font-size: 18px !important;
+  }
+  .panel-mobile {
+    padding: 16px !important;
+  }
+  .modal-mobile {
+    padding: 18px !important;
+  }
+}

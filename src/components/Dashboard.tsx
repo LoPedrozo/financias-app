@@ -127,14 +127,14 @@ export default function Dashboard({ session }: { session: Session }) {
   const email = session.user.email ?? "";
 
   return (
-    <div style={styles.page}>
+    <div style={styles.page} className="page-root">
       <header style={styles.header}>
         <div style={styles.brand}>
           <div style={styles.logo}>
             <Wallet size={22} color="var(--accent)" strokeWidth={2.2} />
           </div>
           <div>
-            <h1 style={styles.title}>Minhas Finanças</h1>
+            <h1 style={styles.title} className="app-title">Minhas Finanças</h1>
             <p style={styles.user}>{email}</p>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function Dashboard({ session }: { session: Session }) {
       </div>
 
       <div style={styles.grid}>
-        <div style={styles.panel}>
+        <div style={styles.panel} className="panel-mobile">
           <div style={styles.panelHead}>
             <h2 style={styles.panelTitleInline}>
               {tipoGrafico === "entrada" ? "Entradas por categoria" : "Gastos por categoria"}
@@ -254,7 +254,7 @@ export default function Dashboard({ session }: { session: Session }) {
           )}
         </div>
 
-        <div style={styles.panel}>
+        <div style={styles.panel} className="panel-mobile">
           <h2 style={styles.panelTitle}>Quanto sobrou no ano</h2>
           <ResponsiveContainer width="100%" height={290}>
             <BarChart
@@ -295,7 +295,7 @@ export default function Dashboard({ session }: { session: Session }) {
         </div>
       </div>
 
-      <div style={styles.panel}>
+      <div style={styles.panel} className="panel-mobile">
         <div style={styles.listHead}>
           <h2 style={styles.panelTitle}>Lançamentos de {MESES[mes]}</h2>
           <button style={styles.add} onClick={() => setModal(true)}>
@@ -320,39 +320,45 @@ export default function Dashboard({ session }: { session: Session }) {
               const dia = Number(dataOrdenacao(l).slice(8, 10));
               return (
                 <div key={l.id} style={styles.item}>
-                  <span style={styles.dia}>{dia}</span>
-                  <span
-                    style={{
-                      ...styles.tag,
-                      background: cor + "1f",
-                      color: cor,
-                    }}
-                  >
-                    {l.categoria}
-                  </span>
-                  <span style={styles.desc}>{l.descricao || "—"}</span>
-                  <span
-                    style={{
-                      ...styles.valor,
-                      color: l.tipo === "entrada" ? "var(--green)" : "var(--red)",
-                    }}
-                  >
-                    {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
-                  </span>
-                  <button
-                    style={styles.acao}
-                    onClick={() => setEditando(l)}
-                    title="Editar"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    style={styles.acao}
-                    onClick={() => setConfirmarId(l.id)}
-                    title="Excluir"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <div style={styles.itemTopo}>
+                    <span style={styles.dia}>{dia}</span>
+                    <span
+                      style={{
+                        ...styles.tag,
+                        background: cor + "1f",
+                        color: cor,
+                      }}
+                    >
+                      {l.categoria}
+                    </span>
+                    <span
+                      style={{
+                        ...styles.valor,
+                        color: l.tipo === "entrada" ? "var(--green)" : "var(--red)",
+                      }}
+                    >
+                      {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
+                    </span>
+                  </div>
+                  <div style={styles.itemBase}>
+                    <span style={styles.desc}>{l.descricao || "—"}</span>
+                    <div style={styles.acoes}>
+                      <button
+                        style={styles.acao}
+                        onClick={() => setEditando(l)}
+                        title="Editar"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        style={styles.acao}
+                        onClick={() => setConfirmarId(l.id)}
+                        title="Excluir"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -526,13 +532,32 @@ const styles: Record<string, React.CSSProperties> = {
   },
   list: { display: "flex", flexDirection: "column", gap: 8 },
   item: {
-    display: "grid",
-    gridTemplateColumns: "auto auto 1fr auto auto auto",
-    alignItems: "center",
-    gap: 12,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
     background: "var(--bg)",
     padding: "12px 14px",
     borderRadius: 12,
+    minWidth: 0,
+  },
+  itemTopo: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+  },
+  itemBase: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  },
+  acoes: {
+    display: "flex",
+    alignItems: "center",
+    gap: 2,
+    marginLeft: "auto",
+    flexShrink: 0,
   },
   dia: {
     fontFamily: "'Sora', sans-serif",
@@ -548,6 +573,9 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "4px 10px",
     borderRadius: 7,
     whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    minWidth: 0,
   },
   desc: {
     fontSize: 14,
@@ -555,12 +583,16 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+    flex: 1,
+    minWidth: 0,
   },
   valor: {
     fontFamily: "'Sora', sans-serif",
     fontSize: 15,
     fontWeight: 600,
     whiteSpace: "nowrap",
+    marginLeft: "auto",
+    flexShrink: 0,
   },
   del: {
     background: "none",

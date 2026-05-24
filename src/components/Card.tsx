@@ -42,11 +42,13 @@ export default function Card({ label, valor, icon, cor, destaque }: Props) {
           {label}
         </p>
         <p
+          className="card-valor"
           style={{
             fontFamily: "'Sora', sans-serif",
             fontSize: 21,
             fontWeight: 700,
             color: destaque ? cor : "var(--text)",
+            overflowWrap: "anywhere",
           }}
         >
           {brl(valor)}
