@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar,
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Calendar, LogOut,
+  Receipt, PieChart as PieIcon, AlertTriangle, RotateCw,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -17,6 +18,18 @@ import { brl } from "../lib/format";
 import Card from "./Card";
 import ModalNovo from "./ModalNovo";
 import ConfirmModal from "./ConfirmModal";
+import Toast, { type ToastDados } from "./Toast";
+import EmptyState from "./EmptyState";
+import { SkeletonLista } from "./Skeleton";
+
+function dataInicialNovoLancamento(mes: number, ano: number): string {
+  const hoje = new Date();
+  if (hoje.getFullYear() === ano && hoje.getMonth() === mes) {
+    return hoje.toISOString().slice(0, 10);
+  }
+  const mm = String(mes + 1).padStart(2, "0");
+  return `${ano}-${mm}-01`;
+}
 
 const tooltipStyle: React.CSSProperties = {
   background: "var(--surface)",
@@ -35,35 +48,71 @@ export default function Dashboard({ session }: { session: Session }) {
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
+  const [toast, setToast] = useState<ToastDados | null>(null);
+  const [erroCarregar, setErroCarregar] = useState(false);
 
-  useEffect(() => {
+  const mostrarToast = useCallback(
+    (tipo: ToastDados["tipo"], mensagem: string) => {
+      setToast({ id: Date.now(), tipo, mensagem });
+    },
+    []
+  );
+
+  const carregar = useCallback(() => {
+    setCarregando(true);
+    setErroCarregar(false);
     listarLancamentos()
       .then(setLancamentos)
-      .catch((e) => console.error(e))
+      .catch((e) => {
+        console.error(e);
+        setErroCarregar(true);
+      })
       .finally(() => setCarregando(false));
   }, []);
 
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
+
   async function adicionar(item: NovoLancamento) {
-    const novo = await criarLancamento(item);
-    setLancamentos((atual) => [novo, ...atual]);
-    setModal(false);
+    try {
+      const novo = await criarLancamento(item);
+      setLancamentos((atual) => [novo, ...atual]);
+      setModal(false);
+      mostrarToast("sucesso", "Lançamento salvo!");
+    } catch (e) {
+      console.error(e);
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+    }
   }
 
   async function editar(item: NovoLancamento) {
     if (!editando) return;
-    const atualizado = await atualizarLancamento(editando.id, item);
-    setLancamentos((atual) =>
-      atual.map((l) => (l.id === atualizado.id ? atualizado : l))
-    );
-    setEditando(null);
+    try {
+      const atualizado = await atualizarLancamento(editando.id, item);
+      setLancamentos((atual) =>
+        atual.map((l) => (l.id === atualizado.id ? atualizado : l))
+      );
+      setEditando(null);
+      mostrarToast("sucesso", "Lançamento atualizado!");
+    } catch (e) {
+      console.error(e);
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+    }
   }
 
   async function confirmarRemocao() {
     if (!confirmarId) return;
     const id = confirmarId;
     setConfirmarId(null);
-    await removerLancamento(id);
-    setLancamentos((atual) => atual.filter((l) => l.id !== id));
+    try {
+      await removerLancamento(id);
+      setLancamentos((atual) => atual.filter((l) => l.id !== id));
+      mostrarToast("sucesso", "Lançamento excluído.");
+    } catch (e) {
+      console.error(e);
+      mostrarToast("erro", "Não foi possível excluir. Verifique sua conexão.");
+    }
   }
 
   function dataOrdenacao(l: Lancamento): string {
@@ -213,11 +262,17 @@ export default function Dashboard({ session }: { session: Session }) {
             </div>
           </div>
           {porCategoria.length === 0 ? (
-            <p style={styles.vazio}>
-              {tipoGrafico === "entrada"
-                ? "Sem entradas lançadas neste mês."
-                : "Sem gastos lançados neste mês."}
-            </p>
+            <div style={{ minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <EmptyState
+                compacto
+                icon={<PieIcon size={22} />}
+                titulo={
+                  tipoGrafico === "entrada"
+                    ? "Sem entradas lançadas neste mês."
+                    : "Sem gastos lançados neste mês."
+                }
+              />
+            </div>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={220}>
@@ -303,11 +358,25 @@ export default function Dashboard({ session }: { session: Session }) {
           </button>
         </div>
         {carregando ? (
-          <p style={styles.vazio}>Carregando...</p>
+          <SkeletonLista linhas={4} />
+        ) : erroCarregar ? (
+          <div style={styles.erroBox}>
+            <div style={styles.erroIcone}>
+              <AlertTriangle size={22} />
+            </div>
+            <p style={styles.erroTitulo}>
+              Não foi possível carregar seus lançamentos.
+            </p>
+            <button style={styles.retry} onClick={carregar}>
+              <RotateCw size={14} /> Tentar novamente
+            </button>
+          </div>
         ) : doMes.length === 0 ? (
-          <p style={styles.vazio}>
-            Nenhum lançamento ainda. Clique em "Novo" para começar.
-          </p>
+          <EmptyState
+            icon={<Receipt size={24} />}
+            titulo="Nenhum lançamento ainda."
+            sugestao="Clique em 'Novo' para adicionar seu primeiro lançamento."
+          />
         ) : (
           <div style={styles.list}>
             {doMes.map((l) => {
@@ -370,6 +439,7 @@ export default function Dashboard({ session }: { session: Session }) {
         <ModalNovo
           onFechar={() => setModal(false)}
           onSalvar={adicionar}
+          dataInicial={dataInicialNovoLancamento(mes, ano)}
         />
       )}
 
@@ -380,6 +450,8 @@ export default function Dashboard({ session }: { session: Session }) {
           onSalvar={editar}
         />
       )}
+
+      {toast && <Toast toast={toast} onFechar={() => setToast(null)} />}
 
       {confirmarId && (
         <ConfirmModal
@@ -551,6 +623,42 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 8,
     minWidth: 0,
+  },
+  erroBox: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    textAlign: "center",
+    padding: "30px 16px",
+    gap: 10,
+  },
+  erroIcone: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    background: "var(--red-soft)",
+    color: "var(--red)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  erroTitulo: {
+    fontSize: 14,
+    color: "var(--text-soft)",
+    fontWeight: 500,
+  },
+  retry: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "var(--surface)",
+    border: "1px solid var(--border)",
+    color: "var(--text)",
+    padding: "8px 14px",
+    borderRadius: 10,
+    fontSize: 13,
+    fontWeight: 600,
+    marginTop: 4,
   },
   acoes: {
     display: "flex",

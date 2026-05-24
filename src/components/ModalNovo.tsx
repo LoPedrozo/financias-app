@@ -7,6 +7,7 @@ interface Props {
   onFechar: () => void;
   onSalvar: (item: NovoLancamento) => void;
   lancamentoParaEditar?: Lancamento;
+  dataInicial?: string;
 }
 
 interface Erros {
@@ -28,6 +29,7 @@ export default function ModalNovo({
   onFechar,
   onSalvar,
   lancamentoParaEditar,
+  dataInicial,
 }: Props) {
   const editando = !!lancamentoParaEditar;
 
@@ -51,7 +53,7 @@ export default function ModalNovo({
     if (lancamentoParaEditar?.created_at) {
       return lancamentoParaEditar.created_at.slice(0, 10);
     }
-    return hoje();
+    return dataInicial ?? hoje();
   });
   const [erros, setErros] = useState<Erros>({});
 

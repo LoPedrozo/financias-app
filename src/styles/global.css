@@ -53,6 +53,15 @@ input, select {
   border-radius: 4px;
 }
 
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.skeleton-pulse {
+  animation: skeletonPulse 1.3s ease-in-out infinite;
+}
+
 @keyframes fadeUp {
   from {
     opacity: 0;
