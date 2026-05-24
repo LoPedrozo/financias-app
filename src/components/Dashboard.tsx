@@ -4,14 +4,14 @@ import {
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import {
-  Plus, Trash2, Wallet, TrendingUp, TrendingDown, Calendar, LogOut,
+  Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Calendar, LogOut,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import {
-  listarLancamentos, criarLancamento, removerLancamento,
+  listarLancamentos, criarLancamento, atualizarLancamento, removerLancamento,
 } from "../lib/lancamentos";
-import { CATEGORIAS, MESES } from "../types";
+import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
 import type { Lancamento, NovoLancamento } from "../types";
 import { brl } from "../lib/format";
 import Card from "./Card";
@@ -32,6 +32,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [mes, setMes] = useState(new Date().getMonth());
   const ano = new Date().getFullYear();
   const [modal, setModal] = useState(false);
+  const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,6 +46,15 @@ export default function Dashboard({ session }: { session: Session }) {
     const novo = await criarLancamento(item);
     setLancamentos((atual) => [novo, ...atual]);
     setModal(false);
+  }
+
+  async function editar(item: NovoLancamento) {
+    if (!editando) return;
+    const atualizado = await atualizarLancamento(editando.id, item);
+    setLancamentos((atual) =>
+      atual.map((l) => (l.id === atualizado.id ? atualizado : l))
+    );
+    setEditando(null);
   }
 
   async function confirmarRemocao() {
@@ -73,7 +83,7 @@ export default function Dashboard({ session }: { session: Session }) {
     doMes
       .filter((l) => l.tipo === "saida")
       .forEach((l) => (map[l.categoria] = (map[l.categoria] || 0) + l.valor));
-    return CATEGORIAS.map((c) => ({
+    return CATEGORIAS_SAIDA.map((c) => ({
       name: c.nome,
       value: map[c.nome] || 0,
       cor: c.cor,
@@ -254,9 +264,12 @@ export default function Dashboard({ session }: { session: Session }) {
         ) : (
           <div style={styles.list}>
             {doMes.map((l) => {
-              const cat = CATEGORIAS.find((c) => c.nome === l.categoria);
+              const lista =
+                l.tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
+              const cat = lista.find((c) => c.nome === l.categoria);
               const cor =
-                l.tipo === "entrada" ? "var(--green)" : cat?.cor ?? "#9aa3b0";
+                cat?.cor ??
+                (l.tipo === "entrada" ? "var(--green)" : "#9aa3b0");
               return (
                 <div key={l.id} style={styles.item}>
                   <span
@@ -266,7 +279,7 @@ export default function Dashboard({ session }: { session: Session }) {
                       color: cor,
                     }}
                   >
-                    {l.tipo === "entrada" ? "Entrada" : l.categoria}
+                    {l.categoria}
                   </span>
                   <span style={styles.desc}>{l.descricao || "—"}</span>
                   <span
@@ -277,7 +290,18 @@ export default function Dashboard({ session }: { session: Session }) {
                   >
                     {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
                   </span>
-                  <button style={styles.del} onClick={() => setConfirmarId(l.id)}>
+                  <button
+                    style={styles.acao}
+                    onClick={() => setEditando(l)}
+                    title="Editar"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    style={styles.acao}
+                    onClick={() => setConfirmarId(l.id)}
+                    title="Excluir"
+                  >
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -293,6 +317,16 @@ export default function Dashboard({ session }: { session: Session }) {
           ano={ano}
           onFechar={() => setModal(false)}
           onSalvar={adicionar}
+        />
+      )}
+
+      {editando && (
+        <ModalNovo
+          mes={editando.mes}
+          ano={editando.ano}
+          lancamentoParaEditar={editando}
+          onFechar={() => setEditando(null)}
+          onSalvar={editar}
         />
       )}
 
@@ -418,7 +452,7 @@ const styles: Record<string, React.CSSProperties> = {
   list: { display: "flex", flexDirection: "column", gap: 8 },
   item: {
     display: "grid",
-    gridTemplateColumns: "auto 1fr auto auto",
+    gridTemplateColumns: "auto 1fr auto auto auto",
     alignItems: "center",
     gap: 12,
     background: "var(--bg)",
@@ -451,5 +485,13 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text-faint)",
     display: "flex",
     padding: 4,
+  },
+  acao: {
+    background: "none",
+    border: "none",
+    color: "var(--text-faint)",
+    display: "flex",
+    padding: 4,
+    cursor: "pointer",
   },
 };
