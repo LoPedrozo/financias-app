@@ -10,23 +10,62 @@ interface Props {
   onSalvar: (item: NovoLancamento) => void;
 }
 
+interface Erros {
+  valor?: string;
+  descricao?: string;
+  categoria?: string;
+}
+
 export default function ModalNovo({ mes, ano, onFechar, onSalvar }: Props) {
   const [tipo, setTipo] = useState<Tipo>("saida");
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [categoria, setCategoria] = useState(CATEGORIAS[0].nome);
+  const [categoria, setCategoria] = useState("");
+  const [erros, setErros] = useState<Erros>({});
+
+  function onValorChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const limpo = e.target.value.replace(/[^0-9.,]/g, "");
+    setValor(limpo);
+    if (erros.valor) setErros((er) => ({ ...er, valor: undefined }));
+  }
+
+  function validar(): Erros {
+    const novos: Erros = {};
+    const v = parseFloat(valor.replace(",", "."));
+    if (!valor.trim() || isNaN(v) || v <= 0) {
+      novos.valor = "Informe um valor numérico maior que zero.";
+    }
+    if (descricao.trim().length < 3) {
+      novos.descricao = "Descrição obrigatória (mínimo 3 caracteres).";
+    }
+    if (tipo === "saida" && !categoria) {
+      novos.categoria = "Selecione uma categoria.";
+    }
+    return novos;
+  }
 
   function submit() {
+    const novosErros = validar();
+    setErros(novosErros);
+    if (Object.keys(novosErros).length > 0) return;
+
     const v = parseFloat(valor.replace(",", "."));
-    if (!v || v <= 0) return;
     onSalvar({
       tipo,
       valor: v,
-      descricao,
+      descricao: descricao.trim(),
       categoria: tipo === "entrada" ? "Entrada" : categoria,
       mes,
       ano,
     });
+  }
+
+  function inputStyle(invalido?: boolean): React.CSSProperties {
+    return {
+      ...styles.input,
+      borderColor: invalido ? "var(--red)" : "var(--border)",
+      marginBottom: invalido ? 4 : 14,
+    };
   }
 
   return (
@@ -62,36 +101,50 @@ export default function ModalNovo({ mes, ano, onFechar, onSalvar }: Props) {
 
         <label style={styles.lbl}>Valor (R$)</label>
         <input
-          style={styles.input}
+          style={inputStyle(!!erros.valor)}
           value={valor}
           inputMode="decimal"
           placeholder="0,00"
           autoFocus
-          onChange={(e) => setValor(e.target.value)}
+          onChange={onValorChange}
           onKeyDown={(e) => e.key === "Enter" && submit()}
         />
+        {erros.valor && <p style={styles.erro}>{erros.valor}</p>}
 
         <label style={styles.lbl}>Descrição</label>
         <input
-          style={styles.input}
+          style={inputStyle(!!erros.descricao)}
           value={descricao}
           placeholder="ex: almoço no RU"
-          onChange={(e) => setDescricao(e.target.value)}
+          onChange={(e) => {
+            setDescricao(e.target.value);
+            if (erros.descricao)
+              setErros((er) => ({ ...er, descricao: undefined }));
+          }}
           onKeyDown={(e) => e.key === "Enter" && submit()}
         />
+        {erros.descricao && <p style={styles.erro}>{erros.descricao}</p>}
 
         {tipo === "saida" && (
           <>
             <label style={styles.lbl}>Categoria</label>
             <select
-              style={styles.input}
+              style={inputStyle(!!erros.categoria)}
               value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
+              onChange={(e) => {
+                setCategoria(e.target.value);
+                if (erros.categoria)
+                  setErros((er) => ({ ...er, categoria: undefined }));
+              }}
             >
+              <option value="">Selecione uma categoria</option>
               {CATEGORIAS.map((c) => (
-                <option key={c.nome}>{c.nome}</option>
+                <option key={c.nome} value={c.nome}>
+                  {c.nome}
+                </option>
               ))}
             </select>
+            {erros.categoria && <p style={styles.erro}>{erros.categoria}</p>}
           </>
         )}
 
@@ -171,6 +224,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 15,
     marginBottom: 14,
     outline: "none",
+  },
+  erro: {
+    fontSize: 12.5,
+    color: "var(--red)",
+    marginTop: 0,
+    marginBottom: 12,
   },
   salvar: {
     width: "100%",

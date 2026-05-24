@@ -16,6 +16,7 @@ import type { Lancamento, NovoLancamento } from "../types";
 import { brl } from "../lib/format";
 import Card from "./Card";
 import ModalNovo from "./ModalNovo";
+import ConfirmModal from "./ConfirmModal";
 
 const tooltipStyle: React.CSSProperties = {
   background: "var(--surface)",
@@ -31,6 +32,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [mes, setMes] = useState(new Date().getMonth());
   const ano = new Date().getFullYear();
   const [modal, setModal] = useState(false);
+  const [confirmarId, setConfirmarId] = useState<string | null>(null);
 
   useEffect(() => {
     listarLancamentos()
@@ -45,7 +47,10 @@ export default function Dashboard({ session }: { session: Session }) {
     setModal(false);
   }
 
-  async function remover(id: string) {
+  async function confirmarRemocao() {
+    if (!confirmarId) return;
+    const id = confirmarId;
+    setConfirmarId(null);
     await removerLancamento(id);
     setLancamentos((atual) => atual.filter((l) => l.id !== id));
   }
@@ -267,12 +272,12 @@ export default function Dashboard({ session }: { session: Session }) {
                   <span
                     style={{
                       ...styles.valor,
-                      color: l.tipo === "entrada" ? "var(--green)" : "var(--text)",
+                      color: l.tipo === "entrada" ? "var(--green)" : "var(--red)",
                     }}
                   >
                     {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
                   </span>
-                  <button style={styles.del} onClick={() => remover(l.id)}>
+                  <button style={styles.del} onClick={() => setConfirmarId(l.id)}>
                     <Trash2 size={15} />
                   </button>
                 </div>
@@ -288,6 +293,17 @@ export default function Dashboard({ session }: { session: Session }) {
           ano={ano}
           onFechar={() => setModal(false)}
           onSalvar={adicionar}
+        />
+      )}
+
+      {confirmarId && (
+        <ConfirmModal
+          titulo="Excluir lançamento"
+          mensagem="Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita."
+          textoConfirmar="Excluir"
+          textoCancelar="Cancelar"
+          onConfirmar={confirmarRemocao}
+          onCancelar={() => setConfirmarId(null)}
         />
       )}
     </div>
