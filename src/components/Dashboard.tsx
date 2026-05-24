@@ -34,6 +34,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
+  const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
 
   useEffect(() => {
     listarLancamentos()
@@ -96,16 +97,17 @@ export default function Dashboard({ session }: { session: Session }) {
   }, [lancamentos, mes, ano]);
 
   const porCategoria = useMemo(() => {
+    const lista = tipoGrafico === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
     const map: Record<string, number> = {};
     doMes
-      .filter((l) => l.tipo === "saida")
+      .filter((l) => l.tipo === tipoGrafico)
       .forEach((l) => (map[l.categoria] = (map[l.categoria] || 0) + l.valor));
-    return CATEGORIAS_SAIDA.map((c) => ({
+    return lista.map((c) => ({
       name: c.nome,
       value: map[c.nome] || 0,
       cor: c.cor,
     })).filter((c) => c.value > 0);
-  }, [doMes]);
+  }, [doMes, tipoGrafico]);
 
   const anual = useMemo(
     () =>
@@ -185,9 +187,37 @@ export default function Dashboard({ session }: { session: Session }) {
 
       <div style={styles.grid}>
         <div style={styles.panel}>
-          <h2 style={styles.panelTitle}>Gastos por categoria</h2>
+          <div style={styles.panelHead}>
+            <h2 style={styles.panelTitleInline}>
+              {tipoGrafico === "entrada" ? "Entradas por categoria" : "Gastos por categoria"}
+            </h2>
+            <div style={styles.toggle}>
+              <button
+                style={{
+                  ...styles.toggleBtn,
+                  ...(tipoGrafico === "saida" ? styles.toggleBtnAtivo : {}),
+                }}
+                onClick={() => setTipoGrafico("saida")}
+              >
+                Saídas
+              </button>
+              <button
+                style={{
+                  ...styles.toggleBtn,
+                  ...(tipoGrafico === "entrada" ? styles.toggleBtnAtivo : {}),
+                }}
+                onClick={() => setTipoGrafico("entrada")}
+              >
+                Entradas
+              </button>
+            </div>
+          </div>
           {porCategoria.length === 0 ? (
-            <p style={styles.vazio}>Sem gastos lançados neste mês.</p>
+            <p style={styles.vazio}>
+              {tipoGrafico === "entrada"
+                ? "Sem entradas lançadas neste mês."
+                : "Sem gastos lançados neste mês."}
+            </p>
           ) : (
             <>
               <ResponsiveContainer width="100%" height={220}>
@@ -430,6 +460,36 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "var(--shadow)",
   },
   panelTitle: { fontSize: 16, fontWeight: 600, marginBottom: 14 },
+  panelHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+    gap: 10,
+  },
+  panelTitleInline: { fontSize: 16, fontWeight: 600 },
+  toggle: {
+    display: "flex",
+    gap: 3,
+    background: "var(--bg)",
+    padding: 3,
+    borderRadius: 9,
+  },
+  toggleBtn: {
+    padding: "4px 10px",
+    border: "none",
+    borderRadius: 7,
+    background: "transparent",
+    color: "var(--text-faint)",
+    fontWeight: 600,
+    fontSize: 12,
+    cursor: "pointer",
+  },
+  toggleBtnAtivo: {
+    background: "var(--surface)",
+    color: "var(--text)",
+    boxShadow: "var(--shadow)",
+  },
   vazio: {
     textAlign: "center",
     color: "var(--text-faint)",
