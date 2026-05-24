@@ -48,3 +48,42 @@ src/
 ├── types/          # Contratos, interfaces TypeScript e dicionários de dados permanentes
 ├── App.tsx         # Orquestrador de rotas lógicas da aplicação
 └── main.tsx        # Arquivo de bootstrap e ponto de entrada da aplicação
+```
+
+---
+
+## 📱 PWA — Instalação
+
+O app é um **Progressive Web App (PWA)** e pode ser instalado no celular ou no computador direto pelo navegador, abrindo em tela cheia, sem barra de endereço.
+
+### Android (Chrome)
+1. Abra o app no Chrome.
+2. Toque no menu (⋮) no canto superior direito.
+3. Toque em **"Instalar app"** ou **"Adicionar à tela inicial"**.
+4. Confirme — o ícone aparece na tela inicial como um app nativo.
+
+### iPhone / iPad (Safari)
+1. Abra o app no Safari (não funciona no Chrome iOS).
+2. Toque no botão de **compartilhar** (quadrado com seta para cima).
+3. Role e toque em **"Adicionar à Tela de Início"**.
+4. Confirme — o ícone aparece na tela inicial.
+
+### Desktop (Chrome / Edge)
+1. Abra o app no navegador.
+2. Procure o ícone de **instalação** (⊕) na barra de endereço, à direita.
+3. Clique em **"Instalar"** — o app abre em janela própria, como um programa nativo.
+
+> O service worker atualiza o app automaticamente quando uma nova versão é publicada.
+
+---
+
+## 🗺️ Roadmap
+
+Melhorias planejadas:
+
+* 🔎 **Busca e filtro** na lista de lançamentos.
+* 🏷️ **Filtro por categoria** no gráfico do dashboard.
+* 🔁 **Lançamento recorrente** (assinaturas, salário, contas fixas).
+* 📊 **Comparativo mês a mês** com variação percentual.
+* 🎯 **Meta de saldo** mensal/anual com indicador de progresso.
+* 🌐 **Domínio personalizado** próprio.
