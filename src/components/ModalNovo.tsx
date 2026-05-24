@@ -4,8 +4,6 @@ import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA } from "../types";
 import type { Lancamento, NovoLancamento, Tipo } from "../types";
 
 interface Props {
-  mes: number;
-  ano: number;
   onFechar: () => void;
   onSalvar: (item: NovoLancamento) => void;
   lancamentoParaEditar?: Lancamento;
@@ -15,6 +13,11 @@ interface Erros {
   valor?: string;
   descricao?: string;
   categoria?: string;
+  data?: string;
+}
+
+function hoje() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function categoriasDe(tipo: Tipo) {
@@ -22,8 +25,6 @@ function categoriasDe(tipo: Tipo) {
 }
 
 export default function ModalNovo({
-  mes,
-  ano,
   onFechar,
   onSalvar,
   lancamentoParaEditar,
@@ -44,6 +45,13 @@ export default function ModalNovo({
       return existe ? lancamentoParaEditar.categoria : lista[0].nome;
     }
     return CATEGORIAS_SAIDA[0].nome;
+  });
+  const [data, setData] = useState<string>(() => {
+    if (lancamentoParaEditar?.data) return lancamentoParaEditar.data;
+    if (lancamentoParaEditar?.created_at) {
+      return lancamentoParaEditar.created_at.slice(0, 10);
+    }
+    return hoje();
   });
   const [erros, setErros] = useState<Erros>({});
 
@@ -72,6 +80,9 @@ export default function ModalNovo({
     if (!categoria) {
       novos.categoria = "Selecione uma categoria.";
     }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      novos.data = "Informe uma data válida.";
+    }
     return novos;
   }
 
@@ -81,6 +92,9 @@ export default function ModalNovo({
     if (Object.keys(novosErros).length > 0) return;
 
     const v = parseFloat(valor.replace(",", "."));
+    const [yyyy, mm] = data.split("-");
+    const ano = Number(yyyy);
+    const mes = Number(mm) - 1;
     onSalvar({
       tipo,
       valor: v,
@@ -88,6 +102,7 @@ export default function ModalNovo({
       categoria,
       mes,
       ano,
+      data,
     });
   }
 
@@ -133,6 +148,19 @@ export default function ModalNovo({
             </button>
           ))}
         </div>
+
+        <label style={styles.lbl}>Data</label>
+        <input
+          type="date"
+          style={inputStyle(!!erros.data)}
+          value={data}
+          onChange={(e) => {
+            setData(e.target.value);
+            if (erros.data) setErros((er) => ({ ...er, data: undefined }));
+          }}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+        />
+        {erros.data && <p style={styles.erro}>{erros.data}</p>}
 
         <label style={styles.lbl}>Valor (R$)</label>
         <input

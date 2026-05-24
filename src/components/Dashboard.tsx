@@ -65,8 +65,20 @@ export default function Dashboard({ session }: { session: Session }) {
     setLancamentos((atual) => atual.filter((l) => l.id !== id));
   }
 
+  function dataOrdenacao(l: Lancamento): string {
+    return l.data ?? l.created_at.slice(0, 10);
+  }
+
   const doMes = useMemo(
-    () => lancamentos.filter((l) => l.mes === mes && l.ano === ano),
+    () =>
+      lancamentos
+        .filter((l) => l.mes === mes && l.ano === ano)
+        .slice()
+        .sort((a, b) => {
+          const cmp = dataOrdenacao(b).localeCompare(dataOrdenacao(a));
+          if (cmp !== 0) return cmp;
+          return b.created_at.localeCompare(a.created_at);
+        }),
     [lancamentos, mes, ano]
   );
 
@@ -76,7 +88,12 @@ export default function Dashboard({ session }: { session: Session }) {
   const gastos = doMes
     .filter((l) => l.tipo === "saida")
     .reduce((s, l) => s + l.valor, 0);
-  const sobra = renda - gastos;
+
+  const saldoAcumulado = useMemo(() => {
+    return lancamentos
+      .filter((l) => l.ano < ano || (l.ano === ano && l.mes <= mes))
+      .reduce((s, l) => s + (l.tipo === "entrada" ? l.valor : -l.valor), 0);
+  }, [lancamentos, mes, ano]);
 
   const porCategoria = useMemo(() => {
     const map: Record<string, number> = {};
@@ -158,10 +175,10 @@ export default function Dashboard({ session }: { session: Session }) {
           cor="var(--red)"
         />
         <Card
-          label="Sobrou"
-          valor={sobra}
+          label="Saldo atual"
+          valor={saldoAcumulado}
           icon={<Wallet size={18} />}
-          cor={sobra >= 0 ? "var(--accent)" : "var(--red)"}
+          cor={saldoAcumulado >= 0 ? "var(--accent)" : "var(--red)"}
           destaque
         />
       </div>
@@ -270,8 +287,10 @@ export default function Dashboard({ session }: { session: Session }) {
               const cor =
                 cat?.cor ??
                 (l.tipo === "entrada" ? "var(--green)" : "#9aa3b0");
+              const dia = Number(dataOrdenacao(l).slice(8, 10));
               return (
                 <div key={l.id} style={styles.item}>
+                  <span style={styles.dia}>{dia}</span>
                   <span
                     style={{
                       ...styles.tag,
@@ -313,8 +332,6 @@ export default function Dashboard({ session }: { session: Session }) {
 
       {modal && (
         <ModalNovo
-          mes={mes}
-          ano={ano}
           onFechar={() => setModal(false)}
           onSalvar={adicionar}
         />
@@ -322,8 +339,6 @@ export default function Dashboard({ session }: { session: Session }) {
 
       {editando && (
         <ModalNovo
-          mes={editando.mes}
-          ano={editando.ano}
           lancamentoParaEditar={editando}
           onFechar={() => setEditando(null)}
           onSalvar={editar}
@@ -452,12 +467,20 @@ const styles: Record<string, React.CSSProperties> = {
   list: { display: "flex", flexDirection: "column", gap: 8 },
   item: {
     display: "grid",
-    gridTemplateColumns: "auto 1fr auto auto auto",
+    gridTemplateColumns: "auto auto 1fr auto auto auto",
     alignItems: "center",
     gap: 12,
     background: "var(--bg)",
     padding: "12px 14px",
     borderRadius: 12,
+  },
+  dia: {
+    fontFamily: "'Sora', sans-serif",
+    fontSize: 13,
+    fontWeight: 600,
+    color: "var(--text-faint)",
+    minWidth: 22,
+    textAlign: "center",
   },
   tag: {
     fontSize: 12,
