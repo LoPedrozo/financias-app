@@ -31,6 +31,21 @@ export async function criarLancamento(
   return data;
 }
 
+export async function atualizarLancamento(
+  id: string,
+  dados: NovoLancamento
+): Promise<Lancamento> {
+  const { data, error } = await supabase
+    .from("lancamentos")
+    .update(dados)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function removerLancamento(id: string): Promise<void> {
   const { error } = await supabase.from("lancamentos").delete().eq("id", id);
   if (error) throw error;
