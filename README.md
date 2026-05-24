@@ -86,4 +86,3 @@ Melhorias planejadas:
 * 🔁 **Lançamento recorrente** (assinaturas, salário, contas fixas).
 * 📊 **Comparativo mês a mês** com variação percentual.
 * 🎯 **Meta de saldo** mensal/anual com indicador de progresso.
-* 🌐 **Domínio personalizado** próprio.
