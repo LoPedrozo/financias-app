@@ -9,3 +9,6 @@ dist-ssr
 *.log
 .vscode/*
 !.vscode/extensions.json
+claude
+claude-*
+.claude/
