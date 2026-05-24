@@ -15,6 +15,13 @@ import {
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
 import type { Lancamento, NovoLancamento } from "../types";
 import { brl } from "../lib/format";
+import {
+  agruparPorCategoria,
+  calcularBalancoAnual,
+  calcularSaldoAcumulado,
+  filtrarPorMes,
+  somarPorTipo,
+} from "../lib/calculos";
 import Card from "./Card";
 import ModalNovo from "./ModalNovo";
 import ConfirmModal from "./ConfirmModal";
@@ -88,15 +95,23 @@ export default function Dashboard({ session }: { session: Session }) {
 
   async function editar(item: NovoLancamento) {
     if (!editando) return;
+    const original = editando;
+    const otimista: Lancamento = { ...original, ...item };
+    setLancamentos((atual) =>
+      atual.map((l) => (l.id === original.id ? otimista : l))
+    );
+    setEditando(null);
     try {
-      const atualizado = await atualizarLancamento(editando.id, item);
+      const atualizado = await atualizarLancamento(original.id, item);
       setLancamentos((atual) =>
         atual.map((l) => (l.id === atualizado.id ? atualizado : l))
       );
-      setEditando(null);
       mostrarToast("sucesso", "Lançamento atualizado!");
     } catch (e) {
       console.error(e);
+      setLancamentos((atual) =>
+        atual.map((l) => (l.id === original.id ? original : l))
+      );
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
     }
   }
@@ -105,12 +120,16 @@ export default function Dashboard({ session }: { session: Session }) {
     if (!confirmarId) return;
     const id = confirmarId;
     setConfirmarId(null);
+    const anterior = lancamentos;
+    const index = anterior.findIndex((l) => l.id === id);
+    if (index === -1) return;
+    setLancamentos((atual) => atual.filter((l) => l.id !== id));
     try {
       await removerLancamento(id);
-      setLancamentos((atual) => atual.filter((l) => l.id !== id));
       mostrarToast("sucesso", "Lançamento excluído.");
     } catch (e) {
       console.error(e);
+      setLancamentos(anterior);
       mostrarToast("erro", "Não foi possível excluir. Verifique sua conexão.");
     }
   }
@@ -121,8 +140,7 @@ export default function Dashboard({ session }: { session: Session }) {
 
   const doMes = useMemo(
     () =>
-      lancamentos
-        .filter((l) => l.mes === mes && l.ano === ano)
+      filtrarPorMes(lancamentos, mes, ano)
         .slice()
         .sort((a, b) => {
           const cmp = dataOrdenacao(b).localeCompare(dataOrdenacao(a));
@@ -132,44 +150,26 @@ export default function Dashboard({ session }: { session: Session }) {
     [lancamentos, mes, ano]
   );
 
-  const renda = doMes
-    .filter((l) => l.tipo === "entrada")
-    .reduce((s, l) => s + l.valor, 0);
-  const gastos = doMes
-    .filter((l) => l.tipo === "saida")
-    .reduce((s, l) => s + l.valor, 0);
+  const renda = somarPorTipo(doMes, "entrada");
+  const gastos = somarPorTipo(doMes, "saida");
 
-  const saldoAcumulado = useMemo(() => {
-    return lancamentos
-      .filter((l) => l.ano < ano || (l.ano === ano && l.mes <= mes))
-      .reduce((s, l) => s + (l.tipo === "entrada" ? l.valor : -l.valor), 0);
-  }, [lancamentos, mes, ano]);
+  const saldoAcumulado = useMemo(
+    () => calcularSaldoAcumulado(lancamentos, mes, ano),
+    [lancamentos, mes, ano]
+  );
 
-  const porCategoria = useMemo(() => {
-    const lista = tipoGrafico === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
-    const map: Record<string, number> = {};
-    doMes
-      .filter((l) => l.tipo === tipoGrafico)
-      .forEach((l) => (map[l.categoria] = (map[l.categoria] || 0) + l.valor));
-    return lista.map((c) => ({
-      name: c.nome,
-      value: map[c.nome] || 0,
-      cor: c.cor,
-    })).filter((c) => c.value > 0);
-  }, [doMes, tipoGrafico]);
+  const porCategoria = useMemo(
+    () =>
+      agruparPorCategoria(
+        doMes,
+        tipoGrafico,
+        tipoGrafico === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA
+      ),
+    [doMes, tipoGrafico]
+  );
 
   const anual = useMemo(
-    () =>
-      MESES.map((m, i) => {
-        const ls = lancamentos.filter((l) => l.mes === i && l.ano === ano);
-        const r = ls
-          .filter((l) => l.tipo === "entrada")
-          .reduce((s, l) => s + l.valor, 0);
-        const g = ls
-          .filter((l) => l.tipo === "saida")
-          .reduce((s, l) => s + l.valor, 0);
-        return { mes: m.slice(0, 3), sobra: r - g };
-      }),
+    () => calcularBalancoAnual(lancamentos, ano, MESES),
     [lancamentos, ano]
   );
 
