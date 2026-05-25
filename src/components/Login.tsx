@@ -37,7 +37,7 @@ export default function Login() {
     }
   }
 
-  // FUNÇÃO ATUALIZADA: Agora passa corretamente a URL dinâmica de retorno
+  // redirectTo garante retorno ao mesmo origin em qualquer ambiente (dev, preview, produção)
   async function comGoogle() {
     setErro("");
     const { error } = await supabase.auth.signInWithOAuth({
@@ -68,6 +68,7 @@ export default function Login() {
             style={styles.input}
             type="email"
             placeholder="seu@email.com"
+            aria-label="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
@@ -79,6 +80,7 @@ export default function Login() {
             style={styles.input}
             type="password"
             placeholder="sua senha"
+            aria-label="Senha"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && comEmail()}

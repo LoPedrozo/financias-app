@@ -2,10 +2,11 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA } from "../types";
 import type { Lancamento, NovoLancamento, Tipo } from "../types";
+import { hojeLocal } from "../lib/calculos";
 
 interface Props {
   onFechar: () => void;
-  onSalvar: (item: NovoLancamento) => void;
+  onSalvar: (item: NovoLancamento) => Promise<void> | void;
   lancamentoParaEditar?: Lancamento;
   dataInicial?: string;
 }
@@ -15,10 +16,6 @@ interface Erros {
   descricao?: string;
   categoria?: string;
   data?: string;
-}
-
-function hoje() {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function categoriasDe(tipo: Tipo) {
@@ -53,9 +50,10 @@ export default function ModalNovo({
     if (lancamentoParaEditar?.created_at) {
       return lancamentoParaEditar.created_at.slice(0, 10);
     }
-    return dataInicial ?? hoje();
+    return dataInicial ?? hojeLocal();
   });
   const [erros, setErros] = useState<Erros>({});
+  const [salvando, setSalvando] = useState(false);
 
   function trocarTipo(novoTipo: Tipo) {
     if (novoTipo === tipo) return;
@@ -72,9 +70,17 @@ export default function ModalNovo({
 
   function validar(): Erros {
     const novos: Erros = {};
-    const v = parseFloat(valor.replace(",", "."));
-    if (!valor.trim() || isNaN(v) || v <= 0) {
+    const valorLimpo = valor.trim();
+    const formatoValido = /^\d+([.,]\d{1,2})?$/.test(valorLimpo);
+    const v = parseFloat(valorLimpo.replace(",", "."));
+    if (!valorLimpo) {
       novos.valor = "Informe um valor numérico maior que zero.";
+    } else if (!formatoValido) {
+      novos.valor = "Formato inválido. Use ex: 10,50 ou 10.50";
+    } else if (isNaN(v) || v <= 0) {
+      novos.valor = "Informe um valor numérico maior que zero.";
+    } else if (v > 1_000_000_000) {
+      novos.valor = "Valor muito alto. Verifique se digitou corretamente.";
     }
     if (descricao.trim().length < 3) {
       novos.descricao = "Descrição obrigatória (mínimo 3 caracteres).";
@@ -88,7 +94,8 @@ export default function ModalNovo({
     return novos;
   }
 
-  function submit() {
+  async function submit() {
+    if (salvando) return;
     const novosErros = validar();
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
@@ -97,15 +104,20 @@ export default function ModalNovo({
     const [yyyy, mm] = data.split("-");
     const ano = Number(yyyy);
     const mes = Number(mm) - 1;
-    onSalvar({
-      tipo,
-      valor: v,
-      descricao: descricao.trim(),
-      categoria,
-      mes,
-      ano,
-      data,
-    });
+    setSalvando(true);
+    try {
+      await onSalvar({
+        tipo,
+        valor: v,
+        descricao: descricao.trim(),
+        categoria,
+        mes,
+        ano,
+        data,
+      });
+    } finally {
+      setSalvando(false);
+    }
   }
 
   function inputStyle(invalido?: boolean): React.CSSProperties {
@@ -125,7 +137,11 @@ export default function ModalNovo({
           <h3 style={styles.titulo}>
             {editando ? "Editar lançamento" : "Novo lançamento"}
           </h3>
-          <button style={styles.fechar} onClick={onFechar}>
+          <button
+            style={styles.fechar}
+            onClick={onFechar}
+            aria-label="Fechar"
+          >
             <X size={18} />
           </button>
         </div>
@@ -151,8 +167,9 @@ export default function ModalNovo({
           ))}
         </div>
 
-        <label style={styles.lbl}>Data</label>
+        <label htmlFor="campo-data" style={styles.lbl}>Data</label>
         <input
+          id="campo-data"
           type="date"
           style={inputStyle(!!erros.data)}
           value={data}
@@ -164,8 +181,9 @@ export default function ModalNovo({
         />
         {erros.data && <p style={styles.erro}>{erros.data}</p>}
 
-        <label style={styles.lbl}>Valor (R$)</label>
+        <label htmlFor="campo-valor" style={styles.lbl}>Valor (R$)</label>
         <input
+          id="campo-valor"
           style={inputStyle(!!erros.valor)}
           value={valor}
           inputMode="decimal"
@@ -176,8 +194,10 @@ export default function ModalNovo({
         />
         {erros.valor && <p style={styles.erro}>{erros.valor}</p>}
 
-        <label style={styles.lbl}>Descrição</label>
+        <label htmlFor="campo-descricao" style={styles.lbl}>Descrição</label>
         <input
+          id="campo-descricao"
+          maxLength={120}
           style={inputStyle(!!erros.descricao)}
           value={descricao}
           placeholder={
@@ -192,8 +212,9 @@ export default function ModalNovo({
         />
         {erros.descricao && <p style={styles.erro}>{erros.descricao}</p>}
 
-        <label style={styles.lbl}>Categoria</label>
+        <label htmlFor="campo-categoria" style={styles.lbl}>Categoria</label>
         <select
+          id="campo-categoria"
           style={inputStyle(!!erros.categoria)}
           value={categoria}
           onChange={(e) => {
@@ -210,8 +231,20 @@ export default function ModalNovo({
         </select>
         {erros.categoria && <p style={styles.erro}>{erros.categoria}</p>}
 
-        <button style={styles.salvar} onClick={submit}>
-          {editando ? "Salvar alterações" : "Salvar lançamento"}
+        <button
+          style={{
+            ...styles.salvar,
+            opacity: salvando ? 0.7 : 1,
+            cursor: salvando ? "not-allowed" : "pointer",
+          }}
+          onClick={submit}
+          disabled={salvando}
+        >
+          {salvando
+            ? "Salvando..."
+            : editando
+            ? "Salvar alterações"
+            : "Salvar lançamento"}
         </button>
       </div>
     </div>

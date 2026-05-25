@@ -20,6 +20,7 @@ import {
   calcularBalancoAnual,
   calcularSaldoAcumulado,
   filtrarPorMes,
+  hojeLocal,
   somarPorTipo,
 } from "../lib/calculos";
 import Card from "./Card";
@@ -32,7 +33,7 @@ import { SkeletonLista } from "./Skeleton";
 function dataInicialNovoLancamento(mes: number, ano: number): string {
   const hoje = new Date();
   if (hoje.getFullYear() === ano && hoje.getMonth() === mes) {
-    return hoje.toISOString().slice(0, 10);
+    return hojeLocal();
   }
   const mm = String(mes + 1).padStart(2, "0");
   return `${ano}-${mm}-01`;
@@ -50,7 +51,9 @@ export default function Dashboard({ session }: { session: Session }) {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [mes, setMes] = useState(new Date().getMonth());
-  const ano = new Date().getFullYear();
+  const anoAtual = new Date().getFullYear();
+  const [ano, setAno] = useState(anoAtual);
+  const anosDisponiveis = [anoAtual, anoAtual - 1, anoAtual - 2];
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
@@ -194,6 +197,7 @@ export default function Dashboard({ session }: { session: Session }) {
               value={mes}
               onChange={(e) => setMes(Number(e.target.value))}
               style={styles.select}
+              aria-label="Mês"
             >
               {MESES.map((m, i) => (
                 <option key={i} value={i}>
@@ -201,10 +205,23 @@ export default function Dashboard({ session }: { session: Session }) {
                 </option>
               ))}
             </select>
+            <select
+              value={ano}
+              onChange={(e) => setAno(Number(e.target.value))}
+              style={styles.select}
+              aria-label="Ano"
+            >
+              {anosDisponiveis.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
           </div>
           <button
             style={styles.sair}
             onClick={() => supabase.auth.signOut()}
+            aria-label="Sair"
             title="Sair"
           >
             <LogOut size={17} />
@@ -287,8 +304,8 @@ export default function Dashboard({ session }: { session: Session }) {
                     outerRadius={85}
                     paddingAngle={3}
                   >
-                    {porCategoria.map((e, i) => (
-                      <Cell key={i} fill={e.cor} />
+                    {porCategoria.map((e) => (
+                      <Cell key={e.name} fill={e.cor} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -298,8 +315,8 @@ export default function Dashboard({ session }: { session: Session }) {
                 </PieChart>
               </ResponsiveContainer>
               <div style={styles.legend}>
-                {porCategoria.map((c, i) => (
-                  <span key={i} style={styles.legendItem}>
+                {porCategoria.map((c) => (
+                  <span key={c.name} style={styles.legendItem}>
                     <span style={{ ...styles.dot, background: c.cor }} />
                     {c.name} · {brl(c.value)}
                   </span>
@@ -338,9 +355,9 @@ export default function Dashboard({ session }: { session: Session }) {
                 cursor={{ fill: "rgba(0,0,0,0.03)" }}
               />
               <Bar dataKey="sobra" radius={[5, 5, 0, 0]}>
-                {anual.map((e, i) => (
+                {anual.map((e) => (
                   <Cell
-                    key={i}
+                    key={e.mes}
                     fill={e.sobra >= 0 ? "var(--green)" : "var(--red)"}
                   />
                 ))}
@@ -415,6 +432,7 @@ export default function Dashboard({ session }: { session: Session }) {
                       <button
                         style={styles.acao}
                         onClick={() => setEditando(l)}
+                        aria-label="Editar lançamento"
                         title="Editar"
                       >
                         <Pencil size={15} />
@@ -422,6 +440,7 @@ export default function Dashboard({ session }: { session: Session }) {
                       <button
                         style={styles.acao}
                         onClick={() => setConfirmarId(l.id)}
+                        aria-label="Excluir lançamento"
                         title="Excluir"
                       >
                         <Trash2 size={15} />
@@ -568,12 +587,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--text)",
     boxShadow: "var(--shadow)",
   },
-  vazio: {
-    textAlign: "center",
-    color: "var(--text-faint)",
-    padding: "30px 0",
-    fontSize: 14,
-  },
   legend: {
     display: "flex",
     flexWrap: "wrap",
@@ -701,13 +714,6 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
     marginLeft: "auto",
     flexShrink: 0,
-  },
-  del: {
-    background: "none",
-    border: "none",
-    color: "var(--text-faint)",
-    display: "flex",
-    padding: 4,
   },
   acao: {
     background: "none",

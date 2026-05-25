@@ -61,3 +61,14 @@ export function calcularBalancoAnual(
     return { mes: nome.slice(0, 3), sobra };
   });
 }
+
+// Retorna a data local no formato YYYY-MM-DD.
+// Evita o bug de fuso de `new Date().toISOString().slice(0,10)`, que devolve
+// o dia em UTC e gera o dia seguinte para usuários em UTC- após ~21h.
+export function hojeLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}

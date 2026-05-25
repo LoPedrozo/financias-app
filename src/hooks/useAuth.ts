@@ -7,10 +7,16 @@ export function useAuth() {
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setCarregando(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setCarregando(false);
+      })
+      .catch((e) => {
+        console.error("Erro ao inicializar sessão:", e);
+        setCarregando(false);
+      });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, novaSessao) => setSession(novaSessao)

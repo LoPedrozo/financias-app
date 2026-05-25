@@ -49,9 +49,6 @@ export const CATEGORIAS_ENTRADA: Categoria[] = [
   { nome: "Outros", cor: "#9aa3b0" },
 ];
 
-// Compatibilidade com código antigo que importa CATEGORIAS.
-export const CATEGORIAS: Categoria[] = CATEGORIAS_SAIDA;
-
 export const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",

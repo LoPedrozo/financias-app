@@ -5,6 +5,7 @@ import {
   calcularSaldoAcumulado,
   agruparPorCategoria,
   calcularBalancoAnual,
+  hojeLocal,
 } from "./calculos";
 import type { Categoria, Lancamento, Tipo } from "../types";
 import { MESES } from "../types";
@@ -187,5 +188,38 @@ describe("calcularBalancoAnual", () => {
     const r = calcularBalancoAnual([], 2026, MESES);
     expect(r).toHaveLength(12);
     expect(r.every((m) => m.sobra === 0)).toBe(true);
+  });
+});
+
+describe("hojeLocal", () => {
+  it("retorna a data local mesmo quando UTC já virou o dia (Brasil UTC-3 às 23:30)", () => {
+    // Cenário: usuário no Brasil (UTC-3) lança às 23:30 do dia 15/05/2026.
+    // Em UTC, esse mesmo instante é 16/05/2026 02:30 — toISOString() retorna "2026-05-16".
+    // hojeLocal() deve retornar "2026-05-15".
+    const DateOriginal = globalThis.Date;
+    class DateMock extends DateOriginal {
+      constructor() {
+        super(DateOriginal.UTC(2026, 4, 16, 2, 30, 0));
+      }
+      getFullYear() {
+        return 2026;
+      }
+      getMonth() {
+        return 4;
+      }
+      getDate() {
+        return 15;
+      }
+    }
+    globalThis.Date = DateMock as DateConstructor;
+
+    try {
+      // Sanity check: a abordagem antiga retornaria o dia errado.
+      expect(new Date().toISOString().slice(0, 10)).toBe("2026-05-16");
+      // hojeLocal retorna o dia local correto.
+      expect(hojeLocal()).toBe("2026-05-15");
+    } finally {
+      globalThis.Date = DateOriginal;
+    }
   });
 });
