@@ -73,6 +73,22 @@ input, select {
   }
 }
 
+.mp-seta {
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.mp-seta:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+.mp-cell:hover {
+  background: var(--bg);
+}
+.mp-cell.mp-cell-selected,
+.mp-cell.mp-cell-selected:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
 @media (max-width: 640px) {
   .page-root {
     padding: 18px 14px 48px !important;
@@ -88,5 +104,12 @@ input, select {
   }
   .modal-mobile {
     padding: 18px !important;
+  }
+  .month-picker-popover {
+    min-width: 220px !important;
+  }
+  .mp-cell {
+    padding: 12px 0 !important;
+    font-size: 14px !important;
   }
 }

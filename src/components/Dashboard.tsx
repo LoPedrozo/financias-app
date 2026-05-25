@@ -4,7 +4,7 @@ import {
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import {
-  Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Calendar, LogOut,
+  Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
@@ -24,6 +24,7 @@ import {
   somarPorTipo,
 } from "../lib/calculos";
 import Card from "./Card";
+import MonthPicker from "./MonthPicker";
 import ModalNovo from "./ModalNovo";
 import ConfirmModal from "./ConfirmModal";
 import Toast, { type ToastDados } from "./Toast";
@@ -51,9 +52,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [mes, setMes] = useState(new Date().getMonth());
-  const anoAtual = new Date().getFullYear();
-  const [ano, setAno] = useState(anoAtual);
-  const anosDisponiveis = [anoAtual, anoAtual - 1, anoAtual - 2];
+  const [ano, setAno] = useState(new Date().getFullYear());
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
@@ -191,33 +190,14 @@ export default function Dashboard({ session }: { session: Session }) {
           </div>
         </div>
         <div style={styles.headerRight}>
-          <div style={styles.mesSel}>
-            <Calendar size={15} color="var(--text-faint)" />
-            <select
-              value={mes}
-              onChange={(e) => setMes(Number(e.target.value))}
-              style={styles.select}
-              aria-label="Mês"
-            >
-              {MESES.map((m, i) => (
-                <option key={i} value={i}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <select
-              value={ano}
-              onChange={(e) => setAno(Number(e.target.value))}
-              style={styles.select}
-              aria-label="Ano"
-            >
-              {anosDisponiveis.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-          </div>
+          <MonthPicker
+            mes={mes}
+            ano={ano}
+            onChange={(m, a) => {
+              setMes(m);
+              setAno(a);
+            }}
+          />
           <button
             style={styles.sair}
             onClick={() => supabase.auth.signOut()}
@@ -509,23 +489,6 @@ const styles: Record<string, React.CSSProperties> = {
   title: { fontSize: 22, fontWeight: 700 },
   user: { fontSize: 12.5, color: "var(--text-faint)" },
   headerRight: { display: "flex", alignItems: "center", gap: 10 },
-  mesSel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    padding: "9px 14px",
-    borderRadius: 12,
-  },
-  select: {
-    border: "none",
-    background: "transparent",
-    fontSize: 14,
-    fontWeight: 600,
-    color: "var(--text)",
-    outline: "none",
-  },
   sair: {
     width: 40,
     height: 40,
