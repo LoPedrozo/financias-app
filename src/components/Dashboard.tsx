@@ -25,6 +25,7 @@ import {
 } from "../lib/calculos";
 import Card from "./Card";
 import MonthPicker from "./MonthPicker";
+import { useSwipe } from "../hooks/useSwipe";
 import ModalNovo from "./ModalNovo";
 import ConfirmModal from "./ConfirmModal";
 import Toast, { type ToastDados } from "./Toast";
@@ -177,8 +178,37 @@ export default function Dashboard({ session }: { session: Session }) {
 
   const email = session.user.email ?? "";
 
+  function avancarMes() {
+    if (mes === 11) {
+      setMes(0);
+      setAno((a) => a + 1);
+    } else {
+      setMes((m) => m + 1);
+    }
+  }
+
+  function recuarMes() {
+    if (mes === 0) {
+      setMes(11);
+      setAno((a) => a - 1);
+    } else {
+      setMes((m) => m - 1);
+    }
+  }
+
+  const swipeHandlers = useSwipe({
+    onSwipeLeft: avancarMes,
+    onSwipeRight: recuarMes,
+    threshold: 50,
+  });
+
   return (
-    <div style={styles.page} className="page-root">
+    <div
+      style={styles.page}
+      className="page-root"
+      onTouchStart={swipeHandlers.onTouchStart}
+      onTouchEnd={swipeHandlers.onTouchEnd}
+    >
       <header style={styles.header}>
         <div style={styles.brand}>
           <div style={styles.logo}>
