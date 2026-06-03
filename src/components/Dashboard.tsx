@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar,
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
-  Receipt, PieChart as PieIcon, AlertTriangle, RotateCw,
+  Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -18,6 +18,7 @@ import { brl } from "../lib/format";
 import {
   agruparPorCategoria,
   calcularBalancoAnual,
+  calcularPendentes,
   calcularSaldoAcumulado,
   filtrarPorMes,
   hojeLocal,
@@ -60,6 +61,49 @@ export default function Dashboard({ session }: { session: Session }) {
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
   const [toast, setToast] = useState<ToastDados | null>(null);
   const [erroCarregar, setErroCarregar] = useState(false);
+  const [tooltipFuturoId, setTooltipFuturoId] = useState<string | null>(null);
+  const longPressTimer = useRef<number | null>(null);
+  const tooltipAutoHide = useRef<number | null>(null);
+
+  function limparLongPress() {
+    if (longPressTimer.current !== null) {
+      window.clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
+  function abrirTooltipFuturo(id: string) {
+    setTooltipFuturoId(id);
+    if (tooltipAutoHide.current !== null) {
+      window.clearTimeout(tooltipAutoHide.current);
+    }
+    tooltipAutoHide.current = window.setTimeout(() => {
+      setTooltipFuturoId(null);
+      tooltipAutoHide.current = null;
+    }, 2000);
+  }
+
+  useEffect(() => {
+    if (!tooltipFuturoId) return;
+    function fechar() {
+      setTooltipFuturoId(null);
+      if (tooltipAutoHide.current !== null) {
+        window.clearTimeout(tooltipAutoHide.current);
+        tooltipAutoHide.current = null;
+      }
+    }
+    window.addEventListener("touchstart", fechar, { passive: true });
+    return () => window.removeEventListener("touchstart", fechar);
+  }, [tooltipFuturoId]);
+
+  useEffect(() => {
+    return () => {
+      limparLongPress();
+      if (tooltipAutoHide.current !== null) {
+        window.clearTimeout(tooltipAutoHide.current);
+      }
+    };
+  }, []);
 
   const mostrarToast = useCallback(
     (tipo: ToastDados["tipo"], mensagem: string) => {
@@ -161,6 +205,11 @@ export default function Dashboard({ session }: { session: Session }) {
     [lancamentos, mes, ano]
   );
 
+  const pendentes = useMemo(
+    () => calcularPendentes(lancamentos, mes, ano),
+    [lancamentos, mes, ano]
+  );
+
   const porCategoria = useMemo(
     () =>
       agruparPorCategoria(
@@ -258,6 +307,7 @@ export default function Dashboard({ session }: { session: Session }) {
           icon={<Wallet size={18} />}
           cor={saldoAcumulado >= 0 ? "var(--accent)" : "var(--red)"}
           destaque
+          pendente={pendentes}
         />
       </div>
 
@@ -414,10 +464,73 @@ export default function Dashboard({ session }: { session: Session }) {
                 cat?.cor ??
                 (l.tipo === "entrada" ? "var(--green)" : "#9aa3b0");
               const dia = Number(dataOrdenacao(l).slice(8, 10));
+              const futuro = !!l.data && l.data > hojeLocal();
+              const dataFmt = futuro
+                ? `${l.data!.slice(8, 10)}/${l.data!.slice(5, 7)}`
+                : "";
+              const titleFuturo = futuro
+                ? `Será contabilizado em ${dataFmt} · ${brl(l.valor)}`
+                : undefined;
+              const corBorda =
+                l.tipo === "entrada" ? "var(--green)" : "var(--red)";
+              const itemStyle: React.CSSProperties = futuro
+                ? {
+                    ...styles.item,
+                    background: "var(--bg)",
+                    opacity: 0.55,
+                    boxShadow: "none",
+                    position: "relative",
+                  }
+                : {
+                    ...styles.item,
+                    background: "var(--surface)",
+                    boxShadow: "var(--shadow)",
+                    borderLeft: `3px solid ${corBorda}`,
+                    position: "relative",
+                  };
               return (
-                <div key={l.id} style={styles.item}>
+                <div
+                  key={l.id}
+                  style={itemStyle}
+                  title={titleFuturo}
+                  onTouchStart={
+                    futuro
+                      ? () => {
+                          limparLongPress();
+                          longPressTimer.current = window.setTimeout(() => {
+                            abrirTooltipFuturo(l.id);
+                            longPressTimer.current = null;
+                          }, 500);
+                        }
+                      : undefined
+                  }
+                  onTouchEnd={futuro ? limparLongPress : undefined}
+                  onTouchMove={futuro ? limparLongPress : undefined}
+                  onTouchCancel={futuro ? limparLongPress : undefined}
+                >
+                  {futuro && tooltipFuturoId === l.id && (
+                    <div style={styles.tooltipFuturo}>
+                      Será contabilizado em {dataFmt}
+                      <br />
+                      {brl(l.valor)}
+                    </div>
+                  )}
                   <div style={styles.itemTopo}>
-                    <span style={styles.dia}>{dia}</span>
+                    {futuro ? (
+                      <span
+                        style={{
+                          ...styles.dia,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <Clock size={13} color="var(--text-faint)" />
+                        {dia}
+                      </span>
+                    ) : (
+                      <span style={styles.dia}>{dia}</span>
+                    )}
                     <span
                       style={{
                         ...styles.tag,
@@ -715,5 +828,22 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     padding: 4,
     cursor: "pointer",
+  },
+  tooltipFuturo: {
+    position: "absolute",
+    bottom: "100%",
+    left: 14,
+    marginBottom: 6,
+    background: "var(--text)",
+    color: "#fff",
+    fontSize: 12,
+    borderRadius: 8,
+    padding: "6px 10px",
+    whiteSpace: "nowrap",
+    boxShadow: "var(--shadow)",
+    zIndex: 5,
+    pointerEvents: "none",
+    opacity: 1,
+    lineHeight: 1.35,
   },
 };

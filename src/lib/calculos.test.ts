@@ -3,6 +3,7 @@ import {
   filtrarPorMes,
   somarPorTipo,
   calcularSaldoAcumulado,
+  calcularPendentes,
   agruparPorCategoria,
   calcularBalancoAnual,
   hojeLocal,
@@ -188,6 +189,168 @@ describe("calcularBalancoAnual", () => {
     const r = calcularBalancoAnual([], 2026, MESES);
     expect(r).toHaveLength(12);
     expect(r.every((m) => m.sobra === 0)).toBe(true);
+  });
+});
+
+describe("filtro de futuros nas demais funções de soma", () => {
+  const amanha = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const ontem = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const mesAtual = new Date().getMonth();
+  const anoAtual = new Date().getFullYear();
+
+  it("somarPorTipo ignora lançamentos futuros", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 100, mes: mesAtual, ano: anoAtual, data: ontem }),
+      l({ tipo: "entrada", valor: 9999, mes: mesAtual, ano: anoAtual, data: amanha }),
+      l({ tipo: "saida", valor: 50, mes: mesAtual, ano: anoAtual, data: ontem }),
+      l({ tipo: "saida", valor: 8888, mes: mesAtual, ano: anoAtual, data: amanha }),
+    ];
+    expect(somarPorTipo(dados, "entrada")).toBe(100);
+    expect(somarPorTipo(dados, "saida")).toBe(50);
+  });
+
+  it("agruparPorCategoria ignora lançamentos futuros", () => {
+    const dados = [
+      l({
+        tipo: "saida", valor: 30, mes: mesAtual, ano: anoAtual,
+        data: ontem, categoria: "Alimentação",
+      }),
+      l({
+        tipo: "saida", valor: 9999, mes: mesAtual, ano: anoAtual,
+        data: amanha, categoria: "Alimentação",
+      }),
+    ];
+    const r = agruparPorCategoria(dados, "saida", categoriasSaida);
+    expect(r).toHaveLength(1);
+    expect(r[0].value).toBe(30);
+  });
+
+  it("calcularBalancoAnual ignora lançamentos futuros do mês atual", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 200, mes: mesAtual, ano: anoAtual, data: ontem }),
+      l({ tipo: "entrada", valor: 9999, mes: mesAtual, ano: anoAtual, data: amanha }),
+    ];
+    const r = calcularBalancoAnual(dados, anoAtual, MESES);
+    expect(r[mesAtual].sobra).toBe(200);
+  });
+});
+
+describe("calcularSaldoAcumulado — lançamentos futuros (com data)", () => {
+  const hoje = hojeLocal();
+  const ontem = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const amanha = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const mesAtual = new Date().getMonth();
+  const anoAtual = new Date().getFullYear();
+
+  it("contabiliza lançamento com data de hoje", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 100, mes: mesAtual, ano: anoAtual, data: hoje }),
+    ];
+    expect(calcularSaldoAcumulado(dados, mesAtual, anoAtual)).toBe(100);
+  });
+
+  it("contabiliza lançamento com data de ontem", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 100, mes: mesAtual, ano: anoAtual, data: ontem }),
+    ];
+    expect(calcularSaldoAcumulado(dados, mesAtual, anoAtual)).toBe(100);
+  });
+
+  it("não contabiliza lançamento com data de amanhã", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 100, mes: mesAtual, ano: anoAtual, data: amanha }),
+    ];
+    expect(calcularSaldoAcumulado(dados, mesAtual, anoAtual)).toBe(0);
+  });
+
+  it("contabiliza lançamento legado sem data", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 100, mes: mesAtual, ano: anoAtual, data: null }),
+    ];
+    expect(calcularSaldoAcumulado(dados, mesAtual, anoAtual)).toBe(100);
+  });
+});
+
+describe("calcularPendentes", () => {
+  const amanha = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const ontem = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const mesAtual = new Date().getMonth();
+  const anoAtual = new Date().getFullYear();
+
+  it("separa entradas e saídas futuras do mês", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 500, mes: mesAtual, ano: anoAtual, data: amanha }),
+      l({ tipo: "entrada", valor: 300, mes: mesAtual, ano: anoAtual, data: amanha }),
+      l({ tipo: "saida", valor: 100, mes: mesAtual, ano: anoAtual, data: amanha }),
+      l({ tipo: "entrada", valor: 999, mes: mesAtual, ano: anoAtual, data: ontem }),
+    ];
+    const r = calcularPendentes(dados, mesAtual, anoAtual);
+    expect(r.entradas).toEqual({ total: 800, quantidade: 2 });
+    expect(r.saidas).toEqual({ total: 100, quantidade: 1 });
+  });
+
+  it("considera apenas entradas futuras quando não há saídas", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 500, mes: mesAtual, ano: anoAtual, data: amanha }),
+    ];
+    const r = calcularPendentes(dados, mesAtual, anoAtual);
+    expect(r.entradas).toEqual({ total: 500, quantidade: 1 });
+    expect(r.saidas).toEqual({ total: 0, quantidade: 0 });
+  });
+
+  it("considera apenas saídas futuras quando não há entradas", () => {
+    const dados = [
+      l({ tipo: "saida", valor: 250, mes: mesAtual, ano: anoAtual, data: amanha }),
+    ];
+    const r = calcularPendentes(dados, mesAtual, anoAtual);
+    expect(r.entradas).toEqual({ total: 0, quantidade: 0 });
+    expect(r.saidas).toEqual({ total: 250, quantidade: 1 });
+  });
+
+  it("retorna zero quando não há futuros", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 100, mes: mesAtual, ano: anoAtual, data: ontem }),
+      l({ tipo: "entrada", valor: 200, mes: mesAtual, ano: anoAtual, data: null }),
+    ];
+    expect(calcularPendentes(dados, mesAtual, anoAtual)).toEqual({
+      entradas: { total: 0, quantidade: 0 },
+      saidas: { total: 0, quantidade: 0 },
+    });
+  });
+
+  it("ignora futuros de outro mês", () => {
+    const outroMes = mesAtual === 0 ? 11 : mesAtual - 1;
+    const outroAno = mesAtual === 0 ? anoAtual - 1 : anoAtual;
+    const dados = [
+      l({ tipo: "entrada", valor: 500, mes: outroMes, ano: outroAno, data: amanha }),
+    ];
+    const r = calcularPendentes(dados, mesAtual, anoAtual);
+    expect(r.entradas.quantidade).toBe(0);
+    expect(r.saidas.quantidade).toBe(0);
   });
 });
 

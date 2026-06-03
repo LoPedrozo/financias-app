@@ -10,8 +10,14 @@ export function filtrarPorMes(
 
 export function somarPorTipo(lancamentos: Lancamento[], tipo: Tipo): number {
   return lancamentos
+    .filter(isContabilizado)
     .filter((l) => l.tipo === tipo)
     .reduce((s, l) => s + l.valor, 0);
+}
+
+function isContabilizado(lancamento: Lancamento): boolean {
+  if (!lancamento.data) return true;
+  return lancamento.data <= hojeLocal();
 }
 
 export function calcularSaldoAcumulado(
@@ -21,7 +27,35 @@ export function calcularSaldoAcumulado(
 ): number {
   return lancamentos
     .filter((l) => l.ano < ano || (l.ano === ano && l.mes <= mes))
+    .filter(isContabilizado)
     .reduce((s, l) => s + (l.tipo === "entrada" ? l.valor : -l.valor), 0);
+}
+
+export interface ResumoPendentes {
+  entradas: { total: number; quantidade: number };
+  saidas: { total: number; quantidade: number };
+}
+
+export function calcularPendentes(
+  lancamentos: Lancamento[],
+  mes: number,
+  ano: number
+): ResumoPendentes {
+  const futuros = filtrarPorMes(lancamentos, mes, ano).filter(
+    (l) => !isContabilizado(l)
+  );
+  const entradas = futuros.filter((l) => l.tipo === "entrada");
+  const saidas = futuros.filter((l) => l.tipo === "saida");
+  return {
+    entradas: {
+      total: entradas.reduce((s, l) => s + l.valor, 0),
+      quantidade: entradas.length,
+    },
+    saidas: {
+      total: saidas.reduce((s, l) => s + l.valor, 0),
+      quantidade: saidas.length,
+    },
+  };
 }
 
 export interface FatiaCategoria {
@@ -38,6 +72,7 @@ export function agruparPorCategoria(
   const map: Record<string, number> = {};
   for (const l of lancamentos) {
     if (l.tipo !== tipo) continue;
+    if (!isContabilizado(l)) continue;
     map[l.categoria] = (map[l.categoria] || 0) + l.valor;
   }
   return categorias
@@ -56,7 +91,9 @@ export function calcularBalancoAnual(
   meses: string[]
 ): BarraMes[] {
   return meses.map((nome, i) => {
-    const ls = filtrarPorMes(lancamentos, i, ano);
+    const ls = lancamentos.filter(
+      (l) => l.mes === i && l.ano === ano && isContabilizado(l)
+    );
     const sobra = somarPorTipo(ls, "entrada") - somarPorTipo(ls, "saida");
     return { mes: nome.slice(0, 3), sobra };
   });
