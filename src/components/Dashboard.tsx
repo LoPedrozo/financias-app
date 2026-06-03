@@ -20,6 +20,7 @@ import {
   calcularBalancoAnual,
   calcularPendentes,
   calcularSaldoAcumulado,
+  calcularSaldoProjetado,
   filtrarPorMes,
   hojeLocal,
   somarPorTipo,
@@ -64,6 +65,14 @@ export default function Dashboard({ session }: { session: Session }) {
   const [tooltipFuturoId, setTooltipFuturoId] = useState<string | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const tooltipAutoHide = useRef<number | null>(null);
+  const hoverDelayTimer = useRef<number | null>(null);
+
+  function limparHoverDelay() {
+    if (hoverDelayTimer.current !== null) {
+      window.clearTimeout(hoverDelayTimer.current);
+      hoverDelayTimer.current = null;
+    }
+  }
 
   function limparLongPress() {
     if (longPressTimer.current !== null) {
@@ -99,6 +108,7 @@ export default function Dashboard({ session }: { session: Session }) {
   useEffect(() => {
     return () => {
       limparLongPress();
+      limparHoverDelay();
       if (tooltipAutoHide.current !== null) {
         window.clearTimeout(tooltipAutoHide.current);
       }
@@ -210,6 +220,11 @@ export default function Dashboard({ session }: { session: Session }) {
     [lancamentos, mes, ano]
   );
 
+  const saldoProjetado = useMemo(
+    () => calcularSaldoProjetado(saldoAcumulado, pendentes),
+    [saldoAcumulado, pendentes]
+  );
+
   const porCategoria = useMemo(
     () =>
       agruparPorCategoria(
@@ -308,6 +323,11 @@ export default function Dashboard({ session }: { session: Session }) {
           cor={saldoAcumulado >= 0 ? "var(--accent)" : "var(--red)"}
           destaque
           pendente={pendentes}
+          saldoProjetado={
+            pendentes.entradas.quantidade > 0 || pendentes.saidas.quantidade > 0
+              ? saldoProjetado
+              : undefined
+          }
         />
       </div>
 
@@ -456,7 +476,7 @@ export default function Dashboard({ session }: { session: Session }) {
           />
         ) : (
           <div style={styles.list}>
-            {doMes.map((l) => {
+            {doMes.map((l, idx) => {
               const lista =
                 l.tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
               const cat = lista.find((c) => c.nome === l.categoria);
@@ -477,7 +497,6 @@ export default function Dashboard({ session }: { session: Session }) {
                 ? {
                     ...styles.item,
                     background: "var(--bg)",
-                    opacity: 0.55,
                     boxShadow: "none",
                     position: "relative",
                   }
@@ -492,7 +511,7 @@ export default function Dashboard({ session }: { session: Session }) {
                 <div
                   key={l.id}
                   style={itemStyle}
-                  title={titleFuturo}
+                  title={futuro ? undefined : titleFuturo}
                   onTouchStart={
                     futuro
                       ? () => {
@@ -507,12 +526,42 @@ export default function Dashboard({ session }: { session: Session }) {
                   onTouchEnd={futuro ? limparLongPress : undefined}
                   onTouchMove={futuro ? limparLongPress : undefined}
                   onTouchCancel={futuro ? limparLongPress : undefined}
+                  onMouseEnter={
+                    futuro
+                      ? () => {
+                          limparHoverDelay();
+                          hoverDelayTimer.current = window.setTimeout(() => {
+                            setTooltipFuturoId(l.id);
+                            hoverDelayTimer.current = null;
+                          }, 700);
+                        }
+                      : undefined
+                  }
+                  onMouseLeave={
+                    futuro
+                      ? () => {
+                          limparHoverDelay();
+                          setTooltipFuturoId(null);
+                        }
+                      : undefined
+                  }
                 >
                   {futuro && tooltipFuturoId === l.id && (
-                    <div style={styles.tooltipFuturo}>
-                      Será contabilizado em {dataFmt}
-                      <br />
-                      {brl(l.valor)}
+                    <div
+                      style={
+                        idx === 0
+                          ? styles.tooltipFuturoAbaixo
+                          : styles.tooltipFuturo
+                      }
+                    >
+                      Será contabilizado em {dataFmt} · {brl(l.valor)}
+                      <span
+                        style={
+                          idx === 0
+                            ? styles.tooltipSetaCima
+                            : styles.tooltipSetaBaixo
+                        }
+                      />
                     </div>
                   )}
                   <div style={styles.itemTopo}>
@@ -831,19 +880,56 @@ const styles: Record<string, React.CSSProperties> = {
   },
   tooltipFuturo: {
     position: "absolute",
-    bottom: "100%",
-    left: 14,
-    marginBottom: 6,
-    background: "var(--text)",
+    bottom: "calc(100% + 6px)",
+    left: 8,
+    background: "#0d0d0d",
     color: "#fff",
     fontSize: 12,
+    fontWeight: 500,
     borderRadius: 8,
     padding: "6px 10px",
     whiteSpace: "nowrap",
-    boxShadow: "var(--shadow)",
-    zIndex: 5,
+    boxShadow: "0 6px 18px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)",
+    zIndex: 200,
     pointerEvents: "none",
     opacity: 1,
     lineHeight: 1.35,
+  },
+  tooltipFuturoAbaixo: {
+    position: "absolute",
+    top: "calc(100% + 6px)",
+    left: 8,
+    background: "#0d0d0d",
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: 500,
+    borderRadius: 8,
+    padding: "6px 10px",
+    whiteSpace: "nowrap",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)",
+    zIndex: 200,
+    pointerEvents: "none",
+    opacity: 1,
+    lineHeight: 1.35,
+  },
+  tooltipSetaBaixo: {
+    position: "absolute",
+    top: "100%",
+    left: 18,
+    width: 0,
+    height: 0,
+    borderLeft: "6px solid transparent",
+    borderRight: "6px solid transparent",
+    borderTop: "6px solid #0d0d0d",
+  },
+  tooltipSetaCima: {
+    position: "absolute",
+    bottom: "100%",
+    left: 18,
+    width: 0,
+    height: 0,
+    borderLeft: "6px solid transparent",
+    borderRight: "6px solid transparent",
+    borderBottom: "6px solid #0d0d0d",
   },
 };

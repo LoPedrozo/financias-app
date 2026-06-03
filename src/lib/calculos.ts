@@ -58,6 +58,16 @@ export function calcularPendentes(
   };
 }
 
+export function calcularSaldoProjetado(
+  saldoAtual: number,
+  pendentes: {
+    entradas: { total: number };
+    saidas: { total: number };
+  }
+): number {
+  return saldoAtual + pendentes.entradas.total - pendentes.saidas.total;
+}
+
 export interface FatiaCategoria {
   name: string;
   value: number;

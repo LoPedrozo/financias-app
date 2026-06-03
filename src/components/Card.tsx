@@ -17,9 +17,10 @@ interface Props {
     entradas: PendenteItem;
     saidas: PendenteItem;
   };
+  saldoProjetado?: number;
 }
 
-export default function Card({ label, valor, icon, cor, destaque, pendente }: Props) {
+export default function Card({ label, valor, icon, cor, destaque, pendente, saldoProjetado }: Props) {
   const [hover, setHover] = useState(false);
   const [semHover, setSemHover] = useState(false);
 
@@ -121,6 +122,27 @@ export default function Card({ label, valor, icon, cor, destaque, pendente }: Pr
                 <TrendingDown size={11} />− {brl(pendente!.saidas.total)} a pagar
                 ({pendente!.saidas.quantidade})
               </p>
+            )}
+            {saldoProjetado !== undefined && (
+              <>
+                <div
+                  style={{
+                    borderTop: "1px solid var(--accent)",
+                    opacity: 0.3,
+                    margin: "6px 0",
+                  }}
+                />
+                <p
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: saldoProjetado >= 0 ? "var(--accent)" : "var(--red)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  ≈ Saldo projetado: {brl(saldoProjetado)}
+                </p>
+              </>
             )}
           </div>
         )}

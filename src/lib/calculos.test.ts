@@ -4,6 +4,7 @@ import {
   somarPorTipo,
   calcularSaldoAcumulado,
   calcularPendentes,
+  calcularSaldoProjetado,
   agruparPorCategoria,
   calcularBalancoAnual,
   hojeLocal,
@@ -351,6 +352,32 @@ describe("calcularPendentes", () => {
     const r = calcularPendentes(dados, mesAtual, anoAtual);
     expect(r.entradas.quantidade).toBe(0);
     expect(r.saidas.quantidade).toBe(0);
+  });
+});
+
+describe("calcularSaldoProjetado", () => {
+  it("soma entradas pendentes e subtrai saídas pendentes do saldo atual", () => {
+    const r = calcularSaldoProjetado(685, {
+      entradas: { total: 4440 },
+      saidas: { total: 3650 },
+    });
+    expect(r).toBe(1475);
+  });
+
+  it("retorna o próprio saldo quando não há pendentes", () => {
+    const r = calcularSaldoProjetado(1000, {
+      entradas: { total: 0 },
+      saidas: { total: 0 },
+    });
+    expect(r).toBe(1000);
+  });
+
+  it("retorna saldo projetado negativo quando saídas pendentes superam saldo + entradas", () => {
+    const r = calcularSaldoProjetado(100, {
+      entradas: { total: 50 },
+      saidas: { total: 500 },
+    });
+    expect(r).toBe(-350);
   });
 });
 
