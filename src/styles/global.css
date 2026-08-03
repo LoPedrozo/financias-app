@@ -89,7 +89,17 @@ input, select {
   color: #fff;
 }
 
+.bottom-nav {
+  display: none;
+}
+
 @media (max-width: 640px) {
+  .bottom-nav {
+    display: flex;
+  }
+  .page-com-bottom-nav {
+    padding-bottom: 80px !important;
+  }
   .page-root {
     padding: 18px 14px 48px !important;
   }

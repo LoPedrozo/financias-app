@@ -33,6 +33,8 @@ import ConfirmModal from "./ConfirmModal";
 import Toast, { type ToastDados } from "./Toast";
 import EmptyState from "./EmptyState";
 import { SkeletonLista } from "./Skeleton";
+import BottomNav from "./BottomNav";
+import ContasAPagar from "./ContasAPagar";
 
 function dataInicialNovoLancamento(mes: number, ano: number): string {
   const hoje = new Date();
@@ -63,6 +65,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [toast, setToast] = useState<ToastDados | null>(null);
   const [erroCarregar, setErroCarregar] = useState(false);
   const [tooltipFuturoId, setTooltipFuturoId] = useState<string | null>(null);
+  const [abaAtiva, setAbaAtiva] = useState<"inicio" | "contas">("inicio");
   const longPressTimer = useRef<number | null>(null);
   const tooltipAutoHide = useRef<number | null>(null);
   const hoverDelayTimer = useRef<number | null>(null);
@@ -269,10 +272,12 @@ export default function Dashboard({ session }: { session: Session }) {
   return (
     <div
       style={styles.page}
-      className="page-root"
+      className="page-root page-com-bottom-nav"
       onTouchStart={swipeHandlers.onTouchStart}
       onTouchEnd={swipeHandlers.onTouchEnd}
     >
+      {abaAtiva === "inicio" ? (
+      <>
       <header style={styles.header}>
         <div style={styles.brand}>
           <div style={styles.logo}>
@@ -625,6 +630,10 @@ export default function Dashboard({ session }: { session: Session }) {
           </div>
         )}
       </div>
+      </>
+      ) : (
+        <ContasAPagar />
+      )}
 
       {modal && (
         <ModalNovo
@@ -654,6 +663,17 @@ export default function Dashboard({ session }: { session: Session }) {
           onCancelar={() => setConfirmarId(null)}
         />
       )}
+
+      <BottomNav
+        abaAtiva={abaAtiva}
+        onNavegar={(aba) => {
+          setModal(false);
+          setEditando(null);
+          setConfirmarId(null);
+          setAbaAtiva(aba);
+        }}
+        onNovo={() => setModal(true)}
+      />
     </div>
   );
 }
