@@ -12,7 +12,7 @@ export async function listarLancamentos(): Promise<Lancamento[]> {
   const { data, error } = await supabase
     .from("lancamentos")
     .select(
-      "id, user_id, tipo, valor, descricao, categoria, mes, ano, data, created_at"
+      "id, user_id, tipo, valor, descricao, categoria, mes, ano, data, created_at, recorrencia_id"
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -22,7 +22,7 @@ export async function listarLancamentos(): Promise<Lancamento[]> {
 }
 
 export async function criarLancamento(
-  dados: NovoLancamento
+  dados: NovoLancamento & { recorrencia_id?: string }
 ): Promise<Lancamento> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;

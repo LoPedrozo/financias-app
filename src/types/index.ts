@@ -11,10 +11,32 @@ export interface Lancamento {
   ano: number;
   data: string | null; // ISO YYYY-MM-DD; null para lançamentos antigos
   created_at: string;
+  recorrencia_id?: string | null;
 }
 
 // Dados para criar um lançamento (sem os campos gerados pelo banco)
-export type NovoLancamento = Omit<Lancamento, "id" | "user_id" | "created_at">;
+export type NovoLancamento = Omit<
+  Lancamento,
+  "id" | "user_id" | "created_at" | "recorrencia_id"
+>;
+
+export type Frequencia = "semanal" | "mensal";
+
+export interface Recorrencia {
+  id: string;
+  user_id: string;
+  tipo: Tipo;
+  valor: number;
+  descricao: string;
+  categoria: string;
+  frequencia: Frequencia;
+  dia_semana?: number; // 0=domingo, 1=segunda... 6=sábado
+  dia_mes?: number; // 1-31
+  ativo: boolean;
+  created_at: string;
+}
+
+export type NovaRecorrencia = Omit<Recorrencia, "id" | "user_id" | "created_at">;
 
 export interface Categoria {
   nome: string;

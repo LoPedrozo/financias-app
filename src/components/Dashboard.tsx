@@ -6,6 +6,7 @@ import {
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
+  Repeat, X,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -35,6 +36,8 @@ import EmptyState from "./EmptyState";
 import { SkeletonLista } from "./Skeleton";
 import BottomNav from "./BottomNav";
 import ContasAPagar from "./ContasAPagar";
+import Recorrencias from "./Recorrencias";
+import { gerarLancamentosRecorrentes } from "../lib/recorrencias";
 
 function dataInicialNovoLancamento(mes: number, ano: number): string {
   const hoje = new Date();
@@ -66,6 +69,7 @@ export default function Dashboard({ session }: { session: Session }) {
   const [erroCarregar, setErroCarregar] = useState(false);
   const [tooltipFuturoId, setTooltipFuturoId] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<"inicio" | "contas">("inicio");
+  const [verRecorrencias, setVerRecorrencias] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const tooltipAutoHide = useRef<number | null>(null);
   const hoverDelayTimer = useRef<number | null>(null);
@@ -137,9 +141,18 @@ export default function Dashboard({ session }: { session: Session }) {
       .finally(() => setCarregando(false));
   }, []);
 
+  const sincronizarRecorrentes = useCallback(() => {
+    gerarLancamentosRecorrentes(mes, ano)
+      .then((novos) => {
+        if (novos.length > 0) carregar();
+      })
+      .catch(console.error);
+  }, [carregar, mes, ano]);
+
   useEffect(() => {
     carregar();
-  }, [carregar]);
+    sincronizarRecorrentes();
+  }, [carregar, sincronizarRecorrentes]);
 
   async function adicionar(item: NovoLancamento) {
     try {
@@ -276,8 +289,6 @@ export default function Dashboard({ session }: { session: Session }) {
       onTouchStart={swipeHandlers.onTouchStart}
       onTouchEnd={swipeHandlers.onTouchEnd}
     >
-      {abaAtiva === "inicio" ? (
-      <>
       <header style={styles.header}>
         <div style={styles.brand}>
           <div style={styles.logo}>
@@ -289,14 +300,33 @@ export default function Dashboard({ session }: { session: Session }) {
           </div>
         </div>
         <div style={styles.headerRight}>
-          <MonthPicker
-            mes={mes}
-            ano={ano}
-            onChange={(m, a) => {
-              setMes(m);
-              setAno(a);
+          {!verRecorrencias && abaAtiva === "inicio" && (
+            <MonthPicker
+              mes={mes}
+              ano={ano}
+              onChange={(m, a) => {
+                setMes(m);
+                setAno(a);
+              }}
+            />
+          )}
+          <button
+            style={{
+              ...styles.sair,
+              ...(verRecorrencias
+                ? {
+                    background: "var(--accent-soft)",
+                    color: "var(--accent)",
+                    borderColor: "var(--accent-soft)",
+                  }
+                : {}),
             }}
-          />
+            onClick={() => setVerRecorrencias((v) => !v)}
+            aria-label={verRecorrencias ? "Fechar recorrências" : "Recorrências"}
+            title={verRecorrencias ? "Fechar" : "Recorrências"}
+          >
+            {verRecorrencias ? <X size={17} /> : <Repeat size={17} />}
+          </button>
           <button
             style={styles.sair}
             onClick={() => supabase.auth.signOut()}
@@ -307,6 +337,16 @@ export default function Dashboard({ session }: { session: Session }) {
           </button>
         </div>
       </header>
+
+      {verRecorrencias ? (
+        <Recorrencias
+          onMudanca={() => {
+            carregar();
+            sincronizarRecorrentes();
+          }}
+        />
+      ) : abaAtiva === "inicio" ? (
+      <>
 
       <div style={styles.cards}>
         <Card
@@ -670,9 +710,13 @@ export default function Dashboard({ session }: { session: Session }) {
           setModal(false);
           setEditando(null);
           setConfirmarId(null);
+          setVerRecorrencias(false);
           setAbaAtiva(aba);
         }}
-        onNovo={() => setModal(true)}
+        onNovo={() => {
+          setVerRecorrencias(false);
+          setModal(true);
+        }}
       />
     </div>
   );
