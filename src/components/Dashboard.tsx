@@ -6,7 +6,7 @@ import {
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
-  Repeat, X,
+  Repeat,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -14,7 +14,7 @@ import {
   listarLancamentos, criarLancamento, atualizarLancamento, removerLancamento,
 } from "../lib/lancamentos";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
-import type { Lancamento, NovoLancamento } from "../types";
+import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
 import { brl } from "../lib/format";
 import {
   agruparPorCategoria,
@@ -37,7 +37,7 @@ import { SkeletonLista } from "./Skeleton";
 import BottomNav from "./BottomNav";
 import ContasAPagar from "./ContasAPagar";
 import Recorrencias from "./Recorrencias";
-import { gerarLancamentosRecorrentes } from "../lib/recorrencias";
+import { gerarLancamentosRecorrentes, listarRecorrencias } from "../lib/recorrencias";
 
 function dataInicialNovoLancamento(mes: number, ano: number): string {
   const hoje = new Date();
@@ -70,6 +70,8 @@ export default function Dashboard({ session }: { session: Session }) {
   const [tooltipFuturoId, setTooltipFuturoId] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<"inicio" | "contas">("inicio");
   const [verRecorrencias, setVerRecorrencias] = useState(false);
+  const [recorrencias, setRecorrencias] = useState<Recorrencia[]>([]);
+  const [carregandoRecorrencias, setCarregandoRecorrencias] = useState(true);
   const longPressTimer = useRef<number | null>(null);
   const tooltipAutoHide = useRef<number | null>(null);
   const hoverDelayTimer = useRef<number | null>(null);
@@ -154,6 +156,13 @@ export default function Dashboard({ session }: { session: Session }) {
     sincronizarRecorrentes();
   }, [carregar, sincronizarRecorrentes]);
 
+  useEffect(() => {
+    listarRecorrencias()
+      .then(setRecorrencias)
+      .catch(console.error)
+      .finally(() => setCarregandoRecorrencias(false));
+  }, []);
+
   async function adicionar(item: NovoLancamento) {
     try {
       const novo = await criarLancamento(item);
@@ -194,11 +203,11 @@ export default function Dashboard({ session }: { session: Session }) {
     const id = confirmarId;
     setConfirmarId(null);
     const anterior = lancamentos;
-    const index = anterior.findIndex((l) => l.id === id);
-    if (index === -1) return;
+    const alvo = anterior.find((l) => l.id === id);
+    if (!alvo) return;
     setLancamentos((atual) => atual.filter((l) => l.id !== id));
     try {
-      await removerLancamento(id);
+      await removerLancamento(alvo);
       mostrarToast("sucesso", "Lançamento excluído.");
     } catch (e) {
       console.error(e);
@@ -311,23 +320,6 @@ export default function Dashboard({ session }: { session: Session }) {
             />
           )}
           <button
-            style={{
-              ...styles.sair,
-              ...(verRecorrencias
-                ? {
-                    background: "var(--accent-soft)",
-                    color: "var(--accent)",
-                    borderColor: "var(--accent-soft)",
-                  }
-                : {}),
-            }}
-            onClick={() => setVerRecorrencias((v) => !v)}
-            aria-label={verRecorrencias ? "Fechar recorrências" : "Recorrências"}
-            title={verRecorrencias ? "Fechar" : "Recorrências"}
-          >
-            {verRecorrencias ? <X size={17} /> : <Repeat size={17} />}
-          </button>
-          <button
             style={styles.sair}
             onClick={() => supabase.auth.signOut()}
             aria-label="Sair"
@@ -340,6 +332,9 @@ export default function Dashboard({ session }: { session: Session }) {
 
       {verRecorrencias ? (
         <Recorrencias
+          recorrencias={recorrencias}
+          onRecorrenciasChange={setRecorrencias}
+          onVoltar={() => setVerRecorrencias(false)}
           onMudanca={() => {
             carregar();
             sincronizarRecorrentes();
@@ -670,6 +665,12 @@ export default function Dashboard({ session }: { session: Session }) {
           </div>
         )}
       </div>
+
+      <RecorrenciasResumo
+        recorrencias={recorrencias}
+        carregando={carregandoRecorrencias}
+        onAbrir={() => setVerRecorrencias(true)}
+      />
       </>
       ) : (
         <ContasAPagar />
@@ -718,6 +719,105 @@ export default function Dashboard({ session }: { session: Session }) {
           setModal(true);
         }}
       />
+    </div>
+  );
+}
+
+const DIAS_SEMANA = [
+  "Domingo",
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sábado",
+];
+
+function textoFrequenciaRecorrencia(r: Recorrencia): string {
+  if (r.frequencia === "semanal" && r.dia_semana != null) {
+    return `todo ${DIAS_SEMANA[r.dia_semana]}`;
+  }
+  if (r.frequencia === "mensal" && r.dia_mes != null) {
+    return `todo dia ${r.dia_mes}`;
+  }
+  return "";
+}
+
+function RecorrenciasResumo({
+  recorrencias,
+  carregando,
+  onAbrir,
+}: {
+  recorrencias: Recorrencia[];
+  carregando: boolean;
+  onAbrir: () => void;
+}) {
+  const ativas = recorrencias.filter((r) => r.ativo);
+  const visiveis = ativas.slice(0, 3);
+  const restantes = ativas.length - visiveis.length;
+
+  return (
+    <div
+      style={{ ...styles.panel, marginTop: 16 }}
+      className="panel-mobile"
+    >
+      <div style={styles.recorrenciasHead}>
+        <div style={styles.recorrenciasTituloWrap}>
+          <Repeat size={16} color="var(--text-soft)" />
+          <h2 style={styles.panelTitleInline}>Recorrências ativas</h2>
+        </div>
+        <button
+          type="button"
+          onClick={onAbrir}
+          style={styles.recorrenciasLink}
+        >
+          Gerenciar →
+        </button>
+      </div>
+
+      {carregando ? (
+        <SkeletonLista linhas={2} />
+      ) : ativas.length === 0 ? (
+        <div style={styles.recorrenciasVazio}>
+          <span>Nenhuma recorrência ativa</span>
+          <span style={styles.recorrenciasSep}>·</span>
+          <button
+            type="button"
+            onClick={onAbrir}
+            style={styles.recorrenciasLinkInline}
+          >
+            + Criar
+          </button>
+        </div>
+      ) : (
+        <div style={styles.recorrenciasLista}>
+          {visiveis.map((r) => {
+            const cor = r.tipo === "entrada" ? "var(--green)" : "var(--red)";
+            return (
+              <div key={r.id} style={styles.recorrenciaLinha}>
+                <span style={{ ...styles.recorrenciaValor, color: cor }}>
+                  {r.tipo === "entrada" ? "+" : "−"} {brl(r.valor)}
+                </span>
+                <span style={styles.recorrenciasSep}>·</span>
+                <span style={styles.recorrenciaDesc}>{r.descricao}</span>
+                <span style={styles.recorrenciasSep}>·</span>
+                <span style={styles.recorrenciaFreq}>
+                  {textoFrequenciaRecorrencia(r)}
+                </span>
+              </div>
+            );
+          })}
+          {restantes > 0 && (
+            <button
+              type="button"
+              onClick={onAbrir}
+              style={styles.recorrenciasMais}
+            >
+              e mais {restantes} recorrência{restantes > 1 ? "s" : ""}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -995,5 +1095,89 @@ const styles: Record<string, React.CSSProperties> = {
     borderLeft: "6px solid transparent",
     borderRight: "6px solid transparent",
     borderBottom: "6px solid #0d0d0d",
+  },
+  recorrenciasHead: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+    gap: 10,
+  },
+  recorrenciasTituloWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  },
+  recorrenciasLink: {
+    background: "none",
+    border: "none",
+    color: "var(--accent)",
+    fontWeight: 600,
+    fontSize: 13,
+    cursor: "pointer",
+    padding: 4,
+  },
+  recorrenciasLinkInline: {
+    background: "none",
+    border: "none",
+    color: "var(--accent)",
+    fontWeight: 600,
+    fontSize: 13,
+    cursor: "pointer",
+    padding: 0,
+  },
+  recorrenciasVazio: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontSize: 13,
+    color: "var(--text-faint)",
+    padding: "6px 2px",
+  },
+  recorrenciasLista: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  recorrenciaLinha: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+    fontSize: 13.5,
+    color: "var(--text-soft)",
+    minWidth: 0,
+  },
+  recorrenciaValor: {
+    fontFamily: "'Sora', sans-serif",
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
+  recorrenciaDesc: {
+    color: "var(--text)",
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    minWidth: 0,
+  },
+  recorrenciaFreq: {
+    color: "var(--text-faint)",
+    whiteSpace: "nowrap",
+  },
+  recorrenciasSep: {
+    color: "var(--text-faint)",
+  },
+  recorrenciasMais: {
+    background: "none",
+    border: "none",
+    color: "var(--accent)",
+    fontWeight: 600,
+    fontSize: 13,
+    cursor: "pointer",
+    padding: "4px 0 0",
+    textAlign: "left",
+    alignSelf: "flex-start",
   },
 };

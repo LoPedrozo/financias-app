@@ -58,15 +58,33 @@ export async function atualizarLancamento(
   return data;
 }
 
-export async function removerLancamento(id: string): Promise<void> {
+export async function removerLancamento(lancamento: Lancamento): Promise<void> {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) throw new Error("Usuário não autenticado.");
+
+  // Se o lançamento veio de uma recorrência, registra uma exceção antes de
+  // apagar. Sem isso, a próxima chamada de gerarLancamentosRecorrentes iria
+  // recriar essa mesma data — a regra continua ativa, então o sistema não
+  // sabe que o usuário quis pular esta ocorrência específica.
+  if (lancamento.recorrencia_id && lancamento.data) {
+    const { error: erroExcecao } = await supabase
+      .from("recorrencia_excecoes")
+      .upsert(
+        {
+          user_id: userId,
+          recorrencia_id: lancamento.recorrencia_id,
+          data: lancamento.data,
+        },
+        { onConflict: "recorrencia_id,data", ignoreDuplicates: true }
+      );
+    if (erroExcecao) throw erroExcecao;
+  }
 
   const { error } = await supabase
     .from("lancamentos")
     .delete()
     .eq("user_id", userId)
-    .eq("id", id);
+    .eq("id", lancamento.id);
   if (error) throw error;
 }

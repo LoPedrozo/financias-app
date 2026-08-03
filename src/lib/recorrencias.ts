@@ -201,12 +201,32 @@ export async function gerarLancamentosRecorrentes(
   }
   if (candidatos.length === 0) return [];
 
+  // Filtra ocorrências que o usuário excluiu manualmente. Sem isso, apagar um
+  // lançamento gerado apenas o traria de volta na próxima carga da tela.
+  const idsRecorrencias = candidatos.map((c) => c.recorrencia_id);
+  const datasCandidatas = candidatos.map((c) => c.data);
+  const { data: excecoes, error: erroExc } = await supabase
+    .from("recorrencia_excecoes")
+    .select("recorrencia_id, data")
+    .eq("user_id", userId)
+    .in("recorrencia_id", idsRecorrencias)
+    .in("data", datasCandidatas);
+  if (erroExc) throw erroExc;
+
+  const excluidos = new Set(
+    (excecoes ?? []).map((e) => `${e.recorrencia_id}|${e.data}`)
+  );
+  const candidatosFiltrados = candidatos.filter(
+    (c) => !excluidos.has(`${c.recorrencia_id}|${c.data}`)
+  );
+  if (candidatosFiltrados.length === 0) return [];
+
   // Upsert com ignoreDuplicates aproveita o índice único parcial
   // lancamentos_recorrencia_data_unique — se rodarmos duas gerações em paralelo
   // (StrictMode em dev, duas abas, retry de rede), a segunda vira no-op.
   const { data: inseridos, error } = await supabase
     .from("lancamentos")
-    .upsert(candidatos, {
+    .upsert(candidatosFiltrados, {
       onConflict: "recorrencia_id,data",
       ignoreDuplicates: true,
     })

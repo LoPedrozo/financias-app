@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Pause, Play, Repeat } from "lucide-react";
+import { Plus, Pencil, Trash2, Pause, Play, Repeat, ArrowLeft } from "lucide-react";
 import type { NovaRecorrencia, Recorrencia } from "../types";
 import {
   atualizarRecorrencia,
@@ -36,16 +36,44 @@ function textoFrequencia(r: Recorrencia): string {
 }
 
 interface Props {
+  recorrencias?: Recorrencia[];
+  onRecorrenciasChange?: (recorrencias: Recorrencia[]) => void;
   onMudanca?: () => void;
+  onVoltar?: () => void;
 }
 
-export default function Recorrencias({ onMudanca }: Props) {
-  const [itens, setItens] = useState<Recorrencia[]>([]);
-  const [carregando, setCarregando] = useState(true);
+export default function Recorrencias({
+  recorrencias,
+  onRecorrenciasChange,
+  onMudanca,
+  onVoltar,
+}: Props) {
+  const controlado = recorrencias !== undefined;
+  const [itensLocais, setItensLocais] = useState<Recorrencia[]>([]);
+  const [carregandoLocal, setCarregandoLocal] = useState(!controlado);
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState<Recorrencia | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastDados | null>(null);
+
+  const itens = controlado ? recorrencias! : itensLocais;
+  const carregando = controlado ? false : carregandoLocal;
+
+  const aplicarItens = useCallback(
+    (proximos: Recorrencia[] | ((atual: Recorrencia[]) => Recorrencia[])) => {
+      if (controlado) {
+        const base = recorrencias ?? [];
+        const resolvido =
+          typeof proximos === "function"
+            ? (proximos as (a: Recorrencia[]) => Recorrencia[])(base)
+            : proximos;
+        onRecorrenciasChange?.(resolvido);
+      } else {
+        setItensLocais(proximos);
+      }
+    },
+    [controlado, recorrencias, onRecorrenciasChange]
+  );
 
   const mostrarToast = useCallback(
     (tipo: ToastDados["tipo"], mensagem: string) => {
@@ -55,19 +83,19 @@ export default function Recorrencias({ onMudanca }: Props) {
   );
 
   const carregar = useCallback(() => {
-    setCarregando(true);
+    setCarregandoLocal(true);
     listarRecorrencias()
-      .then(setItens)
+      .then(setItensLocais)
       .catch((e) => {
         console.error(e);
         mostrarToast("erro", "Não foi possível carregar as recorrências.");
       })
-      .finally(() => setCarregando(false));
+      .finally(() => setCarregandoLocal(false));
   }, [mostrarToast]);
 
   useEffect(() => {
-    carregar();
-  }, [carregar]);
+    if (!controlado) carregar();
+  }, [controlado, carregar]);
 
   const ordenados = useMemo(() => {
     return itens.slice().sort((a, b) => {
@@ -79,7 +107,7 @@ export default function Recorrencias({ onMudanca }: Props) {
   async function criar(dados: NovaRecorrencia) {
     try {
       const novo = await criarRecorrencia(dados);
-      setItens((atual) => [novo, ...atual]);
+      aplicarItens((atual) => [novo, ...atual]);
       setModal(false);
       mostrarToast("sucesso", "Recorrência criada!");
       onMudanca?.();
@@ -94,7 +122,7 @@ export default function Recorrencias({ onMudanca }: Props) {
     const original = editando;
     try {
       const atualizada = await atualizarRecorrencia(original.id, dados);
-      setItens((atual) =>
+      aplicarItens((atual) =>
         atual.map((r) => (r.id === atualizada.id ? atualizada : r))
       );
       setEditando(null);
@@ -108,7 +136,7 @@ export default function Recorrencias({ onMudanca }: Props) {
 
   async function alternarAtivo(r: Recorrencia) {
     const novoAtivo = !r.ativo;
-    setItens((atual) =>
+    aplicarItens((atual) =>
       atual.map((x) => (x.id === r.id ? { ...x, ativo: novoAtivo } : x))
     );
     try {
@@ -120,7 +148,7 @@ export default function Recorrencias({ onMudanca }: Props) {
       onMudanca?.();
     } catch (e) {
       console.error(e);
-      setItens((atual) =>
+      aplicarItens((atual) =>
         atual.map((x) => (x.id === r.id ? { ...x, ativo: r.ativo } : x))
       );
       mostrarToast("erro", "Não foi possível atualizar. Tente novamente.");
@@ -132,14 +160,14 @@ export default function Recorrencias({ onMudanca }: Props) {
     const id = confirmarId;
     setConfirmarId(null);
     const anterior = itens;
-    setItens((atual) => atual.filter((r) => r.id !== id));
+    aplicarItens((atual) => atual.filter((r) => r.id !== id));
     try {
       await deletarRecorrencia(id);
       mostrarToast("sucesso", "Recorrência excluída.");
       onMudanca?.();
     } catch (e) {
       console.error(e);
-      setItens(anterior);
+      aplicarItens(anterior);
       mostrarToast("erro", "Não foi possível excluir. Verifique sua conexão.");
     }
   }
@@ -147,7 +175,20 @@ export default function Recorrencias({ onMudanca }: Props) {
   return (
     <div style={styles.panel} className="panel-mobile">
       <div style={styles.head}>
-        <h2 style={styles.titulo}>Recorrências</h2>
+        <div style={styles.tituloWrap}>
+          {onVoltar && (
+            <button
+              type="button"
+              style={styles.voltar}
+              onClick={onVoltar}
+              aria-label="Voltar"
+              title="Voltar"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <h2 style={styles.titulo}>Recorrências</h2>
+        </div>
         <button style={styles.add} onClick={() => setModal(true)}>
           <Plus size={16} /> Nova
         </button>
@@ -273,6 +314,25 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: 14,
   },
   titulo: { fontSize: 16, fontWeight: 600 },
+  tituloWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+  },
+  voltar: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--bg)",
+    color: "var(--text-soft)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    flexShrink: 0,
+  },
   add: {
     display: "flex",
     alignItems: "center",
