@@ -424,28 +424,70 @@ describe("calcularPendentes", () => {
 });
 
 describe("calcularSaldoProjetado", () => {
+  // Todas as datas futuras usam 2099 para não depender da data de hoje.
   it("soma entradas pendentes e subtrai saídas pendentes do saldo atual", () => {
-    const r = calcularSaldoProjetado(685, {
-      entradas: { total: 4440 },
-      saidas: { total: 3650 },
-    });
-    expect(r).toBe(1475);
+    const dados = [
+      l({ tipo: "entrada", valor: 685, mes: 0, ano: 2099, data: "2099-01-05" }),
+      l({ tipo: "entrada", valor: 4440, mes: 0, ano: 2099, data: "2099-01-20" }),
+      l({ tipo: "saida", valor: 3650, mes: 0, ano: 2099, data: "2099-01-25" }),
+    ];
+    expect(calcularSaldoProjetado(dados, 0, 2099)).toBe(1475);
   });
 
   it("retorna o próprio saldo quando não há pendentes", () => {
-    const r = calcularSaldoProjetado(1000, {
-      entradas: { total: 0 },
-      saidas: { total: 0 },
-    });
-    expect(r).toBe(1000);
+    const dados = [
+      l({ tipo: "entrada", valor: 1000, mes: 0, ano: 2020, data: "2020-01-05" }),
+    ];
+    expect(calcularSaldoProjetado(dados, 0, 2020)).toBe(1000);
   });
 
   it("retorna saldo projetado negativo quando saídas pendentes superam saldo + entradas", () => {
-    const r = calcularSaldoProjetado(100, {
-      entradas: { total: 50 },
-      saidas: { total: 500 },
-    });
+    const dados = [
+      l({ tipo: "entrada", valor: 100, mes: 0, ano: 2099, data: "2099-01-05" }),
+      l({ tipo: "entrada", valor: 50, mes: 0, ano: 2099, data: "2099-01-20" }),
+      l({ tipo: "saida", valor: 500, mes: 0, ano: 2099, data: "2099-01-25" }),
+    ];
+    const r = calcularSaldoProjetado(dados, 0, 2099);
     expect(r).toBe(-350);
+  });
+
+  // O bug: o projetado somava saldo atual + pendentes só do mês selecionado,
+  // e os meses entre hoje e o mês visitado não entravam em nenhum dos dois.
+  // Agosto e setembro exibiam o mesmo número.
+  it("inclui os pendentes dos meses intermediários", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 270, mes: 7, ano: 2099, data: "2099-08-01" }),
+      // Agosto: 4 sábados de mesada menos almoço = +360
+      ...["08", "15", "22", "29"].flatMap((d) => [
+        l({ tipo: "entrada", valor: 130, mes: 7, ano: 2099, data: `2099-08-${d}` }),
+        l({ tipo: "saida", valor: 40, mes: 7, ano: 2099, data: `2099-08-${d}` }),
+      ]),
+      // Setembro: mais 4 sábados = +360
+      ...["05", "12", "19", "26"].flatMap((d) => [
+        l({ tipo: "entrada", valor: 130, mes: 8, ano: 2099, data: `2099-09-${d}` }),
+        l({ tipo: "saida", valor: 40, mes: 8, ano: 2099, data: `2099-09-${d}` }),
+      ]),
+    ];
+    expect(calcularSaldoProjetado(dados, 7, 2099)).toBe(630);
+    expect(calcularSaldoProjetado(dados, 8, 2099)).toBe(990);
+  });
+
+  it("meses futuros não vazam para a projeção do mês atual", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 100, mes: 7, ano: 2099, data: "2099-08-10" }),
+      l({ tipo: "entrada", valor: 9999, mes: 8, ano: 2099, data: "2099-09-10" }),
+    ];
+    expect(calcularSaldoProjetado(dados, 7, 2099)).toBe(100);
+  });
+
+  it("nunca é menor que o saldo acumulado quando não há saídas pendentes", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 500, mes: 0, ano: 2020, data: "2020-01-05" }),
+      l({ tipo: "entrada", valor: 300, mes: 0, ano: 2099, data: "2099-01-05" }),
+    ];
+    expect(calcularSaldoProjetado(dados, 0, 2099)).toBeGreaterThanOrEqual(
+      calcularSaldoAcumulado(dados, 0, 2099)
+    );
   });
 });
 

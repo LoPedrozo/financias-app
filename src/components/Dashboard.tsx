@@ -253,8 +253,8 @@ export default function Dashboard({ session }: { session: Session }) {
   );
 
   const saldoProjetado = useMemo(
-    () => calcularSaldoProjetado(saldoAcumulado, pendentes),
-    [saldoAcumulado, pendentes]
+    () => calcularSaldoProjetado(lancamentos, mes, ano),
+    [lancamentos, mes, ano]
   );
 
   const porCategoria = useMemo(

@@ -78,14 +78,21 @@ export function calcularPendentes(
   };
 }
 
+// Saldo previsto para o fim do mês: soma tudo que está lançado até a
+// competência, tenha sido contabilizado ou não.
+//
+// A versão anterior somava `saldoAtual + pendentes do mês`, e esses dois
+// recortes não são complementares — o saldo corta por tempo (data <= hoje) e
+// os pendentes cortam por mês. Os meses entre hoje e a competência visitada
+// caíam no vão dos dois, e o projetado de setembro repetia o de agosto.
 export function calcularSaldoProjetado(
-  saldoAtual: number,
-  pendentes: {
-    entradas: { total: number };
-    saidas: { total: number };
-  }
+  lancamentos: Lancamento[],
+  mes: number,
+  ano: number
 ): number {
-  return saldoAtual + pendentes.entradas.total - pendentes.saidas.total;
+  return lancamentos
+    .filter((l) => compararCompetencia(l, { mes, ano }) <= 0)
+    .reduce((s, l) => s + (l.tipo === "entrada" ? l.valor : -l.valor), 0);
 }
 
 export interface FatiaCategoria {
