@@ -7,6 +7,8 @@ import {
   calcularSaldoProjetado,
   agruparPorCategoria,
   calcularBalancoAnual,
+  compararCompetencia,
+  competenciaAtual,
   hojeLocal,
 } from "./calculos";
 import type { Categoria, Lancamento, Tipo } from "../types";
@@ -111,6 +113,72 @@ describe("calcularSaldoAcumulado", () => {
 
   it("retorna 0 para lista vazia", () => {
     expect(calcularSaldoAcumulado([], 5, 2026)).toBe(0);
+  });
+
+  // Invariante que o bug das recorrências retroativas quebrava: o saldo de um
+  // mês é sempre o do mês anterior mais o líquido do próprio mês. Quando a
+  // navegação para trás criava lançamentos em julho, julho passava a mostrar
+  // mais que agosto.
+  it("é sempre o mês anterior mais o líquido do próprio mês", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 1000, mes: 4, ano: 2026 }),
+      l({ tipo: "saida", valor: 300, mes: 5, ano: 2026 }),
+      l({ tipo: "entrada", valor: 130, mes: 6, ano: 2026 }),
+      l({ tipo: "saida", valor: 40, mes: 6, ano: 2026 }),
+      l({ tipo: "entrada", valor: 500, mes: 7, ano: 2026 }),
+    ];
+    for (const mes of [5, 6, 7]) {
+      const liquidoDoMes = dados
+        .filter((d) => d.mes === mes && d.ano === 2026)
+        .reduce((s, d) => s + (d.tipo === "entrada" ? d.valor : -d.valor), 0);
+      expect(calcularSaldoAcumulado(dados, mes, 2026)).toBe(
+        calcularSaldoAcumulado(dados, mes - 1, 2026) + liquidoDoMes
+      );
+    }
+  });
+
+  it("só cresce ao avançar quando não há saídas", () => {
+    const dados = [
+      l({ tipo: "entrada", valor: 1000, mes: 4, ano: 2026 }),
+      l({ tipo: "entrada", valor: 130, mes: 5, ano: 2026 }),
+      l({ tipo: "entrada", valor: 500, mes: 6, ano: 2026 }),
+    ];
+    expect(calcularSaldoAcumulado(dados, 4, 2026)).toBe(1000);
+    expect(calcularSaldoAcumulado(dados, 5, 2026)).toBe(1130);
+    expect(calcularSaldoAcumulado(dados, 6, 2026)).toBe(1630);
+  });
+});
+
+describe("compararCompetencia", () => {
+  it("ordena por ano antes de mês", () => {
+    expect(
+      compararCompetencia({ mes: 11, ano: 2025 }, { mes: 0, ano: 2026 })
+    ).toBeLessThan(0);
+    expect(
+      compararCompetencia({ mes: 0, ano: 2026 }, { mes: 11, ano: 2025 })
+    ).toBeGreaterThan(0);
+  });
+
+  it("ordena por mês dentro do mesmo ano", () => {
+    expect(
+      compararCompetencia({ mes: 6, ano: 2026 }, { mes: 7, ano: 2026 })
+    ).toBeLessThan(0);
+  });
+
+  it("retorna 0 para a mesma competência", () => {
+    expect(compararCompetencia({ mes: 7, ano: 2026 }, { mes: 7, ano: 2026 })).toBe(
+      0
+    );
+  });
+});
+
+describe("competenciaAtual", () => {
+  it("acompanha hojeLocal, com mês em base 0", () => {
+    const hoje = hojeLocal();
+    expect(competenciaAtual()).toEqual({
+      ano: Number(hoje.slice(0, 4)),
+      mes: Number(hoje.slice(5, 7)) - 1,
+    });
   });
 });
 

@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
-import { hojeLocal } from "./calculos";
+import { compararCompetencia, competenciaAtual, hojeLocal } from "./calculos";
+import type { Competencia } from "./calculos";
 import type {
   Lancamento,
   NovaRecorrencia,
@@ -157,6 +158,25 @@ function datasParaRecorrencia(
   return [];
 }
 
+// Uma recorrência só materializa ocorrências a partir do mês em que foi criada
+// e nunca em um mês já fechado. As duas condições são independentes: a primeira
+// protege o histórico anterior à regra, a segunda protege qualquer mês passado
+// visitado pelo MonthPicker.
+export function podeGerarNaCompetencia(
+  recorrenciaCriadaEm: string,
+  alvo: Competencia,
+  hoje: Competencia = competenciaAtual()
+): boolean {
+  if (compararCompetencia(alvo, hoje) < 0) return false;
+
+  const criadaEm = new Date(recorrenciaCriadaEm);
+  const criacao = {
+    mes: criadaEm.getMonth(),
+    ano: criadaEm.getFullYear(),
+  };
+  return compararCompetencia(alvo, criacao) >= 0;
+}
+
 export async function gerarLancamentosRecorrentes(
   mes: number,
   ano: number
@@ -185,12 +205,7 @@ export async function gerarLancamentosRecorrentes(
     recorrencia_id: string;
   }> = [];
   for (const r of recorrencias as Recorrencia[]) {
-    // Nunca gerar lançamentos em meses anteriores à criação da recorrência —
-    // caso contrário, navegar para meses passados contaminaria o histórico.
-    const criadoEm = new Date(r.created_at);
-    const criadoMes = criadoEm.getMonth();
-    const criadoAno = criadoEm.getFullYear();
-    if (ano < criadoAno || (ano === criadoAno && mes < criadoMes)) continue;
+    if (!podeGerarNaCompetencia(r.created_at, { mes, ano })) continue;
 
     for (const data of datasParaRecorrencia(r, mes, ano)) {
       candidatos.push({

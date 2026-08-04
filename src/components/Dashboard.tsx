@@ -22,6 +22,8 @@ import {
   calcularPendentes,
   calcularSaldoAcumulado,
   calcularSaldoProjetado,
+  compararCompetencia,
+  competenciaAtual,
   filtrarPorMes,
   hojeLocal,
   somarPorTipo,
@@ -145,11 +147,9 @@ export default function Dashboard({ session }: { session: Session }) {
 
   const sincronizarRecorrentes = useCallback(() => {
     // Só gera para o mês corrente e futuros. Navegar para trás no MonthPicker
-    // não deve materializar lançamentos em meses fechados.
-    const hoje = new Date();
-    const mesAtual = hoje.getMonth();
-    const anoAtual = hoje.getFullYear();
-    if (ano < anoAtual || (ano === anoAtual && mes < mesAtual)) return;
+    // não deve materializar lançamentos em meses fechados. A trava definitiva
+    // vive em gerarLancamentosRecorrentes; aqui evitamos só a ida ao servidor.
+    if (compararCompetencia({ mes, ano }, competenciaAtual()) < 0) return;
 
     gerarLancamentosRecorrentes(mes, ano)
       .then((novos) => {
