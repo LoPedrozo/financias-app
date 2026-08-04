@@ -144,6 +144,13 @@ export default function Dashboard({ session }: { session: Session }) {
   }, []);
 
   const sincronizarRecorrentes = useCallback(() => {
+    // Só gera para o mês corrente e futuros. Navegar para trás no MonthPicker
+    // não deve materializar lançamentos em meses fechados.
+    const hoje = new Date();
+    const mesAtual = hoje.getMonth();
+    const anoAtual = hoje.getFullYear();
+    if (ano < anoAtual || (ano === anoAtual && mes < mesAtual)) return;
+
     gerarLancamentosRecorrentes(mes, ano)
       .then((novos) => {
         if (novos.length > 0) carregar();

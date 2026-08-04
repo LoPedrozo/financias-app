@@ -185,6 +185,13 @@ export async function gerarLancamentosRecorrentes(
     recorrencia_id: string;
   }> = [];
   for (const r of recorrencias as Recorrencia[]) {
+    // Nunca gerar lançamentos em meses anteriores à criação da recorrência —
+    // caso contrário, navegar para meses passados contaminaria o histórico.
+    const criadoEm = new Date(r.created_at);
+    const criadoMes = criadoEm.getMonth();
+    const criadoAno = criadoEm.getFullYear();
+    if (ano < criadoAno || (ano === criadoAno && mes < criadoMes)) continue;
+
     for (const data of datasParaRecorrencia(r, mes, ano)) {
       candidatos.push({
         user_id: userId,
