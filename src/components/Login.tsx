@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Wallet, Mail, Lock, LogIn } from "lucide-react";
+import { Mail, Lock, LogIn } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 export default function Login() {
@@ -52,9 +52,7 @@ export default function Login() {
   return (
     <div style={styles.wrap}>
       <div style={styles.card}>
-        <div style={styles.logo}>
-          <Wallet size={28} color="var(--accent)" strokeWidth={2.2} />
-        </div>
+        <img src="/icon-192.png" alt="" style={styles.logo} />
         <h1 style={styles.title}>Minhas Finanças</h1>
         <p style={styles.subtitle}>
           {modo === "entrar"
@@ -172,10 +170,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: 56,
     height: 56,
     borderRadius: 16,
-    background: "var(--accent-soft)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display: "block",
     margin: "0 auto 18px",
   },
   title: { fontSize: 24, fontWeight: 700, textAlign: "center", marginBottom: 4 },

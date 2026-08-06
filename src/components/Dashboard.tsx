@@ -307,9 +307,7 @@ export default function Dashboard({ session }: { session: Session }) {
     >
       <header style={styles.header}>
         <div style={styles.brand}>
-          <div style={styles.logo}>
-            <Wallet size={22} color="var(--accent)" strokeWidth={2.2} />
-          </div>
+          <img src="/icon-192.png" alt="" style={styles.logo} />
           <div>
             <h1 style={styles.title} className="app-title">Minhas Finanças</h1>
             <p style={styles.user}>{email}</p>
@@ -844,10 +842,8 @@ const styles: Record<string, React.CSSProperties> = {
     width: 44,
     height: 44,
     borderRadius: 12,
-    background: "var(--accent-soft)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    display: "block",
+    flexShrink: 0,
   },
   title: { fontSize: 22, fontWeight: 700 },
   user: { fontSize: 12.5, color: "var(--text-faint)" },
