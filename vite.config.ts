@@ -3,14 +3,23 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-// Os arquivos de ícone (icon-192.png e icon-512.png) devem ser
-// colocados manualmente na pasta `public/` na raiz do projeto.
+// Os arquivos de ícone devem ser colocados manualmente na pasta
+// `public/` na raiz do projeto.
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "icon-192.png", "icon-512.png"],
+      includeAssets: [
+        "favicon-32.png",
+        "favicon-64.png",
+        "apple-touch-icon-180.png",
+        "icon-192.png",
+        "icon-512.png",
+        "icon-maskable-192.png",
+        "icon-maskable-512.png",
+        "icon-dark-512.png",
+      ],
       manifest: {
         name: "Minhas Finanças",
         short_name: "Finanças",
@@ -25,13 +34,31 @@ export default defineConfig({
             src: "/icon-192.png",
             sizes: "192x192",
             type: "image/png",
-            purpose: "any maskable",
+            purpose: "any",
+          },
+          {
+            src: "/icon-maskable-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "maskable",
           },
           {
             src: "/icon-512.png",
             sizes: "512x512",
             type: "image/png",
-            purpose: "any maskable",
+            purpose: "any",
+          },
+          {
+            src: "/icon-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+          {
+            src: "/icon-dark-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
           },
         ],
       },
