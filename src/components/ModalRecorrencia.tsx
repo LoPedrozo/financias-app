@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { X, Info } from "lucide-react";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA } from "../types";
 import type {
   Frequencia,
@@ -155,7 +155,7 @@ export default function ModalRecorrencia({
   const lista = categoriasDe(tipo);
 
   return (
-    <div style={styles.overlay} onClick={onFechar}>
+    <div style={styles.overlay} data-modal onClick={onFechar}>
       <div
         style={styles.modal}
         className="modal-mobile"
@@ -311,6 +311,16 @@ export default function ModalRecorrencia({
           </>
         )}
 
+        {/* Sem isto, quem cria a primeira recorrência não tem como saber que
+            meses fechados ficam de fora — e quem edita não sabe que os
+            lançamentos já contabilizados não mudam. */}
+        <p style={styles.nota}>
+          <Info size={12} />
+          {editando
+            ? "Lançamentos futuros serão recriados com os novos valores. Lançamentos já contabilizados não são alterados."
+            : "A recorrência será gerada a partir do mês atual. Meses anteriores não são afetados."}
+        </p>
+
         <button
           style={{
             ...styles.salvar,
@@ -407,6 +417,18 @@ const styles: Record<string, React.CSSProperties> = {
     color: "var(--red)",
     marginTop: 0,
     marginBottom: 12,
+  },
+  nota: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    gap: 6,
+    fontSize: 12,
+    color: "var(--text-faint)",
+    textAlign: "center",
+    lineHeight: 1.45,
+    marginTop: 6,
+    marginBottom: 2,
   },
   salvar: {
     width: "100%",

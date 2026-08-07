@@ -38,6 +38,98 @@ export interface Recorrencia {
 
 export type NovaRecorrencia = Omit<Recorrencia, "id" | "user_id" | "created_at">;
 
+// Uma "pilha" de contas: tem nome, dono e membros próprios. É o que permite
+// dividir um conjunto de contas com uma pessoa e outro com outra, sem misturar.
+export interface Grupo {
+  id: string;
+  nome: string;
+  criador_id: string;
+  pessoal: boolean;
+  arquivado: boolean;
+  created_at: string;
+  // Preferência do usuário atual sobre esta pilha, resolvida a partir do
+  // vínculo — mora em membros_grupo porque cada pessoa decide a sua.
+  conta_no_saldo?: boolean;
+}
+
+// Quanto se perde ao excluir uma pilha — usado para dimensionar o aviso.
+export interface ResumoGrupo {
+  meses: number;
+  contas: number;
+  pessoas: number;
+}
+
+export interface MembroGrupo {
+  id: string;
+  grupo_id: string;
+  user_id: string;
+  entrou_em: string;
+  conta_no_saldo: boolean;
+  // Resolvido via RPC — a tabela guarda só o user_id.
+  email?: string;
+}
+
+export interface ListaContas {
+  id: string;
+  grupo_id: string;
+  mes: number; // 0-11
+  ano: number;
+  created_at: string;
+}
+
+export interface ItemLista {
+  id: string;
+  lista_id: string;
+  descricao: string;
+  valor: number;
+  categoria: string;
+  vencimento: string; // ISO YYYY-MM-DD
+  pago: boolean;
+  pago_por: string | null;
+  pago_em: string | null;
+  created_at: string;
+  // Resolvido por listarItens via RPC — a tabela guarda só o user_id em pago_por.
+  pago_por_email?: string | null;
+}
+
+export interface PerfilUsuario {
+  id: string;
+  email: string;
+}
+
+// O convite é da pessoa, não do mês: vale para todas as listas do dono, hoje e
+// no futuro, até alguém sair ou o dono remover.
+// O convite é de uma pilha específica: o link só puxa a pessoa para aquela.
+export interface Convite {
+  id: string;
+  grupo_id: string;
+  token: string;
+  criado_em: string;
+  expira_em: string;
+  usado_em: string | null;
+  usado_por: string | null;
+}
+
+// O que o convidado vê antes de decidir entrar.
+export interface PreviaConvite {
+  grupo_id: string;
+  grupo_nome: string;
+  dono_email: string;
+  ja_membro: boolean;
+}
+
+// Dados para criar um item (sem os campos gerados pelo banco nem os de pagamento)
+export type NovoItemLista = Omit<
+  ItemLista,
+  | "id"
+  | "lista_id"
+  | "pago"
+  | "pago_por"
+  | "pago_em"
+  | "pago_por_email"
+  | "created_at"
+>;
+
 export interface Categoria {
   nome: string;
   cor: string;

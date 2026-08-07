@@ -18,7 +18,7 @@ export default function ConfirmModal({
   onCancelar,
 }: Props) {
   return (
-    <div style={styles.overlay} onClick={onCancelar}>
+    <div style={styles.overlay} data-modal onClick={onCancelar}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div style={styles.iconWrap}>
           <AlertTriangle size={22} color="var(--red)" strokeWidth={2.2} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Receipt } from "lucide-react";
 import { brl } from "../lib/format";
 
 interface PendenteItem {
@@ -17,10 +17,22 @@ interface Props {
     entradas: PendenteItem;
     saidas: PendenteItem;
   };
+  // Parte das saídas que vem de Contas a Pagar. Separada das demais porque
+  // "de onde saiu esse número" é a primeira pergunta ao ver o projetado.
+  contasAPagar?: PendenteItem;
   saldoProjetado?: number;
 }
 
-export default function Card({ label, valor, icon, cor, destaque, pendente, saldoProjetado }: Props) {
+export default function Card({
+  label,
+  valor,
+  icon,
+  cor,
+  destaque,
+  pendente,
+  contasAPagar,
+  saldoProjetado,
+}: Props) {
   const [hover, setHover] = useState(false);
   const [semHover, setSemHover] = useState(false);
 
@@ -33,9 +45,18 @@ export default function Card({ label, valor, icon, cor, destaque, pendente, sald
     return () => mq.removeEventListener?.("change", listener);
   }, []);
 
+  // As saídas de lançamentos são o total menos a parte que veio das contas a
+  // pagar — assim as duas linhas somam exatamente o que entra no projetado.
+  const contas = contasAPagar ?? { total: 0, quantidade: 0 };
+  const saidasLancamentos = {
+    total: (pendente?.saidas.total ?? 0) - contas.total,
+    quantidade: (pendente?.saidas.quantidade ?? 0) - contas.quantidade,
+  };
+
   const temEntradas = !!pendente && pendente.entradas.quantidade > 0;
-  const temSaidas = !!pendente && pendente.saidas.quantidade > 0;
-  const temPendentes = temEntradas || temSaidas;
+  const temSaidas = saidasLancamentos.quantidade > 0;
+  const temContas = contas.quantidade > 0;
+  const temPendentes = temEntradas || temSaidas || temContas;
   const [aberto, setAberto] = useState(false);
   const mostrarPendentes =
     temPendentes && (semHover ? aberto : hover);
@@ -119,8 +140,23 @@ export default function Card({ label, valor, icon, cor, destaque, pendente, sald
                   gap: 4,
                 }}
               >
-                <TrendingDown size={11} />− {brl(pendente!.saidas.total)} a pagar
-                ({pendente!.saidas.quantidade})
+                <TrendingDown size={11} />− {brl(saidasLancamentos.total)} a pagar
+                ({saidasLancamentos.quantidade})
+              </p>
+            )}
+            {temContas && (
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "var(--red)",
+                  whiteSpace: "nowrap",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Receipt size={11} />− {brl(contas.total)} em contas a pagar (
+                {contas.quantidade})
               </p>
             )}
             {saldoProjetado !== undefined && (
