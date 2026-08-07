@@ -1,12 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar,
-  XAxis, YAxis, Tooltip, CartesianGrid,
-} from "recharts";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
-  Repeat,
+  Repeat, Home,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -40,6 +36,30 @@ import BottomNav from "./BottomNav";
 import ContasAPagar from "./ContasAPagar";
 import Recorrencias from "./Recorrencias";
 import { gerarLancamentosRecorrentes, listarRecorrencias } from "../lib/recorrencias";
+import { pendentesDeContas } from "../lib/listas";
+import AvisoDesatualizado from "./AvisoDesatualizado";
+
+// O recharts é metade do pacote e não aparece na aba Contas — sai do
+// carregamento inicial e chega quando o Início realmente precisa desenhar.
+const GraficoCategorias = lazy(() =>
+  import("./Graficos").then((m) => ({ default: m.GraficoCategorias }))
+);
+const GraficoAnual = lazy(() =>
+  import("./Graficos").then((m) => ({ default: m.GraficoAnual }))
+);
+
+function EsqueletoGrafico({ altura }: { altura: number }) {
+  return (
+    <div
+      className="skeleton-pulse"
+      style={{
+        height: altura,
+        borderRadius: 12,
+        background: "var(--bg)",
+      }}
+    />
+  );
+}
 
 function dataInicialNovoLancamento(mes: number, ano: number): string {
   const hoje = new Date();
@@ -49,14 +69,6 @@ function dataInicialNovoLancamento(mes: number, ano: number): string {
   const mm = String(mes + 1).padStart(2, "0");
   return `${ano}-${mm}-01`;
 }
-
-const tooltipStyle: React.CSSProperties = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 10,
-  fontSize: 13,
-  boxShadow: "var(--shadow)",
-};
 
 export default function Dashboard({ session }: { session: Session }) {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
@@ -74,6 +86,16 @@ export default function Dashboard({ session }: { session: Session }) {
   const [verRecorrencias, setVerRecorrencias] = useState(false);
   const [recorrencias, setRecorrencias] = useState<Recorrencia[]>([]);
   const [carregandoRecorrencias, setCarregandoRecorrencias] = useState(true);
+  // Conta marcada como paga em "Contas a Pagar" que o usuário decidiu lançar
+  // como saída no próprio financeiro.
+  const [preLancamento, setPreLancamento] = useState<Partial<
+    Pick<NovoLancamento, "tipo" | "valor" | "descricao" | "categoria">
+  > | null>(null);
+  const [contasEmAberto, setContasEmAberto] = useState({
+    total: 0,
+    quantidade: 0,
+  });
+  const [falhaAoAtualizar, setFalhaAoAtualizar] = useState(false);
   const longPressTimer = useRef<number | null>(null);
   const tooltipAutoHide = useRef<number | null>(null);
   const hoverDelayTimer = useRef<number | null>(null);
@@ -103,18 +125,51 @@ export default function Dashboard({ session }: { session: Session }) {
     }, 2000);
   }
 
+  const fecharTooltipFuturo = useCallback(() => {
+    setTooltipFuturoId(null);
+    if (tooltipAutoHide.current !== null) {
+      window.clearTimeout(tooltipAutoHide.current);
+      tooltipAutoHide.current = null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!tooltipFuturoId) return;
-    function fechar() {
-      setTooltipFuturoId(null);
-      if (tooltipAutoHide.current !== null) {
-        window.clearTimeout(tooltipAutoHide.current);
-        tooltipAutoHide.current = null;
-      }
-    }
-    window.addEventListener("touchstart", fechar, { passive: true });
-    return () => window.removeEventListener("touchstart", fechar);
-  }, [tooltipFuturoId]);
+
+    // O listener entra num setTimeout(0) de propósito. No iOS o toque que
+    // abriu o tooltip ainda está propagando quando o efeito roda, e sem essa
+    // folga ele mesmo dispara o fechamento — a tela reabria em seguida e o
+    // usuário precisava de dois toques para sair.
+    let registrado = false;
+    const aoDestravar = window.setTimeout(() => {
+      registrado = true;
+      window.addEventListener("touchstart", fecharTooltipFuturo, {
+        passive: true,
+      });
+      window.addEventListener("mousedown", fecharTooltipFuturo);
+      // Rolar a lista com o tooltip aberto deixava o balão flutuando longe do
+      // item a que pertence.
+      window.addEventListener("scroll", fecharTooltipFuturo, {
+        passive: true,
+        capture: true,
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(aoDestravar);
+      if (!registrado) return;
+      window.removeEventListener("touchstart", fecharTooltipFuturo);
+      window.removeEventListener("mousedown", fecharTooltipFuturo);
+      window.removeEventListener("scroll", fecharTooltipFuturo, {
+        capture: true,
+      });
+    };
+  }, [tooltipFuturoId, fecharTooltipFuturo]);
+
+  // Trocar de mês ou abrir qualquer modal tira o item de baixo do balão.
+  useEffect(() => {
+    fecharTooltipFuturo();
+  }, [mes, ano, modal, editando, confirmarId, preLancamento, fecharTooltipFuturo]);
 
   useEffect(() => {
     return () => {
@@ -155,7 +210,10 @@ export default function Dashboard({ session }: { session: Session }) {
       .then((novos) => {
         if (novos.length > 0) carregar();
       })
-      .catch(console.error);
+      .catch((e) => {
+        console.error(e);
+        setFalhaAoAtualizar(true);
+      });
   }, [carregar, mes, ano]);
 
   useEffect(() => {
@@ -166,9 +224,82 @@ export default function Dashboard({ session }: { session: Session }) {
   useEffect(() => {
     listarRecorrencias()
       .then(setRecorrencias)
-      .catch(console.error)
+      .catch((e) => {
+        console.error(e);
+        setFalhaAoAtualizar(true);
+      })
       .finally(() => setCarregandoRecorrencias(false));
   }, []);
+
+  const carregarContasEmAberto = useCallback(() => {
+    pendentesDeContas(mes, ano)
+      .then((r) => {
+        setContasEmAberto(r);
+        setFalhaAoAtualizar(false);
+      })
+      .catch((e) => {
+        console.error(e);
+        setFalhaAoAtualizar(true);
+      });
+  }, [mes, ano]);
+
+  useEffect(() => {
+    carregarContasEmAberto();
+  }, [carregarContasEmAberto]);
+
+  const atualizarTudo = useCallback(() => {
+    carregar();
+    carregarContasEmAberto();
+    listarRecorrencias()
+      .then(setRecorrencias)
+      .catch((e) => {
+        console.error(e);
+        setFalhaAoAtualizar(true);
+      });
+  }, [carregar, carregarContasEmAberto]);
+
+  // Com o celular bloqueado o WebSocket cai, e os eventos perdidos nesse
+  // intervalo não são reenviados — a tela voltaria com número velho. Ao
+  // reaparecer, buscamos tudo de novo em vez de confiar no Realtime.
+  useEffect(() => {
+    function aoVoltar() {
+      if (document.visibilityState === "visible") atualizarTudo();
+    }
+    document.addEventListener("visibilitychange", aoVoltar);
+    window.addEventListener("focus", aoVoltar);
+    return () => {
+      document.removeEventListener("visibilitychange", aoVoltar);
+      window.removeEventListener("focus", aoVoltar);
+    };
+  }, [atualizarTudo]);
+
+  // Três coisas mexem neste número: a conta em si (pagar, criar, excluir), a
+  // sua preferência de contar aquela pilha, e arquivar a pilha. Escutar só a
+  // primeira fazia o interruptor "não contar no meu saldo" parecer quebrado —
+  // desligar não mudava nada, e só excluir a conta tirava o valor da tela.
+  useEffect(() => {
+    const canal = supabase
+      .channel("contas-no-saldo")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "itens_lista" },
+        () => carregarContasEmAberto()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "membros_grupo" },
+        () => carregarContasEmAberto()
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "grupos" },
+        () => carregarContasEmAberto()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, [carregarContasEmAberto]);
 
   async function adicionar(item: NovoLancamento) {
     try {
@@ -247,14 +378,30 @@ export default function Dashboard({ session }: { session: Session }) {
     [lancamentos, mes, ano]
   );
 
-  const pendentes = useMemo(
+  const pendentesLancamentos = useMemo(
     () => calcularPendentes(lancamentos, mes, ano),
     [lancamentos, mes, ano]
   );
 
+  // As contas a pagar em aberto das pilhas marcadas somam às saídas previstas.
+  // Só as não pagas entram: quando uma é quitada ela sai daqui e vira (ou não)
+  // um lançamento — assim o mesmo valor nunca conta duas vezes.
+  const pendentes = useMemo(
+    () => ({
+      entradas: pendentesLancamentos.entradas,
+      saidas: {
+        total: pendentesLancamentos.saidas.total + contasEmAberto.total,
+        quantidade:
+          pendentesLancamentos.saidas.quantidade + contasEmAberto.quantidade,
+      },
+    }),
+    [pendentesLancamentos, contasEmAberto]
+  );
+
   const saldoProjetado = useMemo(
-    () => calcularSaldoProjetado(lancamentos, mes, ano),
-    [lancamentos, mes, ano]
+    () =>
+      calcularSaldoProjetado(lancamentos, mes, ano) - contasEmAberto.total,
+    [lancamentos, mes, ano, contasEmAberto]
   );
 
   const porCategoria = useMemo(
@@ -273,6 +420,18 @@ export default function Dashboard({ session }: { session: Session }) {
   );
 
   const email = session.user.email ?? "";
+
+  // Usada pelas duas navegações — a barra inferior no celular e o seletor do
+  // header no desktop. Trocar de aba com um modal aberto deixaria o modal
+  // pairando sobre a tela errada.
+  function navegarPara(aba: "inicio" | "contas") {
+    setModal(false);
+    setEditando(null);
+    setConfirmarId(null);
+    setPreLancamento(null);
+    setVerRecorrencias(false);
+    setAbaAtiva(aba);
+  }
 
   function avancarMes() {
     if (mes === 11) {
@@ -300,6 +459,7 @@ export default function Dashboard({ session }: { session: Session }) {
 
   return (
     <div
+      ref={swipeHandlers.ref}
       style={styles.page}
       className="page-root page-com-bottom-nav"
       onTouchStart={swipeHandlers.onTouchStart}
@@ -314,7 +474,40 @@ export default function Dashboard({ session }: { session: Session }) {
           </div>
         </div>
         <div style={styles.headerRight}>
-          {!verRecorrencias && abaAtiva === "inicio" && (
+          {/* No desktop a barra inferior não existe, e ela era o único caminho
+              para Contas a Pagar — a aba ficava inalcançável em tela grande. */}
+          <div style={styles.navDesktop} className="desktop-nav">
+            <button
+              type="button"
+              onClick={() => navegarPara("inicio")}
+              aria-current={
+                abaAtiva === "inicio" && !verRecorrencias ? "page" : undefined
+              }
+              style={{
+                ...styles.navDesktopBtn,
+                ...(abaAtiva === "inicio" && !verRecorrencias
+                  ? styles.navDesktopBtnAtivo
+                  : {}),
+              }}
+            >
+              <Home size={15} /> Início
+            </button>
+            <button
+              type="button"
+              onClick={() => navegarPara("contas")}
+              aria-current={abaAtiva === "contas" ? "page" : undefined}
+              style={{
+                ...styles.navDesktopBtn,
+                ...(abaAtiva === "contas" ? styles.navDesktopBtnAtivo : {}),
+              }}
+            >
+              <Receipt size={15} /> Contas
+            </button>
+          </div>
+
+          {/* Contas a Pagar também é por mês: sem o seletor aqui, a aba ficava
+              presa no mês escolhido em Início e o histórico era inalcançável. */}
+          {!verRecorrencias && (
             <MonthPicker
               mes={mes}
               ano={ano}
@@ -348,6 +541,8 @@ export default function Dashboard({ session }: { session: Session }) {
       ) : abaAtiva === "inicio" ? (
       <>
 
+      {falhaAoAtualizar && <AvisoDesatualizado onTentarDeNovo={atualizarTudo} />}
+
       <div style={styles.cards}>
         <Card
           label="Renda"
@@ -368,6 +563,7 @@ export default function Dashboard({ session }: { session: Session }) {
           cor={saldoAcumulado >= 0 ? "var(--accent)" : "var(--red)"}
           destaque
           pendente={pendentes}
+          contasAPagar={contasEmAberto}
           saldoProjetado={
             pendentes.entradas.quantidade > 0 || pendentes.saidas.quantidade > 0
               ? saldoProjetado
@@ -417,28 +613,9 @@ export default function Dashboard({ session }: { session: Session }) {
             </div>
           ) : (
             <>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={porCategoria}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={52}
-                    outerRadius={85}
-                    paddingAngle={3}
-                  >
-                    {porCategoria.map((e) => (
-                      <Cell key={e.name} fill={e.cor} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(v: number) => brl(v)}
-                    contentStyle={tooltipStyle}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <Suspense fallback={<EsqueletoGrafico altura={220} />}>
+                <GraficoCategorias dados={porCategoria} />
+              </Suspense>
               <div style={styles.legend}>
                 {porCategoria.map((c) => (
                   <span key={c.name} style={styles.legendItem}>
@@ -453,42 +630,9 @@ export default function Dashboard({ session }: { session: Session }) {
 
         <div style={styles.panel} className="panel-mobile">
           <h2 style={styles.panelTitle}>Quanto sobrou no ano</h2>
-          <ResponsiveContainer width="100%" height={290}>
-            <BarChart
-              data={anual}
-              margin={{ top: 10, right: 6, left: -20, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="var(--border)"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="mes"
-                tick={{ fill: "var(--text-faint)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: "var(--text-faint)", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                formatter={(v: number) => brl(v)}
-                contentStyle={tooltipStyle}
-                cursor={{ fill: "rgba(0,0,0,0.03)" }}
-              />
-              <Bar dataKey="sobra" radius={[5, 5, 0, 0]}>
-                {anual.map((e) => (
-                  <Cell
-                    key={e.mes}
-                    fill={e.sobra >= 0 ? "var(--green)" : "var(--red)"}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <Suspense fallback={<EsqueletoGrafico altura={290} />}>
+            <GraficoAnual dados={anual} />
+          </Suspense>
         </div>
       </div>
 
@@ -678,7 +822,31 @@ export default function Dashboard({ session }: { session: Session }) {
       />
       </>
       ) : (
-        <ContasAPagar />
+        <ContasAPagar
+          mes={mes}
+          ano={ano}
+          session={session}
+          onNovoLancamento={(item) =>
+            setPreLancamento({
+              tipo: "saida",
+              valor: item.valor,
+              descricao: item.descricao,
+              categoria: item.categoria,
+            })
+          }
+        />
+      )}
+
+      {preLancamento && (
+        <ModalNovo
+          valoresIniciais={preLancamento}
+          dataInicial={hojeLocal()}
+          onFechar={() => setPreLancamento(null)}
+          onSalvar={async (item) => {
+            await adicionar(item);
+            setPreLancamento(null);
+          }}
+        />
       )}
 
       {modal && (
@@ -712,13 +880,7 @@ export default function Dashboard({ session }: { session: Session }) {
 
       <BottomNav
         abaAtiva={abaAtiva}
-        onNavegar={(aba) => {
-          setModal(false);
-          setEditando(null);
-          setConfirmarId(null);
-          setVerRecorrencias(false);
-          setAbaAtiva(aba);
-        }}
+        onNavegar={navegarPara}
         onNovo={() => {
           setVerRecorrencias(false);
           setModal(true);
@@ -848,6 +1010,31 @@ const styles: Record<string, React.CSSProperties> = {
   title: { fontSize: 22, fontWeight: 700 },
   user: { fontSize: 12.5, color: "var(--text-faint)" },
   headerRight: { display: "flex", alignItems: "center", gap: 10 },
+  navDesktop: {
+    gap: 3,
+    background: "var(--bg)",
+    padding: 3,
+    borderRadius: 11,
+    border: "1px solid var(--border)",
+  },
+  navDesktopBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "7px 13px",
+    border: "none",
+    borderRadius: 8,
+    background: "transparent",
+    color: "var(--text-faint)",
+    fontWeight: 600,
+    fontSize: 13.5,
+    cursor: "pointer",
+  },
+  navDesktopBtnAtivo: {
+    background: "var(--surface)",
+    color: "var(--accent)",
+    boxShadow: "var(--shadow)",
+  },
   sair: {
     width: 40,
     height: 40,
@@ -860,8 +1047,10 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
   },
   cards: {
+    // 250px é o mínimo para caber "−R$ 3.139,90" ao lado do ícone sem cortar.
+    // Com 200px o saldo aparecia como "−R$ 32..." em telas médias.
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
     gap: 14,
     marginBottom: 16,
   },

@@ -93,9 +93,16 @@ input, select {
   display: none;
 }
 
+.desktop-nav {
+  display: flex;
+}
+
 @media (max-width: 640px) {
   .bottom-nav {
     display: flex;
+  }
+  .desktop-nav {
+    display: none;
   }
   .page-com-bottom-nav {
     padding-bottom: 80px !important;
@@ -122,4 +129,15 @@ input, select {
     padding: 12px 0 !important;
     font-size: 14px !important;
   }
+}
+
+/* Faixa de abas que rola na horizontal em vez de quebrar em várias linhas.
+   Com quatro ou mais pilhas, o wrap empilhava uma por linha no celular e
+   desalinhava os ícones de ação ao lado. */
+.abas-rolaveis {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.abas-rolaveis::-webkit-scrollbar {
+  display: none;
 }

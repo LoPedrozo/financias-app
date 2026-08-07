@@ -3,9 +3,18 @@ interface Props {
   titulo: string;
   sugestao?: string;
   compacto?: boolean;
+  // Botão opcional para quando o vazio tem uma saída óbvia — criar a lista do
+  // mês, por exemplo.
+  acao?: React.ReactNode;
 }
 
-export default function EmptyState({ icon, titulo, sugestao, compacto }: Props) {
+export default function EmptyState({
+  icon,
+  titulo,
+  sugestao,
+  compacto,
+  acao,
+}: Props) {
   return (
     <div
       style={{
@@ -41,6 +50,7 @@ export default function EmptyState({ icon, titulo, sugestao, compacto }: Props) 
           {sugestao}
         </p>
       )}
+      {acao && <div style={{ marginTop: 14 }}>{acao}</div>}
     </div>
   );
 }
