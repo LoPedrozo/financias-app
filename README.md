@@ -1,20 +1,34 @@
 # 💰 Minhas Finanças
 
-> Controle financeiro pessoal — receitas, despesas, saldo acumulado e lançamentos futuros, em uma PWA instalável que funciona em qualquer dispositivo.
+> Controle financeiro pessoal e contas compartilhadas — receitas, despesas, saldo acumulado, recorrências e a lista de contas do mês, tudo em uma PWA instalável.
 
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento%20ativo-c9a86a)
+![Status](https://img.shields.io/badge/status-em%20produção-3f9e6a)
 ![Stack](https://img.shields.io/badge/stack-React%2018%20%2B%20TypeScript%20%2B%20Supabase-1a1f2b)
 ![PWA](https://img.shields.io/badge/PWA-installable-5d8aa8)
+![Testes](https://img.shields.io/badge/testes-65%20passando-c9a86a)
 
-App pessoal feito para resolver um problema real: substituir planilhas e mensagens soltas no WhatsApp por um lugar único e simples para acompanhar entradas, saídas e o que ainda está por vir.
+**Em produção: [financias-app.vercel.app](https://financias-app.vercel.app)**
 
 ---
 
-## 🚀 Demonstração
+## 🤔 Por que esse app existe
 
-Em produção: **[financias-app.vercel.app](https://financias-app.vercel.app)**
+Cansado daquela planilha de Excel para planejar as contas do mês?
 
-Pode ser usado direto pelo navegador ou instalado como app (veja [📱 PWA — Instalação](#-pwa--instalação) abaixo).
+Da lista no Notes que você refaz toda virada de mês? Do print da conta de luz perdido no meio da conversa do WhatsApp, junto com o "alguém já pagou a internet?" que ninguém respondeu?
+
+Era assim que eu controlava minhas finanças. E o problema não era nenhuma dessas ferramentas isoladamente — era que **a informação vivia em três lugares que não conversavam**. A planilha sabia quanto eu ganhava. A lista do WhatsApp sabia o que estava por pagar. E só a minha cabeça juntava as duas coisas para responder a única pergunta que importa: *sobra ou não sobra no fim do mês?*
+
+Foi por isso que construí esse app. Um lugar só, onde:
+
+- o que entra e o que sai fica registrado, com data e categoria
+- as contas fixas se lançam sozinhas todo mês, sem eu lembrar
+- a lista de contas a pagar é compartilhada com quem divide as despesas comigo, em tempo real
+- e o **saldo projetado** puxa de tudo isso ao mesmo tempo — inclusive das contas que ainda ninguém pagou
+
+Também é onde aplico o que faço como engenheiro de software: RLS no banco em vez de confiar no front-end, testes nas regras de cálculo, code splitting para o app abrir rápido no 4G, e PWA para instalar no celular sem passar por loja de aplicativo.
+
+É um projeto pessoal de verdade — usado todo dia, por mim e pela minha família.
 
 ---
 
@@ -30,7 +44,7 @@ Pode ser usado direto pelo navegador ou instalado como app (veja [📱 PWA — I
 - **Editar** com loading otimista e rollback automático em caso de erro
 - **Excluir** com modal de confirmação
 - **Validação de formulário** com feedback visual nos campos
-- Lista do mês ordenada por data, com a descrição e o valor formatado em BRL
+- Lista do mês ordenada por data, com descrição e valor formatado em BRL
 
 ### Categorias
 **Saídas** — Alimentação, Transporte, Lazer, Educação, Assinaturas, Saúde, Tecnologia, Beleza, Casa, Cartão de Crédito / Contas, Vestuário, Outros.
@@ -39,39 +53,54 @@ Pode ser usado direto pelo navegador ou instalado como app (veja [📱 PWA — I
 
 Cada categoria tem cor própria, usada de forma consistente na lista, nos gráficos e nos badges.
 
-### Lançamentos futuros
-- Lançamentos com **data > hoje** aparecem na lista com ícone de relógio, opacidade reduzida e fundo distinto
-- Só entram nos cálculos de **Renda**, **Gastos**, **Saldo Atual**, gráfico de pizza e gráfico de barras quando a data chega
+### 🔁 Recorrências
+Contas fixas — salário, aluguel, assinaturas — cadastradas uma vez e geradas automaticamente.
+
+- Frequência **mensal** (dia do mês) ou **semanal** (dia da semana)
+- Geração **idempotente**: o índice único `(recorrencia_id, data)` impede duplicata mesmo com várias abas abertas
+- **Nunca gera para trás** — uma recorrência criada em agosto não contamina julho, mesmo se você navegar para lá
+- **Exceções persistentes**: ao excluir um lançamento gerado, ele fica registrado em `recorrencia_excecoes` e não volta na próxima sincronização
+- Pausar sem apagar (`ativo = false`), preservando o histórico já gerado
+
+### 📋 Contas a pagar (compartilhadas)
+A substituta da lista do WhatsApp — e a funcionalidade que mais mudou a rotina.
+
+- **Pilhas** — grupos com nome (`Casa`, `Apartamento`, `Viagem`) que várias pessoas dividem. Renomear, arquivar, excluir, passar a posse e sair
+- **Convite por link de uso único** — você gera um link e manda por onde quiser. Sem busca por e-mail, justamente para não permitir que alguém descubra quem tem conta no app
+- **Tempo real** — dois celulares na mesma pilha veem a mesma lista. Quem marcou como paga aparece para todo mundo
+- **Colar lista do WhatsApp** — cole o texto e o app interpreta. O parser entende formato brasileiro (`1.900` é mil e novecentos, `10,50` é dez e cinquenta) e trata a linha `Total: X` como **conferência**, nunca como item
+- **Contar no meu saldo** — um botão por pessoa. Ligado, as contas **em aberto** daquela pilha entram no seu saldo projetado; pagas não entram, para não contar duas vezes com o lançamento
+- **Acúmulo entre meses** — conta de agosto que ninguém pagou continua devida em setembro
+
+### Lançamentos futuros e saldo projetado
+- Lançamentos com **data > hoje** aparecem com ícone de relógio, opacidade reduzida e fundo distinto
+- Só entram em **Renda**, **Gastos**, **Saldo Atual** e nos gráficos quando a data chega
 - Tooltip com `Será contabilizado em DD/MM · R$ X,XX` (hover no desktop, long-press no mobile)
-- O card **Saldo Atual** mostra, ao passar o mouse (ou ao tocar no mobile), quanto está **a receber** e **a pagar** no mês
+- O card **Saldo atual** mostra abaixo a linha `≈ Saldo projetado`, e abre a conta por origem: quanto está **a receber**, quanto está **a pagar** e quanto vem das **contas em aberto** das pilhas — sempre dizendo de onde saiu cada número
 
 ### Dashboard
-- **Card Renda** — soma de entradas do mês já contabilizadas
-- **Card Gastos** — soma de saídas do mês já contabilizadas
-- **Card Saldo Atual** — saldo acumulado desde o primeiro mês com lançamentos, com destaque visual e linhas de pendentes
-- **Gráfico de pizza** por categoria com toggle Saídas / Entradas
+- **Card Renda** — entradas do mês já contabilizadas
+- **Card Gastos** — saídas do mês já contabilizadas
+- **Card Saldo atual** — acumulado desde o primeiro mês com lançamentos, com as linhas de pendentes e o saldo projetado logo abaixo
+- **Gráfico de pizza** por categoria, com toggle Saídas / Entradas
 - **Gráfico de barras** com o quanto sobrou em cada mês do ano
-- **MonthPicker** — navegação por setas `‹ ›` e popover com grade dos 12 meses + seletor de ano
-- **Swipe** horizontal entre meses em dispositivos touch (esquerda avança, direita recua, com virada automática de ano)
+- **MonthPicker** — setas `‹ ›` e popover com grade dos 12 meses + seletor de ano
+- **Swipe** horizontal entre meses no touch (desativado com modal aberto, para não trocar de mês sem querer)
 
 ### Estados, feedback e resiliência
-- **Skeleton** de loading enquanto os dados carregam
+- **Skeleton** enquanto os dados carregam
 - **Empty state** ilustrado quando não há lançamentos
-- **Toast** de feedback em todas as ações (sucesso e erro)
+- **Toast** de feedback em todas as ações
 - **Tela de erro com retry** caso o carregamento falhe
 - **Loading otimista** com rollback automático quando a API rejeita
+- **Recarga ao voltar do background** — `visibilitychange` e `focus` refazem as buscas, porque o Realtime não reenvia o que se perdeu enquanto o WebSocket estava caído
+- **Aviso de dado desatualizado** — se a recarga em segundo plano falhar, aparece uma faixa com "tentar de novo" em vez de deixar um valor velho na tela sem marca nenhuma
 
 ### PWA
 - Instalável em Android, iPhone e Desktop
-- Service worker com `autoUpdate` — atualizações entram sem precisar reinstalar
+- Service worker com `autoUpdate`
 - Funciona offline para os assets estáticos (HTML, CSS, JS, ícones, fontes)
-- Manifesto em português com cores e ícones próprios
-
-### Segurança
-- **RLS (Row Level Security)** no Supabase — cada usuário só vê e escreve seus próprios lançamentos
-- Defesa em profundidade: as queries em `src/lib/lancamentos.ts` também filtram por `user_id` do JWT
-- Variáveis sensíveis vivem em `.env.local` (não versionado); apenas as chaves *publishable* (`VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`) são embarcadas no build
-- Service worker **não cacheia** chamadas à API do Supabase — só assets estáticos
+- Manifesto em português, com ícones `any` e `maskable` separados
 
 ---
 
@@ -80,16 +109,35 @@ Cada categoria tem cor própria, usada de forma consistente na lista, nos gráfi
 ### Front-end
 - **React 18** + **TypeScript 5**
 - **Vite 5** (build e dev server)
-- **Recharts** (gráficos de pizza e barras)
+- **Recharts** — carregado sob demanda via `React.lazy`, fora do bundle inicial
 - **lucide-react** (ícones)
 - **CSS nativo** com variáveis (design tokens em `src/styles/global.css`) — sem framework de UI
-- **vite-plugin-pwa** + Workbox para service worker e manifesto
+- **vite-plugin-pwa** + Workbox
 
 ### Back-end
-- **Supabase** — PostgreSQL + Auth (GoTrue) + Row Level Security
+- **Supabase** — PostgreSQL + Auth (GoTrue) + Row Level Security + **Realtime**
 
 ### Testes
-- **Vitest 4** com ambiente Node, focado nas funções puras de `src/lib/calculos.ts`
+- **Vitest 4**, ambiente Node, sobre as funções puras de cálculo, recorrência e parsing
+
+### Deploy
+- **Vercel**, integrado ao GitHub — merge na `main` publica em produção
+
+---
+
+## ⚡ Performance
+
+O bundle inicial era de **890 kB** porque o Recharts vinha junto, mesmo para quem abrisse direto na aba de contas e nunca visse um gráfico.
+
+Os dois gráficos foram isolados em `src/components/Graficos.tsx` e passaram a ser carregados com `React.lazy`:
+
+| | Antes | Depois |
+|---|---|---|
+| Bundle inicial | 890 kB | **491 kB** |
+| Gzip | 243 kB | **135 kB** |
+| Recharts | sempre | só quando o Dashboard precisa (chunk de 400 kB) |
+
+Além disso, índices em `itens_lista` e `listas_contas` cobrem o caminho percorrido pelas policies de RLS — incluindo um índice **parcial** só das contas em aberto, que é o recorte consultado pelo saldo projetado.
 
 ---
 
@@ -97,35 +145,48 @@ Cada categoria tem cor própria, usada de forma consistente na lista, nos gráfi
 
 ```text
 financias-app/
-├── public/                     # Ícones do PWA (icon-192.png, icon-512.png, favicon)
+├── public/                          # Ícones do PWA (any, maskable, apple-touch, favicons)
 ├── src/
 │   ├── components/
-│   │   ├── Card.tsx            # Card de métrica (Renda, Gastos, Saldo)
-│   │   ├── ConfirmModal.tsx    # Modal de confirmação (excluir lançamento)
-│   │   ├── Dashboard.tsx       # Tela principal — cards, gráficos, lista, swipe
-│   │   ├── EmptyState.tsx      # Estado vazio ilustrado
-│   │   ├── Login.tsx           # Tela de login / cadastro / OAuth Google
-│   │   ├── ModalNovo.tsx       # Modal de criar / editar lançamento
-│   │   ├── MonthPicker.tsx     # Navegador de mês/ano com popover
-│   │   ├── Skeleton.tsx        # Placeholder de loading
-│   │   └── Toast.tsx           # Feedback de sucesso / erro
+│   │   ├── AceitarConvite.tsx       # Tela de entrada via link de convite
+│   │   ├── AvisoDesatualizado.tsx   # Faixa de "não consegui atualizar" com retry
+│   │   ├── BottomNav.tsx            # Navegação Início ↔ Contas
+│   │   ├── Card.tsx                 # Card de métrica (Renda, Gastos, Saldo)
+│   │   ├── ConfirmModal.tsx         # Confirmação de ação destrutiva
+│   │   ├── ContasAPagar.tsx         # Tela de contas compartilhadas
+│   │   ├── Dashboard.tsx            # Tela principal — cards, gráficos, lista, swipe
+│   │   ├── EmptyState.tsx           # Estado vazio ilustrado
+│   │   ├── Graficos.tsx             # Pizza e barras (chunk sob demanda)
+│   │   ├── Login.tsx                # Login / cadastro / OAuth Google
+│   │   ├── MenuPilha.tsx            # Renomear, arquivar, passar posse, sair
+│   │   ├── ModalColarLista.tsx      # Importar lista colada do WhatsApp
+│   │   ├── ModalCompartilhar.tsx    # Gerar link de convite
+│   │   ├── ModalItem.tsx            # Criar / editar conta a pagar
+│   │   ├── ModalNomeGrupo.tsx       # Criar / renomear pilha
+│   │   ├── ModalNovo.tsx            # Criar / editar lançamento
+│   │   ├── ModalPassarPosse.tsx     # Transferir a posse da pilha
+│   │   ├── ModalRecorrencia.tsx     # Criar / editar recorrência
+│   │   ├── MonthPicker.tsx          # Navegador de mês/ano
+│   │   ├── Recorrencias.tsx         # Gerenciar recorrências
+│   │   ├── Skeleton.tsx             # Placeholder de loading
+│   │   └── Toast.tsx                # Feedback de sucesso / erro
 │   ├── hooks/
-│   │   ├── useAuth.ts          # Sessão Supabase + listener de auth state
-│   │   └── useSwipe.ts         # Detecção de swipe horizontal em touch
+│   │   ├── useAuth.ts               # Sessão Supabase + listener de auth state
+│   │   └── useSwipe.ts              # Swipe horizontal (inerte com modal aberto)
 │   ├── lib/
-│   │   ├── calculos.ts         # Funções puras: somas, agrupamentos, pendentes
-│   │   ├── calculos.test.ts    # 30 testes unitários cobrindo calculos.ts
-│   │   ├── format.ts           # Formatação BRL
-│   │   ├── lancamentos.ts      # CRUD de lançamentos no Supabase
-│   │   └── supabase.ts         # Cliente Supabase singleton
-│   ├── styles/
-│   │   └── global.css          # Reset + design tokens (cores, sombras, raios)
-│   ├── types/
-│   │   └── index.ts            # Lancamento, Categoria, MESES, listas de categorias
-│   ├── App.tsx                 # Roteamento básico Login ↔ Dashboard
-│   └── main.tsx                # Bootstrap
-├── vite.config.ts              # Vite + PWA + Vitest
-├── tsconfig.json
+│   │   ├── calculos.ts              # Funções puras: somas, agrupamentos, projeção
+│   │   ├── format.ts                # Formatação BRL
+│   │   ├── importarLista.ts         # Parser de lista colada (pt-BR)
+│   │   ├── lancamentos.ts           # CRUD de lançamentos
+│   │   ├── listas.ts                # Pilhas, membros, itens, convites
+│   │   ├── mensagens.ts             # Tradução de erros do Supabase para pt-BR
+│   │   ├── recorrencias.ts          # CRUD + geração idempotente
+│   │   └── supabase.ts              # Cliente singleton
+│   ├── styles/global.css            # Reset + design tokens
+│   ├── types/index.ts               # Tipos, MESES, listas de categorias
+│   ├── App.tsx                      # Roteamento Login ↔ Dashboard ↔ Contas
+│   └── main.tsx                     # Bootstrap
+├── vite.config.ts                   # Vite + PWA + Vitest
 └── package.json
 ```
 
@@ -156,11 +217,17 @@ npm run preview
 ## 🧪 Testes
 
 ```bash
-npm run test:run   # roda os testes uma vez
-npm run test       # modo watch
+npm run test:run
 ```
 
-A suíte cobre as funções puras de [`src/lib/calculos.ts`](src/lib/calculos.ts) — **30 testes** entre `filtrarPorMes`, `somarPorTipo`, `calcularSaldoAcumulado`, `calcularPendentes`, `agruparPorCategoria`, `calcularBalancoAnual` e `hojeLocal`, incluindo cenários de lançamento com data passada, hoje, futura e legado sem data.
+**65 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
+
+| Arquivo | Testes | Cobre |
+|---|---|---|
+| `calculos.test.ts` | 42 | somas, saldo acumulado, pendentes, agrupamento por categoria, balanço anual, saldo projetado, `hojeLocal` |
+| `importarLista.test.ts` | 12 | parsing pt-BR, linha de total como conferência, linhas ignoradas, detecção de vencimento |
+| `recorrencias.test.ts` | 6 | frequências, idempotência, corte por `created_at`, exceções |
+| `fluxos_completos.test.ts` | 5 | cenários ponta a ponta de um mês real |
 
 Para checar tipos sem rodar build:
 
@@ -172,49 +239,55 @@ npx tsc --noEmit
 
 ## 📱 PWA — Instalação
 
-O app é uma **Progressive Web App** e roda em janela própria, sem barra de endereço.
+O app roda em janela própria, sem barra de endereço.
 
 ### Android (Chrome)
 1. Abra o app no Chrome.
 2. Toque no menu (⋮) no canto superior direito.
 3. Toque em **"Instalar app"** ou **"Adicionar à tela inicial"**.
-4. Confirme — o ícone aparece na tela inicial.
 
 ### iPhone / iPad (Safari)
 1. Abra o app no **Safari** (não funciona no Chrome iOS).
-2. Toque no botão de **Compartilhar** (quadrado com seta para cima).
+2. Toque em **Compartilhar** (quadrado com seta para cima).
 3. Role e toque em **"Adicionar à Tela de Início"**.
-4. Confirme — o ícone aparece na tela inicial.
 
 ### Desktop (Chrome / Edge)
 1. Abra o app no navegador.
-2. Procure o ícone de **instalação** (⊕) na barra de endereço, à direita.
-3. Clique em **"Instalar"** — o app abre em janela própria.
+2. Clique no ícone de **instalação** (⊕) na barra de endereço.
 
-> O service worker (registerType `autoUpdate`) busca novas versões em segundo plano. Basta recarregar uma vez para receber a atualização.
-
----
-
-## 🗺️ Roadmap
-
-Próximas frentes — em ordem aproximada de prioridade:
-
-- 📋 **Contas a pagar** — substituir lista solta no WhatsApp / planilha por algo nativo no app
-- 🔁 **Lançamento recorrente** (salário, assinaturas, contas fixas)
-- 🔎 **Busca e filtro** na lista de lançamentos
-- 🏷️ **Filtro por categoria** nos gráficos
-- 📊 **Comparativo mês a mês** com variação percentual
-- 🎯 **Meta de saldo** com indicador de progresso
-- ⚡ **Lazy load do Recharts** (corte significativo no bundle inicial)
-- 📑 **Paginação** da lista de lançamentos para históricos longos
-- 🌐 **Domínio personalizado**
+> O service worker (`autoUpdate`) busca novas versões em segundo plano. Se uma mudança recente não aparecer, recarregue uma vez — é cache do PWA, não bug.
 
 ---
 
 ## 🔒 Segurança
 
-- **Row Level Security (RLS)** ativo em todas as tabelas do Supabase: as policies garantem que `auth.uid() = user_id` em SELECT, INSERT, UPDATE e DELETE
-- **Defesa em profundidade** — mesmo com RLS ativo, as queries em [`src/lib/lancamentos.ts`](src/lib/lancamentos.ts) filtram explicitamente por `user_id` para evitar vazamento em caso de policy mal configurada
-- **Variáveis de ambiente** — apenas as chaves *publishable* (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) são embarcadas no build. A `service_role key` **nunca** entra no front-end
-- **Service worker** cacheia apenas assets estáticos (`script`, `style`, `worker`, `font`, `image`) — chamadas à REST API do Supabase **não** são interceptadas nem persistidas
-- **Sessão** gerenciada pelo SDK do Supabase (JWT em `localStorage`, refresh automático)
+- **Row Level Security** em todas as tabelas. Nos lançamentos, as policies exigem `auth.uid() = user_id` em SELECT, INSERT, UPDATE e DELETE
+- **Sem recursão entre policies** — o acesso às listas compartilhadas passa por funções `SECURITY DEFINER` com `SET search_path = ''` (`eh_membro_do_grupo`, `pode_acessar_lista`). Sem elas, a policy da lista consultaria a tabela de membros, cuja policy consultaria a lista de volta
+- **GRANT explícito** — RLS sozinho não basta no PostgREST: o papel `authenticated` recebe só os privilégios que usa, e `anon` não recebe nenhum DML
+- **Convite sem enumeração** — o convite é um token aleatório de 18 bytes (144 bits) de uso único, consumido sob `FOR UPDATE`. Buscar pessoas por e-mail deixaria qualquer um descobrir quem tem conta no app
+- **Defesa em profundidade** — mesmo com RLS ativo, as queries em [`src/lib/lancamentos.ts`](src/lib/lancamentos.ts) filtram explicitamente por `user_id`
+- **Variáveis de ambiente** — apenas as chaves *publishable* entram no build. A `service_role key` **nunca** toca o front-end
+- **Service worker** cacheia só assets estáticos — chamadas à REST API do Supabase não são interceptadas nem persistidas
+
+---
+
+## 🗺️ Roadmap
+
+Já entregue:
+
+- ✅ **Contas a pagar compartilhadas** com pilhas, convite por link e tempo real
+- ✅ **Lançamentos recorrentes** com geração idempotente e exceções persistentes
+- ✅ **Saldo projetado** puxando de lançamentos futuros e de contas em aberto
+- ✅ **Lazy load do Recharts** — 890 kB → 491 kB no carregamento inicial
+- ✅ **Importar lista colada** do WhatsApp
+
+Próximas frentes, em ordem aproximada de prioridade:
+
+- 🔎 **Busca e filtro** na lista de lançamentos
+- 🏷️ **Filtro por categoria** nos gráficos
+- 📊 **Comparativo mês a mês** com variação percentual
+- 🎯 **Meta de saldo** com indicador de progresso
+- 📎 **Anexar comprovante** a uma conta paga
+- 🔔 **Lembrete de vencimento** via push
+- 📑 **Paginação** da lista para históricos longos
+- 🌐 **Domínio personalizado**
