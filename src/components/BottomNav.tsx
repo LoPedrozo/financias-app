@@ -4,9 +4,9 @@ interface Props {
   abaAtiva: "inicio" | "contas";
   onNavegar: (aba: "inicio" | "contas") => void;
   onNovo: () => void;
-  // Com a feature de contas desligada sobra só Início: no lugar da segunda aba
-  // entra um vão do mesmo tamanho, para o botão de novo lançamento continuar
-  // centralizado na barra.
+  // Com a feature de contas desligada não há para onde navegar: a barra fica
+  // só com o botão de novo lançamento, centralizado. A volta das Recorrências
+  // continua pela seta do próprio cabeçalho daquela tela.
   mostrarContas?: boolean;
 }
 
@@ -18,6 +18,24 @@ export default function BottomNav({
 }: Props) {
   const corInicio = abaAtiva === "inicio" ? "var(--accent)" : "var(--text-faint)";
   const corContas = abaAtiva === "contas" ? "var(--accent)" : "var(--text-faint)";
+
+  if (!mostrarContas) {
+    return (
+      <nav
+        style={{ ...styles.nav, justifyContent: "center" }}
+        className="bottom-nav"
+        aria-label="Ações"
+      >
+        <button
+          style={{ ...styles.fab, ...styles.fabSozinho }}
+          onClick={onNovo}
+          aria-label="Novo lançamento"
+        >
+          <Plus size={28} strokeWidth={2.4} />
+        </button>
+      </nav>
+    );
+  }
 
   return (
     <nav style={styles.nav} className="bottom-nav" aria-label="Navegação principal">
@@ -39,19 +57,15 @@ export default function BottomNav({
         <Plus size={26} strokeWidth={2.4} />
       </button>
 
-      {mostrarContas ? (
-        <button
-          style={{ ...styles.tab, color: corContas }}
-          onClick={() => onNavegar("contas")}
-          aria-label="Contas a pagar"
-          aria-current={abaAtiva === "contas" ? "page" : undefined}
-        >
-          <Receipt size={22} strokeWidth={2} />
-          <span style={styles.label}>Contas</span>
-        </button>
-      ) : (
-        <div style={styles.vao} aria-hidden="true" />
-      )}
+      <button
+        style={{ ...styles.tab, color: corContas }}
+        onClick={() => onNavegar("contas")}
+        aria-label="Contas a pagar"
+        aria-current={abaAtiva === "contas" ? "page" : undefined}
+      >
+        <Receipt size={22} strokeWidth={2} />
+        <span style={styles.label}>Contas</span>
+      </button>
     </nav>
   );
 }
@@ -82,9 +96,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 6,
     height: "100%",
   },
-  vao: {
-    flex: 1,
-  },
   label: {
     fontSize: 10,
     fontWeight: 600,
@@ -102,5 +113,13 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     boxShadow: "0 4px 14px rgba(201, 168, 106, 0.4), 0 2px 4px rgba(0, 0, 0, 0.08)",
     marginBottom: 8,
+  },
+  // Sozinho no centro o botão vira o único elemento da barra: um pouco maior
+  // para não parecer perdido, e sem o deslocamento que existia para alinhar
+  // com o rótulo das abas ao lado.
+  fabSozinho: {
+    width: 58,
+    height: 58,
+    marginBottom: 0,
   },
 };
