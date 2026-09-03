@@ -37,6 +37,7 @@ import ContasAPagar from "./ContasAPagar";
 import Recorrencias from "./Recorrencias";
 import { gerarLancamentosRecorrentes, listarRecorrencias } from "../lib/recorrencias";
 import { pendentesDeContas } from "../lib/listas";
+import { CONTAS_A_PAGAR_HABILITADO } from "../lib/flags";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 
 // O recharts é metade do pacote e não aparece na aba Contas — sai do
@@ -232,6 +233,9 @@ export default function Dashboard({ session }: { session: Session }) {
   }, []);
 
   const carregarContasEmAberto = useCallback(() => {
+    // Feature desligada: nada de consultar pilhas e itens. `contasEmAberto`
+    // fica zerado e o saldo projetado volta a olhar só os lançamentos.
+    if (!CONTAS_A_PAGAR_HABILITADO) return;
     pendentesDeContas(mes, ano)
       .then((r) => {
         setContasEmAberto(r);
@@ -278,6 +282,7 @@ export default function Dashboard({ session }: { session: Session }) {
   // primeira fazia o interruptor "não contar no meu saldo" parecer quebrado —
   // desligar não mudava nada, e só excluir a conta tirava o valor da tela.
   useEffect(() => {
+    if (!CONTAS_A_PAGAR_HABILITADO) return;
     const canal = supabase
       .channel("contas-no-saldo")
       .on(
@@ -476,6 +481,7 @@ export default function Dashboard({ session }: { session: Session }) {
         <div style={styles.headerRight}>
           {/* No desktop a barra inferior não existe, e ela era o único caminho
               para Contas a Pagar — a aba ficava inalcançável em tela grande. */}
+          {CONTAS_A_PAGAR_HABILITADO && (
           <div style={styles.navDesktop} className="desktop-nav">
             <button
               type="button"
@@ -504,6 +510,7 @@ export default function Dashboard({ session }: { session: Session }) {
               <Receipt size={15} /> Contas
             </button>
           </div>
+          )}
 
           {/* Contas a Pagar também é por mês: sem o seletor aqui, a aba ficava
               presa no mês escolhido em Início e o histórico era inalcançável. */}
@@ -538,7 +545,7 @@ export default function Dashboard({ session }: { session: Session }) {
             sincronizarRecorrentes();
           }}
         />
-      ) : abaAtiva === "inicio" ? (
+      ) : abaAtiva === "inicio" || !CONTAS_A_PAGAR_HABILITADO ? (
       <>
 
       {falhaAoAtualizar && <AvisoDesatualizado onTentarDeNovo={atualizarTudo} />}
@@ -880,6 +887,7 @@ export default function Dashboard({ session }: { session: Session }) {
 
       <BottomNav
         abaAtiva={abaAtiva}
+        mostrarContas={CONTAS_A_PAGAR_HABILITADO}
         onNavegar={navegarPara}
         onNovo={() => {
           setVerRecorrencias(false);

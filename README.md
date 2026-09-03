@@ -62,8 +62,15 @@ Contas fixas — salário, aluguel, assinaturas — cadastradas uma vez e gerada
 - **Exceções persistentes**: ao excluir um lançamento gerado, ele fica registrado em `recorrencia_excecoes` e não volta na próxima sincronização
 - Pausar sem apagar (`ativo = false`), preservando o histórico já gerado
 
-### 📋 Contas a pagar (compartilhadas)
-A substituta da lista do WhatsApp — e a funcionalidade que mais mudou a rotina.
+### 📋 Contas a pagar (compartilhadas) — **desativada por enquanto**
+A substituta da lista do WhatsApp. Está **fora do ar por decisão de produto**:
+a tela ficou confusa de usar e o botão de adicionar conta não aparecia no
+celular. O código continua no repositório e coberto pelos testes — para religar,
+basta trocar `CONTAS_A_PAGAR_HABILITADO` para `true` em `src/lib/flags.ts`.
+
+Com o interruptor desligado, a aba Contas some do celular e do desktop, o app
+não consulta mais as tabelas de pilhas nem abre canal Realtime, links de convite
+são ignorados, e o saldo projetado volta a considerar só os lançamentos.
 
 - **Pilhas** — grupos com nome (`Casa`, `Apartamento`, `Viagem`) que várias pessoas dividem. Renomear, arquivar, excluir, passar a posse e sair
 - **Convite por link de uso único** — você gera um link e manda por onde quiser. Sem busca por e-mail, justamente para não permitir que alguém descubra quem tem conta no app
@@ -175,6 +182,7 @@ financias-app/
 │   │   └── useSwipe.ts              # Swipe horizontal (inerte com modal aberto)
 │   ├── lib/
 │   │   ├── calculos.ts              # Funções puras: somas, agrupamentos, projeção
+│   │   ├── flags.ts                 # Interruptores de feature (contas a pagar)
 │   │   ├── format.ts                # Formatação BRL
 │   │   ├── importarLista.ts         # Parser de lista colada (pt-BR)
 │   │   ├── lancamentos.ts           # CRUD de lançamentos
@@ -275,7 +283,7 @@ O app roda em janela própria, sem barra de endereço.
 
 Já entregue:
 
-- ✅ **Contas a pagar compartilhadas** com pilhas, convite por link e tempo real
+- ✅ **Contas a pagar compartilhadas** com pilhas, convite por link e tempo real (desativada por enquanto — ver `src/lib/flags.ts`)
 - ✅ **Lançamentos recorrentes** com geração idempotente e exceções persistentes
 - ✅ **Saldo projetado** puxando de lançamentos futuros e de contas em aberto
 - ✅ **Lazy load do Recharts** — 890 kB → 491 kB no carregamento inicial

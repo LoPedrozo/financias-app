@@ -3,10 +3,13 @@ import { useAuth } from "./hooks/useAuth";
 import Login from "./components/Login";
 import Dashboard from "./components/Dashboard";
 import AceitarConvite from "./components/AceitarConvite";
+import { CONTAS_A_PAGAR_HABILITADO } from "./lib/flags";
 
 // Convite de lista compartilhada chega como ?convite=<token>. Sem router no
-// app, é aqui que ele é lido.
+// app, é aqui que ele é lido. Com a feature de contas desligada o link não
+// leva a lugar nenhum: o token é ignorado e o app abre direto no Dashboard.
 function tokenDoConvite(): string | null {
+  if (!CONTAS_A_PAGAR_HABILITADO) return null;
   return new URLSearchParams(window.location.search).get("convite");
 }
 
@@ -36,6 +39,9 @@ export default function App() {
 
   useEffect(() => {
     limparCacheLegado();
+    // Convite ignorado ainda assim sai da URL, senão o parâmetro fica grudado
+    // em todo compartilhamento do link do app.
+    if (!CONTAS_A_PAGAR_HABILITADO) limparTokenDaUrl();
   }, []);
 
   if (carregando) {
