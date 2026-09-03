@@ -4,9 +4,18 @@ interface Props {
   abaAtiva: "inicio" | "contas";
   onNavegar: (aba: "inicio" | "contas") => void;
   onNovo: () => void;
+  // Com a feature de contas desligada sobra só Início: no lugar da segunda aba
+  // entra um vão do mesmo tamanho, para o botão de novo lançamento continuar
+  // centralizado na barra.
+  mostrarContas?: boolean;
 }
 
-export default function BottomNav({ abaAtiva, onNavegar, onNovo }: Props) {
+export default function BottomNav({
+  abaAtiva,
+  onNavegar,
+  onNovo,
+  mostrarContas = true,
+}: Props) {
   const corInicio = abaAtiva === "inicio" ? "var(--accent)" : "var(--text-faint)";
   const corContas = abaAtiva === "contas" ? "var(--accent)" : "var(--text-faint)";
 
@@ -30,15 +39,19 @@ export default function BottomNav({ abaAtiva, onNavegar, onNovo }: Props) {
         <Plus size={26} strokeWidth={2.4} />
       </button>
 
-      <button
-        style={{ ...styles.tab, color: corContas }}
-        onClick={() => onNavegar("contas")}
-        aria-label="Contas a pagar"
-        aria-current={abaAtiva === "contas" ? "page" : undefined}
-      >
-        <Receipt size={22} strokeWidth={2} />
-        <span style={styles.label}>Contas</span>
-      </button>
+      {mostrarContas ? (
+        <button
+          style={{ ...styles.tab, color: corContas }}
+          onClick={() => onNavegar("contas")}
+          aria-label="Contas a pagar"
+          aria-current={abaAtiva === "contas" ? "page" : undefined}
+        >
+          <Receipt size={22} strokeWidth={2} />
+          <span style={styles.label}>Contas</span>
+        </button>
+      ) : (
+        <div style={styles.vao} aria-hidden="true" />
+      )}
     </nav>
   );
 }
@@ -68,6 +81,9 @@ const styles: Record<string, React.CSSProperties> = {
     border: "none",
     padding: 6,
     height: "100%",
+  },
+  vao: {
+    flex: 1,
   },
   label: {
     fontSize: 10,
