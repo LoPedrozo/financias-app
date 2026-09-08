@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA } from "../types";
-import type { NovoLancamento, Tipo } from "../types";
+import type { Lancamento, NovoLancamento, Tipo } from "../types";
 import type { LinhaLida } from "../lib/importarLancamentos";
 import {
   interpretarLancamentos,
@@ -9,6 +9,7 @@ import {
   somarLinhas,
 } from "../lib/importarLancamentos";
 import { CATEGORIA_PADRAO, adivinharCategoria } from "../lib/categorias";
+import { chaveExata, conjuntoExato } from "../lib/duplicatas";
 import { brl } from "../lib/format";
 
 // Um campo só para os dois casos que antes eram telas diferentes: digitar
@@ -23,6 +24,8 @@ import { brl } from "../lib/format";
 interface Props {
   /** Data das linhas que não trouxerem a sua própria. */
   dataPadrao: string;
+  /** Tudo que já está lançado, para avisar antes de duplicar. */
+  jaLancados: Lancamento[];
   onFechar: () => void;
   onSalvar: (itens: NovoLancamento[]) => Promise<void> | void;
   /** Saída para o formulário de sempre, levando junto o que já foi digitado. */
@@ -65,6 +68,7 @@ function diaMes(data: string): string {
 
 export default function ModalAdicionar({
   dataPadrao,
+  jaLancados,
   onFechar,
   onSalvar,
   onFormularioCompleto,
@@ -100,6 +104,24 @@ export default function ModalAdicionar({
     area.style.height = "auto";
     area.style.height = `${Math.min(area.scrollHeight, 200)}px`;
   }, [texto]);
+
+  // Recolar a mesma lista, ou salvar de novo depois de uma falha que na
+  // verdade tinha entrado, são os dois jeitos de duplicar sem perceber.
+  // O app não bloqueia — dois almoços de R$ 25 no mesmo dia existem —, mas
+  // também não deixa passar calado.
+  const existentes = useMemo(() => conjuntoExato(jaLancados), [jaLancados]);
+  const repetidas = useMemo(
+    () => linhas.filter((linha) => existentes.has(chaveExata(linha))),
+    [linhas, existentes]
+  );
+
+  function tirarRepetidas() {
+    setRemovidos((atual) => {
+      const proximo = new Set(atual);
+      for (const linha of repetidas) proximo.add(chave(linha));
+      return proximo;
+    });
+  }
 
   // Quando a lista inteira trouxe a própria data, o campo de data vira
   // enfeite — some, e a folha encurta uma linha no celular.
@@ -244,6 +266,30 @@ export default function ModalAdicionar({
               </div>
             )}
 
+            {repetidas.length > 0 && (
+              <div style={styles.avisoForte}>
+                <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                <div>
+                  <span>
+                    {repetidas.length === 1
+                      ? "1 linha já está lançada"
+                      : `${repetidas.length} linhas já estão lançadas`}{" "}
+                    com a mesma descrição, valor e data. Salvar assim vai
+                    duplicar.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={tirarRepetidas}
+                    style={styles.avisoAcao}
+                  >
+                    {repetidas.length === 1
+                      ? "Tirar a repetida"
+                      : `Tirar as ${repetidas.length} repetidas`}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={styles.previa}>
               {linhas.map((linha) => {
                 const entrada = linha.tipo === "entrada";
@@ -290,6 +336,9 @@ export default function ModalAdicionar({
                           </option>
                         ))}
                       </select>
+                      {existentes.has(chaveExata(linha)) && (
+                        <span style={styles.selo}>já existe</span>
+                      )}
                       <span style={styles.linhaData}>{diaMes(linha.data)}</span>
                       <button
                         type="button"
@@ -446,6 +495,39 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 12.5,
     lineHeight: 1.45,
     marginTop: 10,
+  },
+  avisoForte: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    background: "var(--red-soft)",
+    color: "var(--text-soft)",
+    borderRadius: 10,
+    padding: "10px 12px",
+    fontSize: 12.5,
+    lineHeight: 1.45,
+    marginTop: 10,
+  },
+  avisoAcao: {
+    display: "block",
+    marginTop: 6,
+    background: "none",
+    border: "none",
+    padding: 0,
+    color: "var(--red)",
+    fontSize: 12.5,
+    fontWeight: 700,
+    textDecoration: "underline",
+  },
+  selo: {
+    background: "var(--red-soft)",
+    color: "var(--red)",
+    fontSize: 10.5,
+    fontWeight: 700,
+    padding: "2px 6px",
+    borderRadius: 6,
+    whiteSpace: "nowrap",
+    flexShrink: 0,
   },
   previa: {
     display: "flex",

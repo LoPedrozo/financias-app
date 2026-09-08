@@ -56,14 +56,27 @@ export interface ResumoPendentes {
   saidas: { total: number; quantidade: number };
 }
 
+// Tudo que ainda não caiu até a competência visitada — e não só o que está
+// dentro dela.
+//
+// O recorte por mês parecia natural e quebrava o card: o saldo atual corta por
+// data (<= hoje) e os pendentes cortavam por mês, então, olhando outubro em
+// setembro, o que sobrou de setembro não entrava em nenhum dos dois. As quatro
+// linhas do card deixavam de fechar como soma, e faltava dinheiro na conta sem
+// nenhuma pista de onde.
+//
+// Somando de forma acumulada, `projetado − atual` passa a ser exatamente
+// `entradas − saidas` daqui, por construção. No mês corrente nada muda: uma
+// competência anterior à de hoje não tem como ter data futura, porque mes/ano
+// sempre saem da própria data.
 export function calcularPendentes(
   lancamentos: Lancamento[],
   mes: number,
   ano: number
 ): ResumoPendentes {
-  const futuros = filtrarPorMes(lancamentos, mes, ano).filter(
-    (l) => !isContabilizado(l)
-  );
+  const futuros = lancamentos
+    .filter((l) => compararCompetencia(l, { mes, ano }) <= 0)
+    .filter((l) => !isContabilizado(l));
   const entradas = futuros.filter((l) => l.tipo === "entrada");
   const saidas = futuros.filter((l) => l.tipo === "saida");
   return {

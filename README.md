@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-em%20produção-3f9e6a)
 ![Stack](https://img.shields.io/badge/stack-React%2018%20%2B%20TypeScript%20%2B%20Supabase-1a1f2b)
 ![PWA](https://img.shields.io/badge/PWA-installable-5d8aa8)
-![Testes](https://img.shields.io/badge/testes-94%20passando-c9a86a)
+![Testes](https://img.shields.io/badge/testes-184%20passando-c9a86a)
 
 **Em produção: [financias-app.vercel.app](https://financias-app.vercel.app)**
 
@@ -85,6 +85,10 @@ Total = 10.820
   (um toque troca), a categoria e a data, e o que não deu para interpretar é
   listado em vez de sumir. A linha `Total = X` confere a soma e avisa da
   diferença, mas nunca vira lançamento
+- **Aviso de duplicata** — linha com a mesma descrição, valor e data do que já
+  está lançado ganha o selo `já existe`, e um toque tira todas as repetidas de
+  uma vez. Não bloqueia (dois almoços de R$ 25 no mesmo dia existem), mas não
+  deixa passar calado
 - **Escape para o formulário completo**, levando junto o que já foi digitado
 
 ### 🔁 Repetir o mês anterior
@@ -141,6 +145,7 @@ são ignorados, e o saldo projetado volta a considerar só os lançamentos.
 - Só entram em **Renda**, **Gastos**, **Saldo Atual** e nos gráficos quando a data chega
 - Tooltip com `Será contabilizado em DD/MM · R$ X,XX` (hover no desktop, long-press no mobile)
 - O card **Saldo atual** mostra abaixo a linha `≈ Saldo projetado`, e abre a conta por origem: quanto está **a receber**, quanto está **a pagar** e quanto vem das **contas em aberto** das pilhas — sempre dizendo de onde saiu cada número
+- As quatro linhas **fecham como soma** (`projetado = atual + a receber − a pagar`) em qualquer mês visitado. Os pendentes são acumulados até a competência olhada, e não só os do mês: o saldo atual corta por data e os pendentes cortavam por mês, então o que sobrou de setembro sumia do card ao olhar outubro. Uma varredura de 72 combinações trava a igualdade
 
 ### Dashboard
 - **Card Renda** — entradas do mês já contabilizadas
@@ -289,14 +294,16 @@ npm run preview
 npm run test:run
 ```
 
-**94 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
+**184 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
 
 | Arquivo | Testes | Cobre |
 |---|---|---|
-| `calculos.test.ts` | 42 | somas, saldo acumulado, pendentes, agrupamento por categoria, balanço anual, saldo projetado, `hojeLocal` |
+| `contas_batem.test.ts` | 82 | a invariante do card varrida em 72 combinações de conjunto × mês visitado, o mês real ponta a ponta, encolhimento de dia no Repetir |
+| `calculos.test.ts` | 43 | somas, saldo acumulado, pendentes, agrupamento por categoria, balanço anual, saldo projetado, `hojeLocal` |
 | `importarLancamentos.test.ts` | 21 | gramática da linha, sinal, valor no fim e no começo, datas em três níveis, total como conferência, competência pela data |
 | `importarLista.test.ts` | 12 | parsing pt-BR, linha de total como conferência, linhas ignoradas, detecção de vencimento |
 | `categorias.test.ts` | 8 | normalização, palavra inteira, palavra mais longa, ambiguidade que não desempata |
+| `duplicatas.test.ts` | 9 | lista recolada, mesma conta em meses diferentes, valor ajustado |
 | `recorrencias.test.ts` | 6 | frequências, idempotência, corte por `created_at`, exceções |
 | `fluxos_completos.test.ts` | 5 | cenários ponta a ponta de um mês real |
 
@@ -348,7 +355,7 @@ Já entregue:
 
 - ✅ **Contas a pagar compartilhadas** com pilhas, convite por link e tempo real (desativada por enquanto — ver `src/lib/flags.ts`)
 - ✅ **Lançamentos recorrentes** com geração idempotente e exceções persistentes
-- ✅ **Saldo projetado** puxando de lançamentos futuros e de contas em aberto
+- ✅ **Saldo projetado** puxando de lançamentos futuros e de contas em aberto — com as quatro linhas do card fechando como soma em qualquer mês visitado
 - ✅ **Lazy load do Recharts** — 890 kB → 491 kB no carregamento inicial
 - ✅ **Importar lista colada** do WhatsApp
 - ✅ **Adicionar escrevendo** — uma linha ou a lista inteira, com tipo, data e categoria adivinhados

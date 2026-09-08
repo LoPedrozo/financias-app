@@ -353,6 +353,10 @@ export default function Dashboard({ session }: { session: Session }) {
       );
     } catch (e) {
       console.error(e);
+      // A falha pode ser só a resposta perdida no caminho, com o insert já
+      // gravado. Recarregar deixa a tela igual ao servidor, e é isso que faz
+      // o aviso de repetida aparecer se ele tentar salvar de novo.
+      carregar();
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
     }
   }
@@ -937,6 +941,7 @@ export default function Dashboard({ session }: { session: Session }) {
       {modalAdicionar && (
         <ModalAdicionar
           dataPadrao={dataInicialNovoLancamento(mes, ano)}
+          jaLancados={lancamentos}
           onFechar={() => setModalAdicionar(false)}
           onSalvar={adicionarVarios}
           onFormularioCompleto={(valores, data) => {

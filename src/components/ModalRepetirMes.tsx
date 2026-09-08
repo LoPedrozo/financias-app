@@ -3,7 +3,7 @@ import { CopyCheck, Repeat, X } from "lucide-react";
 import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, MESES } from "../types";
 import type { Lancamento, NovoLancamento } from "../types";
 import { mesmoDiaNoMes } from "../lib/calculos";
-import { normalizar } from "../lib/categorias";
+import { chaveDaConta, conjuntoDeContas } from "../lib/duplicatas";
 import { brl } from "../lib/format";
 
 // A lista do mês passado colada no mês novo, que é o que se fazia à mão no
@@ -74,13 +74,9 @@ export default function ModalRepetirMes({
   // fica de fora da comparação de propósito: a conta de luz de setembro é a
   // mesma conta de agosto ainda que venha dez reais mais cara.
   const jaExistem = useMemo(() => {
-    const chaves = new Set(
-      jaNoMes.map((l) => `${l.tipo}|${normalizar(l.descricao)}`)
-    );
+    const noDestino = conjuntoDeContas(jaNoMes);
     return new Set(
-      candidatos
-        .filter((l) => chaves.has(`${l.tipo}|${normalizar(l.descricao)}`))
-        .map((l) => l.id)
+      candidatos.filter((l) => noDestino.has(chaveDaConta(l))).map((l) => l.id)
     );
   }, [candidatos, jaNoMes]);
 
