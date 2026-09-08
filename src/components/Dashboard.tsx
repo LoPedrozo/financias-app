@@ -8,7 +8,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import {
   listarLancamentos, criarLancamento, criarLancamentosEmLote,
-  atualizarLancamento, removerLancamento,
+  atualizarLancamento, removerLancamento, removerLancamentosEmLote,
 } from "../lib/lancamentos";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
 import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
@@ -33,7 +33,7 @@ import ModalNovo from "./ModalNovo";
 import ModalAdicionar from "./ModalAdicionar";
 import ModalRepetirMes from "./ModalRepetirMes";
 import ConfirmModal from "./ConfirmModal";
-import Toast, { type ToastDados } from "./Toast";
+import Toast, { type ToastAcao, type ToastDados } from "./Toast";
 import EmptyState from "./EmptyState";
 import { SkeletonLista } from "./Skeleton";
 import BottomNav from "./BottomNav";
@@ -84,12 +84,25 @@ interface FormularioPreenchido {
   data: string;
 }
 
-export default function Dashboard({ session }: { session: Session }) {
+export default function Dashboard({
+  session,
+  textoInicial,
+  onTextoInicialUsado,
+}: {
+  session: Session;
+  /** Lista que chegou pelo atalho de compartilhamento, já pronta para revisar. */
+  textoInicial?: string;
+  onTextoInicialUsado?: () => void;
+}) {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [mes, setMes] = useState(new Date().getMonth());
   const [ano, setAno] = useState(new Date().getFullYear());
-  const [modalAdicionar, setModalAdicionar] = useState(false);
+  // Texto compartilhado abre o Adicionar sozinho: quem veio do atalho já
+  // pediu para lançar, não faz sentido cair no Dashboard e ter que tocar de
+  // novo. Guardado em estado para não voltar ao reabrir o modal pelo +.
+  const [textoAdicionar, setTextoAdicionar] = useState(textoInicial ?? "");
+  const [modalAdicionar, setModalAdicionar] = useState(!!textoInicial);
   const [modalRepetir, setModalRepetir] = useState(false);
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
@@ -203,8 +216,8 @@ export default function Dashboard({ session }: { session: Session }) {
   }, []);
 
   const mostrarToast = useCallback(
-    (tipo: ToastDados["tipo"], mensagem: string) => {
-      setToast({ id: Date.now(), tipo, mensagem });
+    (tipo: ToastDados["tipo"], mensagem: string, acao?: ToastAcao) => {
+      setToast({ id: Date.now(), tipo, mensagem, acao });
     },
     []
   );
@@ -337,19 +350,43 @@ export default function Dashboard({ session }: { session: Session }) {
     }
   }
 
+  // Tira do ar a leva que acabou de entrar. É o arrependimento rápido: colou
+  // a lista errada, trouxe o mês que não era. Passado o toast, o caminho
+  // volta a ser excluir um a um.
+  async function desfazerLote(ids: string[]) {
+    const anterior = lancamentos;
+    const alvo = new Set(ids);
+    setLancamentos((atual) => atual.filter((l) => !alvo.has(l.id)));
+    try {
+      await removerLancamentosEmLote(ids);
+      mostrarToast(
+        "sucesso",
+        ids.length === 1
+          ? "Lançamento desfeito."
+          : `${ids.length} lançamentos desfeitos.`
+      );
+    } catch (e) {
+      console.error(e);
+      setLancamentos(anterior);
+      mostrarToast("erro", "Não foi possível desfazer.");
+    }
+  }
+
   // Serve tanto ao Adicionar quanto ao Repetir mês: os dois entregam uma
   // leva pronta, que pode ter uma linha só.
   async function adicionarVarios(itens: NovoLancamento[]) {
     try {
       const novos = await criarLancamentosEmLote(itens);
       setLancamentos((atual) => [...novos, ...atual]);
-      setModalAdicionar(false);
+      fecharAdicionar();
       setModalRepetir(false);
+      const ids = novos.map((n) => n.id);
       mostrarToast(
         "sucesso",
         novos.length === 1
           ? "Lançamento salvo!"
-          : `${novos.length} lançamentos salvos!`
+          : `${novos.length} lançamentos salvos!`,
+        { rotulo: "Desfazer", onAcao: () => desfazerLote(ids) }
       );
     } catch (e) {
       console.error(e);
@@ -485,8 +522,16 @@ export default function Dashboard({ session }: { session: Session }) {
   // Usada pelas duas navegações — a barra inferior no celular e o seletor do
   // header no desktop. Trocar de aba com um modal aberto deixaria o modal
   // pairando sobre a tela errada.
-  function navegarPara(aba: "inicio" | "contas") {
+  // Um caminho só para fechar: o texto do atalho precisa ser esquecido em
+  // todas as saídas, senão ele reaparece na próxima vez que o + for tocado.
+  const fecharAdicionar = useCallback(() => {
     setModalAdicionar(false);
+    setTextoAdicionar("");
+    onTextoInicialUsado?.();
+  }, [onTextoInicialUsado]);
+
+  function navegarPara(aba: "inicio" | "contas") {
+    fecharAdicionar();
     setModalRepetir(false);
     setEditando(null);
     setConfirmarId(null);
@@ -594,6 +639,7 @@ export default function Dashboard({ session }: { session: Session }) {
 
       {verRecorrencias ? (
         <Recorrencias
+          mesAlvo={{ mes, ano, nome: MESES[mes], lancamentos: doMes }}
           recorrencias={recorrencias}
           onRecorrenciasChange={setRecorrencias}
           onVoltar={() => setVerRecorrencias(false)}
@@ -942,10 +988,11 @@ export default function Dashboard({ session }: { session: Session }) {
         <ModalAdicionar
           dataPadrao={dataInicialNovoLancamento(mes, ano)}
           jaLancados={lancamentos}
-          onFechar={() => setModalAdicionar(false)}
+          textoInicial={textoAdicionar}
+          onFechar={fecharAdicionar}
           onSalvar={adicionarVarios}
           onFormularioCompleto={(valores, data) => {
-            setModalAdicionar(false);
+            fecharAdicionar();
             setPreLancamento({ valores, data });
           }}
         />

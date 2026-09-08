@@ -6,10 +6,12 @@ import {
   criarRecorrencia,
   deletarRecorrencia,
   listarRecorrencias,
+  pularOcorrencias,
   toggleRecorrencia,
 } from "../lib/recorrencias";
 import { brl } from "../lib/format";
 import ModalRecorrencia from "./ModalRecorrencia";
+import type { MesAlvo } from "./ModalRecorrencia";
 import ConfirmModal from "./ConfirmModal";
 import Toast, { type ToastDados } from "./Toast";
 import EmptyState from "./EmptyState";
@@ -36,6 +38,8 @@ function textoFrequencia(r: Recorrencia): string {
 }
 
 interface Props {
+  /** Mês que a próxima geração vai atingir, para avisar de conta já lançada. */
+  mesAlvo?: MesAlvo;
   recorrencias?: Recorrencia[];
   onRecorrenciasChange?: (recorrencias: Recorrencia[]) => void;
   onMudanca?: () => void;
@@ -43,6 +47,7 @@ interface Props {
 }
 
 export default function Recorrencias({
+  mesAlvo,
   recorrencias,
   onRecorrenciasChange,
   onMudanca,
@@ -104,12 +109,20 @@ export default function Recorrencias({
     });
   }, [itens]);
 
-  async function criar(dados: NovaRecorrencia) {
+  async function criar(dados: NovaRecorrencia, datasParaPular: string[]) {
     try {
       const novo = await criarRecorrencia(dados);
+      // Antes do onMudanca, que é quem dispara a geração: a exceção precisa
+      // já estar no banco quando a materialização olhar as datas.
+      await pularOcorrencias(novo.id, datasParaPular);
       aplicarItens((atual) => [novo, ...atual]);
       setModal(false);
-      mostrarToast("sucesso", "Recorrência criada!");
+      mostrarToast(
+        "sucesso",
+        datasParaPular.length > 0
+          ? "Recorrência criada — sem gerar neste mês."
+          : "Recorrência criada!"
+      );
       onMudanca?.();
     } catch (e) {
       console.error(e);
@@ -270,6 +283,7 @@ export default function Recorrencias({
 
       {modal && (
         <ModalRecorrencia
+          mesAlvo={mesAlvo}
           onFechar={() => setModal(false)}
           onSalvar={criar}
         />

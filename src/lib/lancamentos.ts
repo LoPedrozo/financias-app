@@ -109,3 +109,22 @@ export async function criarLancamentosEmLote(
   if (error) throw error;
   return data ?? [];
 }
+
+// Desfazer de uma leva recém-criada. Não mexe em recorrencia_excecoes de
+// propósito: lançamento criado por lote nunca tem recorrencia_id, então não
+// há ocorrência a pular — e registrar exceção aqui bloquearia uma geração
+// futura legítima.
+export async function removerLancamentosEmLote(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) throw new Error("Usuário não autenticado.");
+
+  const { error } = await supabase
+    .from("lancamentos")
+    .delete()
+    .eq("user_id", userId)
+    .in("id", ids);
+  if (error) throw error;
+}

@@ -3,10 +3,17 @@ import { CheckCircle2, AlertCircle } from "lucide-react";
 
 export type ToastTipo = "sucesso" | "erro";
 
+export interface ToastAcao {
+  rotulo: string;
+  onAcao: () => void;
+}
+
 export interface ToastDados {
   id: number;
   tipo: ToastTipo;
   mensagem: string;
+  /** Botão opcional no próprio toast — hoje, o desfazer de uma leva. */
+  acao?: ToastAcao;
 }
 
 interface Props {
@@ -15,10 +22,12 @@ interface Props {
 }
 
 export default function Toast({ toast, onFechar }: Props) {
+  // Com ação, o toast precisa durar o tempo de ler e decidir; três segundos
+  // some antes do polegar chegar.
   useEffect(() => {
-    const t = setTimeout(onFechar, 3000);
+    const t = setTimeout(onFechar, toast.acao ? 7000 : 3000);
     return () => clearTimeout(t);
-  }, [toast.id, onFechar]);
+  }, [toast.id, toast.acao, onFechar]);
 
   const cor = toast.tipo === "sucesso" ? "var(--green)" : "var(--red)";
   const corSoft =
@@ -68,6 +77,28 @@ export default function Toast({ toast, onFechar }: Props) {
         )}
       </span>
       <span>{toast.mensagem}</span>
+      {toast.acao && (
+        <button
+          type="button"
+          onClick={() => {
+            toast.acao?.onAcao();
+            onFechar();
+          }}
+          style={{
+            background: "none",
+            border: "none",
+            padding: "4px 2px",
+            marginLeft: 2,
+            color: cor,
+            fontSize: 14,
+            fontWeight: 700,
+            whiteSpace: "nowrap",
+            textDecoration: "underline",
+          }}
+        >
+          {toast.acao.rotulo}
+        </button>
+      )}
     </div>
   );
 }

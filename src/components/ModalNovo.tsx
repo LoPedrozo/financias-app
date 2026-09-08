@@ -141,8 +141,13 @@ export default function ModalNovo({
   const lista = categoriasDe(tipo);
 
   return (
-    <div style={styles.overlay} data-modal onClick={onFechar}>
-      <div style={styles.modal} className="modal-mobile" onClick={(e) => e.stopPropagation()}>
+    <div
+      style={styles.overlay}
+      className="overlay-sheet"
+      data-modal
+      onClick={onFechar}
+    >
+      <div style={styles.modal} className="modal-mobile modal-sheet" onClick={(e) => e.stopPropagation()}>
         <div style={styles.head}>
           <h3 style={styles.titulo}>
             {editando ? "Editar lançamento" : "Novo lançamento"}

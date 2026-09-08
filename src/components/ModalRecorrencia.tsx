@@ -1,17 +1,35 @@
-import { useState } from "react";
-import { X, Info } from "lucide-react";
+import { useMemo, useState } from "react";
+import { X, Info, AlertTriangle } from "lucide-react";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA } from "../types";
 import type {
   Frequencia,
+  Lancamento,
   NovaRecorrencia,
   Recorrencia,
   Tipo,
 } from "../types";
+import { datasParaRecorrencia, podeGerarNaCompetencia } from "../lib/recorrencias";
+import { chaveDaConta } from "../lib/duplicatas";
+import { brl } from "../lib/format";
+
+// O mês em que a regra vai materializar sua primeira ocorrência — é lá que
+// aparece a cópia, se a conta já tiver sido lançada à mão.
+export interface MesAlvo {
+  mes: number;
+  ano: number;
+  nome: string;
+  lancamentos: Lancamento[];
+}
 
 interface Props {
   onFechar: () => void;
-  onSalvar: (dados: NovaRecorrencia) => Promise<void>;
+  /** `datasParaPular` vem preenchida quando o usuário aceita não gerar no mês. */
+  onSalvar: (
+    dados: NovaRecorrencia,
+    datasParaPular: string[]
+  ) => Promise<void>;
   recorrenciaParaEditar?: Recorrencia;
+  mesAlvo?: MesAlvo;
 }
 
 interface Erros {
@@ -39,6 +57,7 @@ export default function ModalRecorrencia({
   onFechar,
   onSalvar,
   recorrenciaParaEditar,
+  mesAlvo,
 }: Props) {
   const editando = !!recorrenciaParaEditar;
 
@@ -76,6 +95,7 @@ export default function ModalRecorrencia({
   );
   const [erros, setErros] = useState<Erros>({});
   const [salvando, setSalvando] = useState(false);
+  const [pularMes, setPularMes] = useState(true);
 
   function trocarTipo(novoTipo: Tipo) {
     if (novoTipo === tipo) return;
@@ -89,6 +109,54 @@ export default function ModalRecorrencia({
     setValor(limpo);
     if (erros.valor) setErros((er) => ({ ...er, valor: undefined }));
   }
+
+  // Criar uma recorrência para algo que já está lançado à mão naquele mês era
+  // o jeito mais fácil de ver valor dobrado: a geração casa por
+  // (recorrencia_id, data) e não enxerga o lançamento manual, então as duas
+  // cópias convivem e o saldo conta as duas.
+  const conflito = useMemo(() => {
+    if (editando || !mesAlvo) return null;
+
+    const desc = descricao.trim();
+    if (desc.length < 3) return null;
+
+    // Mês fechado não gera nada, então não há o que avisar.
+    if (
+      !podeGerarNaCompetencia(new Date().toISOString(), {
+        mes: mesAlvo.mes,
+        ano: mesAlvo.ano,
+      })
+    ) {
+      return null;
+    }
+
+    const dia = Number(diaMes);
+    if (
+      frequencia === "mensal" &&
+      (!Number.isInteger(dia) || dia < 1 || dia > 31)
+    ) {
+      return null;
+    }
+
+    const alvo = chaveDaConta({ tipo, descricao: desc });
+    const manual = mesAlvo.lancamentos.find(
+      (l) => !l.recorrencia_id && chaveDaConta(l) === alvo
+    );
+    if (!manual) return null;
+
+    const datas = datasParaRecorrencia(
+      {
+        frequencia,
+        dia_semana: frequencia === "semanal" ? diaSemana : undefined,
+        dia_mes: frequencia === "mensal" ? dia : undefined,
+      },
+      mesAlvo.mes,
+      mesAlvo.ano
+    );
+    if (datas.length === 0) return null;
+
+    return { manual, datas };
+  }, [editando, mesAlvo, descricao, tipo, frequencia, diaSemana, diaMes]);
 
   function validar(): Erros {
     const novos: Erros = {};
@@ -138,7 +206,7 @@ export default function ModalRecorrencia({
     };
     setSalvando(true);
     try {
-      await onSalvar(dados);
+      await onSalvar(dados, conflito && pularMes ? conflito.datas : []);
     } finally {
       setSalvando(false);
     }
@@ -155,10 +223,15 @@ export default function ModalRecorrencia({
   const lista = categoriasDe(tipo);
 
   return (
-    <div style={styles.overlay} data-modal onClick={onFechar}>
+    <div
+      style={styles.overlay}
+      className="overlay-sheet"
+      data-modal
+      onClick={onFechar}
+    >
       <div
         style={styles.modal}
-        className="modal-mobile"
+        className="modal-mobile modal-sheet"
         onClick={(e) => e.stopPropagation()}
       >
         <div style={styles.head}>
@@ -321,6 +394,31 @@ export default function ModalRecorrencia({
             : "A recorrência será gerada a partir do mês atual. Meses anteriores não são afetados."}
         </p>
 
+        {conflito && (
+          <div style={styles.conflito}>
+            <div style={styles.conflitoTopo}>
+              <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+              <span>
+                {mesAlvo!.nome} já tem{" "}
+                <b>{conflito.manual.descricao}</b> ({brl(conflito.manual.valor)})
+                lançado à mão. A recorrência criaria uma segunda cópia.
+              </span>
+            </div>
+            <label style={styles.conflitoOpcao}>
+              <input
+                type="checkbox"
+                checked={pularMes}
+                onChange={(e) => setPularMes(e.target.checked)}
+                style={styles.conflitoCheck}
+              />
+              <span>
+                Não gerar em {mesAlvo!.nome} — mantenho o que já está lançado.
+                A partir do mês seguinte, gera normal.
+              </span>
+            </label>
+          </div>
+        )}
+
         <button
           style={{
             ...styles.salvar,
@@ -429,6 +527,39 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.45,
     marginTop: 6,
     marginBottom: 2,
+  },
+  conflito: {
+    background: "var(--red-soft)",
+    borderRadius: 10,
+    padding: "11px 12px",
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  conflitoTopo: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    fontSize: 12.5,
+    lineHeight: 1.45,
+    color: "var(--text-soft)",
+  },
+  conflitoOpcao: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 8,
+    marginTop: 10,
+    fontSize: 12.5,
+    lineHeight: 1.45,
+    color: "var(--text)",
+    fontWeight: 500,
+    cursor: "pointer",
+  },
+  conflitoCheck: {
+    width: 17,
+    height: 17,
+    flexShrink: 0,
+    marginTop: 1,
+    accentColor: "var(--accent)",
   },
   salvar: {
     width: "100%",

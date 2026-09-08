@@ -26,6 +26,8 @@ interface Props {
   dataPadrao: string;
   /** Tudo que já está lançado, para avisar antes de duplicar. */
   jaLancados: Lancamento[];
+  /** Texto que já chega escrito — hoje, o do atalho de compartilhamento. */
+  textoInicial?: string;
   onFechar: () => void;
   onSalvar: (itens: NovoLancamento[]) => Promise<void> | void;
   /** Saída para o formulário de sempre, levando junto o que já foi digitado. */
@@ -69,11 +71,12 @@ function diaMes(data: string): string {
 export default function ModalAdicionar({
   dataPadrao,
   jaLancados,
+  textoInicial,
   onFechar,
   onSalvar,
   onFormularioCompleto,
 }: Props) {
-  const [texto, setTexto] = useState("");
+  const [texto, setTexto] = useState(textoInicial ?? "");
   const [dataLote, setDataLote] = useState(dataPadrao);
   const [ajustes, setAjustes] = useState<Record<string, Ajuste>>({});
   const [removidos, setRemovidos] = useState<Set<string>>(new Set());

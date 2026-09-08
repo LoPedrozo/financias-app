@@ -131,8 +131,10 @@ function formatarData(ano: number, mes: number, dia: number): string {
   return `${ano}-${mm}-${dd}`;
 }
 
-function datasParaRecorrencia(
-  r: Recorrencia,
+// Exportada e aceitando só os campos de frequência: a tela de criar precisa
+// saber quais datas a regra geraria antes de a regra existir.
+export function datasParaRecorrencia(
+  r: Pick<Recorrencia, "frequencia" | "dia_semana" | "dia_mes">,
   mes: number,
   ano: number
 ): string[] {
@@ -255,4 +257,31 @@ export async function gerarLancamentosRecorrentes(
     .select();
   if (error) throw error;
   return (inseridos ?? []) as Lancamento[];
+}
+
+// Marca ocorrências para não serem geradas, sem desativar a recorrência.
+//
+// Usada quando a conta do mês já foi lançada à mão antes de a regra existir:
+// sem isso a geração criaria a segunda cópia, e a única saída seria apagar uma
+// delas depois de o saldo já ter contado as duas. A partir do mês seguinte a
+// recorrência gera normalmente.
+export async function pularOcorrencias(
+  recorrenciaId: string,
+  datas: string[]
+): Promise<void> {
+  if (datas.length === 0) return;
+
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) throw new Error("Usuário não autenticado.");
+
+  const { error } = await supabase.from("recorrencia_excecoes").upsert(
+    datas.map((data) => ({
+      user_id: userId,
+      recorrencia_id: recorrenciaId,
+      data,
+    })),
+    { onConflict: "recorrencia_id,data", ignoreDuplicates: true }
+  );
+  if (error) throw error;
 }

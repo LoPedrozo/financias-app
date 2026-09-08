@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-em%20produção-3f9e6a)
 ![Stack](https://img.shields.io/badge/stack-React%2018%20%2B%20TypeScript%20%2B%20Supabase-1a1f2b)
 ![PWA](https://img.shields.io/badge/PWA-installable-5d8aa8)
-![Testes](https://img.shields.io/badge/testes-184%20passando-c9a86a)
+![Testes](https://img.shields.io/badge/testes-189%20passando-c9a86a)
 
 **Em produção: [financias-app.vercel.app](https://financias-app.vercel.app)**
 
@@ -90,6 +90,25 @@ Total = 10.820
   uma vez. Não bloqueia (dois almoços de R$ 25 no mesmo dia existem), mas não
   deixa passar calado
 - **Escape para o formulário completo**, levando junto o que já foi digitado
+- **Desfazer** — o toast da leva recém-salva traz um botão que apaga tudo que
+  acabou de entrar. É o arrependimento rápido: colou a lista errada, trouxe o
+  mês que não era
+
+### 📲 Atalho de compartilhamento (funciona no iPhone)
+
+O app aceita a lista pela URL, em `?texto=`, e abre o **Adicionar** já
+preenchido. O `share_target` de PWA só existe no Android, então o caminho que
+serve nos dois é esse.
+
+No iPhone, monte um atalho no app **Atalhos**:
+
+1. Novo atalho → **Receber** `Texto` da **Folha de Compartilhamento**
+2. Ação **URL** → `https://financias-app.vercel.app/?texto=`
+3. Ação **Combinar texto** com a Entrada do Atalho (codificada para URL)
+4. Ação **Abrir URLs**
+
+Depois é selecionar a lista no WhatsApp → Compartilhar → o atalho. O app abre
+com tudo colado e a prévia pronta para revisar.
 
 ### 🔁 Repetir o mês anterior
 
@@ -122,6 +141,13 @@ Contas fixas — salário, aluguel, assinaturas — cadastradas uma vez e gerada
 - **Nunca gera para trás** — uma recorrência criada em agosto não contamina julho, mesmo se você navegar para lá
 - **Exceções persistentes**: ao excluir um lançamento gerado, ele fica registrado em `recorrencia_excecoes` e não volta na próxima sincronização
 - Pausar sem apagar (`ativo = false`), preservando o histórico já gerado
+- **Aviso de conta já lançada** — criar uma recorrência para algo que você já
+  lançou à mão naquele mês era o jeito mais fácil de ver valor dobrado: a
+  geração casa por `(recorrencia_id, data)` e não enxerga o lançamento manual,
+  então as duas cópias convivem e o saldo conta as duas. Agora a tela avisa e
+  oferece **não gerar naquele mês**, gravando uma exceção em
+  `recorrencia_excecoes`. O lançamento que você fez fica intacto, e a partir
+  do mês seguinte a regra gera normal
 
 ### 📋 Contas a pagar (compartilhadas) — **desativada por enquanto**
 A substituta da lista do WhatsApp. Está **fora do ar por decisão de produto**:
@@ -294,7 +320,7 @@ npm run preview
 npm run test:run
 ```
 
-**184 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
+**189 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
 
 | Arquivo | Testes | Cobre |
 |---|---|---|
@@ -304,7 +330,7 @@ npm run test:run
 | `importarLista.test.ts` | 12 | parsing pt-BR, linha de total como conferência, linhas ignoradas, detecção de vencimento |
 | `categorias.test.ts` | 8 | normalização, palavra inteira, palavra mais longa, ambiguidade que não desempata |
 | `duplicatas.test.ts` | 9 | lista recolada, mesma conta em meses diferentes, valor ajustado |
-| `recorrencias.test.ts` | 6 | frequências, idempotência, corte por `created_at`, exceções |
+| `recorrencias.test.ts` | 11 | frequências, idempotência, corte por `created_at`, exceções, datas geradas e encolhimento de dia |
 | `fluxos_completos.test.ts` | 5 | cenários ponta a ponta de um mês real |
 
 Para checar tipos sem rodar build:
@@ -360,6 +386,9 @@ Já entregue:
 - ✅ **Importar lista colada** do WhatsApp
 - ✅ **Adicionar escrevendo** — uma linha ou a lista inteira, com tipo, data e categoria adivinhados
 - ✅ **Repetir o mês anterior** pulando recorrências e o que já existe
+- ✅ **Desfazer** a leva recém-lançada, direto no toast
+- ✅ **Atalho de compartilhamento** por URL, com receita para o app Atalhos do iPhone
+- ✅ **Aviso de conta já lançada** ao criar recorrência, com opção de pular o mês
 
 Próximas frentes, em ordem aproximada de prioridade:
 
