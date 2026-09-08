@@ -122,6 +122,10 @@ input, select {
   .modal-mobile {
     padding: 18px !important;
   }
+  /* Botão que só faz sentido onde não existe a barra de baixo. */
+  .so-desktop {
+    display: none !important;
+  }
   .month-picker-popover {
     min-width: 220px !important;
   }
@@ -140,4 +144,33 @@ input, select {
 }
 .abas-rolaveis::-webkit-scrollbar {
   display: none;
+}
+
+/* Folha que sobe de baixo, só no celular.
+   O app é usado quase sempre no telefone e quase sempre com uma mão: um modal
+   centralizado deixa o botão de salvar no meio da tela, longe do polegar, e
+   com o teclado aberto ele ainda é empurrado para fora. Ancorado no rodapé,
+   o campo fica logo acima do teclado e o botão continua alcançável. */
+@media (max-width: 640px) {
+  .overlay-sheet {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal-sheet {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: none !important;
+    max-height: 92vh !important;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+    overscroll-behavior: contain;
+    animation: subirFolha 0.22s ease !important;
+  }
+}
+
+@keyframes subirFolha {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }

@@ -88,3 +88,24 @@ export async function removerLancamento(lancamento: Lancamento): Promise<void> {
     .eq("id", lancamento.id);
   if (error) throw error;
 }
+
+// Insere uma leva de uma vez. Um insert por lançamento faria a lista colada
+// entrar pela metade quando a conexão caísse no meio — aqui o array inteiro é
+// uma transação só no PostgREST: ou entra tudo, ou não entra nada.
+export async function criarLancamentosEmLote(
+  itens: NovoLancamento[]
+): Promise<Lancamento[]> {
+  if (itens.length === 0) return [];
+
+  const { data: userData } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
+  if (!userId) throw new Error("Usuário não autenticado.");
+
+  const { data, error } = await supabase
+    .from("lancamentos")
+    .insert(itens.map((item) => ({ ...item, user_id: userId })))
+    .select();
+
+  if (error) throw error;
+  return data ?? [];
+}

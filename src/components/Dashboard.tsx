@@ -2,12 +2,13 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
-  Repeat, Home,
+  Repeat, Home, CopyPlus,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import {
-  listarLancamentos, criarLancamento, atualizarLancamento, removerLancamento,
+  listarLancamentos, criarLancamento, criarLancamentosEmLote,
+  atualizarLancamento, removerLancamento,
 } from "../lib/lancamentos";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
 import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
@@ -19,6 +20,7 @@ import {
   calcularSaldoAcumulado,
   calcularSaldoProjetado,
   compararCompetencia,
+  competenciaAnterior,
   competenciaAtual,
   filtrarPorMes,
   hojeLocal,
@@ -28,6 +30,8 @@ import Card from "./Card";
 import MonthPicker from "./MonthPicker";
 import { useSwipe } from "../hooks/useSwipe";
 import ModalNovo from "./ModalNovo";
+import ModalAdicionar from "./ModalAdicionar";
+import ModalRepetirMes from "./ModalRepetirMes";
 import ConfirmModal from "./ConfirmModal";
 import Toast, { type ToastDados } from "./Toast";
 import EmptyState from "./EmptyState";
@@ -71,12 +75,22 @@ function dataInicialNovoLancamento(mes: number, ano: number): string {
   return `${ano}-${mm}-01`;
 }
 
+// Formulário completo aberto já preenchido — pela conta paga em Contas a
+// Pagar, ou pela linha que o Adicionar entregou para o usuário revisar.
+interface FormularioPreenchido {
+  valores: Partial<
+    Pick<NovoLancamento, "tipo" | "valor" | "descricao" | "categoria">
+  >;
+  data: string;
+}
+
 export default function Dashboard({ session }: { session: Session }) {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [mes, setMes] = useState(new Date().getMonth());
   const [ano, setAno] = useState(new Date().getFullYear());
-  const [modal, setModal] = useState(false);
+  const [modalAdicionar, setModalAdicionar] = useState(false);
+  const [modalRepetir, setModalRepetir] = useState(false);
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
@@ -87,11 +101,8 @@ export default function Dashboard({ session }: { session: Session }) {
   const [verRecorrencias, setVerRecorrencias] = useState(false);
   const [recorrencias, setRecorrencias] = useState<Recorrencia[]>([]);
   const [carregandoRecorrencias, setCarregandoRecorrencias] = useState(true);
-  // Conta marcada como paga em "Contas a Pagar" que o usuário decidiu lançar
-  // como saída no próprio financeiro.
-  const [preLancamento, setPreLancamento] = useState<Partial<
-    Pick<NovoLancamento, "tipo" | "valor" | "descricao" | "categoria">
-  > | null>(null);
+  const [preLancamento, setPreLancamento] =
+    useState<FormularioPreenchido | null>(null);
   const [contasEmAberto, setContasEmAberto] = useState({
     total: 0,
     quantidade: 0,
@@ -170,7 +181,16 @@ export default function Dashboard({ session }: { session: Session }) {
   // Trocar de mês ou abrir qualquer modal tira o item de baixo do balão.
   useEffect(() => {
     fecharTooltipFuturo();
-  }, [mes, ano, modal, editando, confirmarId, preLancamento, fecharTooltipFuturo]);
+  }, [
+    mes,
+    ano,
+    modalAdicionar,
+    modalRepetir,
+    editando,
+    confirmarId,
+    preLancamento,
+    fecharTooltipFuturo,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -310,8 +330,27 @@ export default function Dashboard({ session }: { session: Session }) {
     try {
       const novo = await criarLancamento(item);
       setLancamentos((atual) => [novo, ...atual]);
-      setModal(false);
       mostrarToast("sucesso", "Lançamento salvo!");
+    } catch (e) {
+      console.error(e);
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+    }
+  }
+
+  // Serve tanto ao Adicionar quanto ao Repetir mês: os dois entregam uma
+  // leva pronta, que pode ter uma linha só.
+  async function adicionarVarios(itens: NovoLancamento[]) {
+    try {
+      const novos = await criarLancamentosEmLote(itens);
+      setLancamentos((atual) => [...novos, ...atual]);
+      setModalAdicionar(false);
+      setModalRepetir(false);
+      mostrarToast(
+        "sucesso",
+        novos.length === 1
+          ? "Lançamento salvo!"
+          : `${novos.length} lançamentos salvos!`
+      );
     } catch (e) {
       console.error(e);
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
@@ -375,6 +414,19 @@ export default function Dashboard({ session }: { session: Session }) {
     [lancamentos, mes, ano]
   );
 
+  const anterior = useMemo(
+    () => competenciaAnterior({ mes, ano }),
+    [mes, ano]
+  );
+
+  const doMesAnterior = useMemo(
+    () => filtrarPorMes(lancamentos, anterior.mes, anterior.ano),
+    [lancamentos, anterior]
+  );
+
+  // Um mês só de recorrências não tem o que repetir: elas se geram sozinhas.
+  const podeRepetir = doMesAnterior.some((l) => !l.recorrencia_id);
+
   const renda = somarPorTipo(doMes, "entrada");
   const gastos = somarPorTipo(doMes, "saida");
 
@@ -430,7 +482,8 @@ export default function Dashboard({ session }: { session: Session }) {
   // header no desktop. Trocar de aba com um modal aberto deixaria o modal
   // pairando sobre a tela errada.
   function navegarPara(aba: "inicio" | "contas") {
-    setModal(false);
+    setModalAdicionar(false);
+    setModalRepetir(false);
     setEditando(null);
     setConfirmarId(null);
     setPreLancamento(null);
@@ -646,9 +699,27 @@ export default function Dashboard({ session }: { session: Session }) {
       <div style={styles.panel} className="panel-mobile">
         <div style={styles.listHead}>
           <h2 style={styles.panelTitle}>Lançamentos de {MESES[mes]}</h2>
-          <button style={styles.add} onClick={() => setModal(true)}>
-            <Plus size={16} /> Novo
-          </button>
+          <div style={styles.listHeadAcoes}>
+            {podeRepetir && (
+              <button
+                style={styles.repetir}
+                onClick={() => setModalRepetir(true)}
+                title={`Repetir ${MESES[anterior.mes]} neste mês`}
+              >
+                <CopyPlus size={15} /> Repetir
+              </button>
+            )}
+            {/* No celular quem adiciona é o botão redondo da barra de
+                baixo. Repetir o mesmo botão aqui só roubava a largura que
+                o título e o Repetir precisam para caber lado a lado. */}
+            <button
+              style={styles.add}
+              className="so-desktop"
+              onClick={() => setModalAdicionar(true)}
+            >
+              <Plus size={16} /> Novo
+            </button>
+          </div>
         </div>
         {carregando ? (
           <SkeletonLista linhas={4} />
@@ -668,7 +739,23 @@ export default function Dashboard({ session }: { session: Session }) {
           <EmptyState
             icon={<Receipt size={24} />}
             titulo="Nenhum lançamento ainda."
-            sugestao="Clique em 'Novo' para adicionar seu primeiro lançamento."
+            // Sem citar botão: no celular quem adiciona é o + da barra de
+            // baixo, e no desktop é o Novo aqui do lado.
+            sugestao={
+              podeRepetir
+                ? `Traga ${MESES[anterior.mes]} de uma vez, ou adicione um a um.`
+                : "Ao adicionar, dá para escrever uma linha ou colar a lista inteira."
+            }
+            acao={
+              podeRepetir ? (
+                <button
+                  style={styles.repetirDestaque}
+                  onClick={() => setModalRepetir(true)}
+                >
+                  <CopyPlus size={15} /> Repetir {MESES[anterior.mes]}
+                </button>
+              ) : undefined
+            }
           />
         ) : (
           <div style={styles.list}>
@@ -835,32 +922,51 @@ export default function Dashboard({ session }: { session: Session }) {
           session={session}
           onNovoLancamento={(item) =>
             setPreLancamento({
-              tipo: "saida",
-              valor: item.valor,
-              descricao: item.descricao,
-              categoria: item.categoria,
+              valores: {
+                tipo: "saida",
+                valor: item.valor,
+                descricao: item.descricao,
+                categoria: item.categoria,
+              },
+              data: hojeLocal(),
             })
           }
         />
       )}
 
+      {modalAdicionar && (
+        <ModalAdicionar
+          dataPadrao={dataInicialNovoLancamento(mes, ano)}
+          onFechar={() => setModalAdicionar(false)}
+          onSalvar={adicionarVarios}
+          onFormularioCompleto={(valores, data) => {
+            setModalAdicionar(false);
+            setPreLancamento({ valores, data });
+          }}
+        />
+      )}
+
+      {modalRepetir && (
+        <ModalRepetirMes
+          mes={mes}
+          ano={ano}
+          origem={doMesAnterior}
+          jaNoMes={doMes}
+          mesOrigemNome={MESES[anterior.mes]}
+          onFechar={() => setModalRepetir(false)}
+          onSalvar={adicionarVarios}
+        />
+      )}
+
       {preLancamento && (
         <ModalNovo
-          valoresIniciais={preLancamento}
-          dataInicial={hojeLocal()}
+          valoresIniciais={preLancamento.valores}
+          dataInicial={preLancamento.data}
           onFechar={() => setPreLancamento(null)}
           onSalvar={async (item) => {
             await adicionar(item);
             setPreLancamento(null);
           }}
-        />
-      )}
-
-      {modal && (
-        <ModalNovo
-          onFechar={() => setModal(false)}
-          onSalvar={adicionar}
-          dataInicial={dataInicialNovoLancamento(mes, ano)}
         />
       )}
 
@@ -891,7 +997,7 @@ export default function Dashboard({ session }: { session: Session }) {
         onNavegar={navegarPara}
         onNovo={() => {
           setVerRecorrencias(false);
-          setModal(true);
+          setModalAdicionar(true);
         }}
       />
     </div>
@@ -1121,6 +1227,36 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 14,
+  },
+  listHeadAcoes: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+  repetir: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    background: "var(--bg)",
+    color: "var(--text-soft)",
+    border: "1px solid var(--border)",
+    padding: "8px 12px",
+    borderRadius: 11,
+    fontWeight: 600,
+    fontSize: 13.5,
+  },
+  repetirDestaque: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "var(--accent-soft)",
+    color: "var(--text)",
+    border: "none",
+    padding: "10px 16px",
+    borderRadius: 11,
+    fontWeight: 600,
+    fontSize: 13.5,
   },
   add: {
     display: "flex",

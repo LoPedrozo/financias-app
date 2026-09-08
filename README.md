@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-em%20produção-3f9e6a)
 ![Stack](https://img.shields.io/badge/stack-React%2018%20%2B%20TypeScript%20%2B%20Supabase-1a1f2b)
 ![PWA](https://img.shields.io/badge/PWA-installable-5d8aa8)
-![Testes](https://img.shields.io/badge/testes-65%20passando-c9a86a)
+![Testes](https://img.shields.io/badge/testes-94%20passando-c9a86a)
 
 **Em produção: [financias-app.vercel.app](https://financias-app.vercel.app)**
 
@@ -45,6 +45,63 @@ Também é onde aplico o que faço como engenheiro de software: RLS no banco em 
 - **Excluir** com modal de confirmação
 - **Validação de formulário** com feedback visual nos campos
 - Lista do mês ordenada por data, com descrição e valor formatado em BRL
+
+### ✍️ Adicionar escrevendo (ou colando)
+
+O formulário de seis campos era o que dava preguiça de abrir para lançar um
+almoço de R$ 25. O **Adicionar** troca isso por um campo de texto: uma linha
+por lançamento, com a gramática
+
+```text
+[+|-]  [DD/MM]  descrição  valor
+```
+
+Só a descrição e o valor são obrigatórios, e o valor tanto vale no fim
+(`almoço 25`) quanto no começo (`25 almoço`).
+
+```text
+Contas de outubro 05/10:
+Cartão de crédito 1.900
+Empréstimo 2.800
++ Mãe 6.000
+12/10 internet 120
+Total = 10.820
+```
+
+- **Uma linha ou uma lista** — não existe um botão separado de "colar lista":
+  o número de linhas é que decide se aquilo é um lançamento ou uma leva. Colar
+  o texto do WhatsApp já é usar
+- **`+` é entrada**, sem sinal é saída. Sem sinal nenhum, uma descrição
+  inequívoca ainda desempata: `salário 3000` vira entrada sozinho, mas
+  `bolsa 200` continua saída, porque quase sempre é uma compra
+- **Categoria adivinhada** por palavra reconhecida — `ifood` → Alimentação,
+  `uber` → Transporte, `balada` → Lazer, `fatura do nubank` → Cartão de
+  Crédito. Vence a palavra mais longa, para `plano de saúde` não cair em
+  Assinaturas por causa de `plano`
+- **Data em três níveis** — a da linha vence a do cabeçalho, que vence a do
+  campo. E a competência sai da data, não do mês na tela: colar `12/10` olhando
+  setembro grava em outubro
+- **Nada é salvo às cegas** — cada linha aparece numa prévia com o tipo
+  (um toque troca), a categoria e a data, e o que não deu para interpretar é
+  listado em vez de sumir. A linha `Total = X` confere a soma e avisa da
+  diferença, mas nunca vira lançamento
+- **Escape para o formulário completo**, levando junto o que já foi digitado
+
+### 🔁 Repetir o mês anterior
+
+O mês novo começa quase igual ao passado — estacionamento, internet, academia,
+muda só um valor ou outro. **Repetir** traz a lista do mês anterior com tudo
+marcado e os valores editáveis, e sabe duas coisas que o copiar-e-colar da
+lista do WhatsApp não sabia:
+
+- **lançamento de recorrência não vem junto** — ele se materializa sozinho na
+  virada, e trazer de novo criaria a conta em dobro
+- **o que já existe no destino chega desmarcado** — abrir a tela uma segunda
+  vez não duplica o que a primeira trouxe
+
+As datas vão para o mesmo dia do mês de destino, encolhendo quando o dia não
+existe lá: o aluguel do dia 31 cai no dia 30 em novembro, em vez de escorregar
+para dezembro.
 
 ### Categorias
 **Saídas** — Alimentação, Transporte, Lazer, Educação, Assinaturas, Saúde, Tecnologia, Beleza, Casa, Cartão de Crédito / Contas, Vestuário, Outros.
@@ -166,6 +223,7 @@ financias-app/
 │   │   ├── Graficos.tsx             # Pizza e barras (chunk sob demanda)
 │   │   ├── Login.tsx                # Login / cadastro / OAuth Google
 │   │   ├── MenuPilha.tsx            # Renomear, arquivar, passar posse, sair
+│   │   ├── ModalAdicionar.tsx       # Escrever ou colar lançamentos (prévia editável)
 │   │   ├── ModalColarLista.tsx      # Importar lista colada do WhatsApp
 │   │   ├── ModalCompartilhar.tsx    # Gerar link de convite
 │   │   ├── ModalItem.tsx            # Criar / editar conta a pagar
@@ -173,6 +231,7 @@ financias-app/
 │   │   ├── ModalNovo.tsx            # Criar / editar lançamento
 │   │   ├── ModalPassarPosse.tsx     # Transferir a posse da pilha
 │   │   ├── ModalRecorrencia.tsx     # Criar / editar recorrência
+│   │   ├── ModalRepetirMes.tsx      # Trazer o mês anterior para o mês atual
 │   │   ├── MonthPicker.tsx          # Navegador de mês/ano
 │   │   ├── Recorrencias.tsx         # Gerenciar recorrências
 │   │   ├── Skeleton.tsx             # Placeholder de loading
@@ -182,8 +241,10 @@ financias-app/
 │   │   └── useSwipe.ts              # Swipe horizontal (inerte com modal aberto)
 │   ├── lib/
 │   │   ├── calculos.ts              # Funções puras: somas, agrupamentos, projeção
+│   │   ├── categorias.ts            # Adivinha categoria e tipo pela descrição
 │   │   ├── flags.ts                 # Interruptores de feature (contas a pagar)
 │   │   ├── format.ts                # Formatação BRL
+│   │   ├── importarLancamentos.ts   # Parser de lançamentos escritos como texto
 │   │   ├── importarLista.ts         # Parser de lista colada (pt-BR)
 │   │   ├── lancamentos.ts           # CRUD de lançamentos
 │   │   ├── listas.ts                # Pilhas, membros, itens, convites
@@ -228,12 +289,14 @@ npm run preview
 npm run test:run
 ```
 
-**65 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
+**94 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
 
 | Arquivo | Testes | Cobre |
 |---|---|---|
 | `calculos.test.ts` | 42 | somas, saldo acumulado, pendentes, agrupamento por categoria, balanço anual, saldo projetado, `hojeLocal` |
+| `importarLancamentos.test.ts` | 21 | gramática da linha, sinal, valor no fim e no começo, datas em três níveis, total como conferência, competência pela data |
 | `importarLista.test.ts` | 12 | parsing pt-BR, linha de total como conferência, linhas ignoradas, detecção de vencimento |
+| `categorias.test.ts` | 8 | normalização, palavra inteira, palavra mais longa, ambiguidade que não desempata |
 | `recorrencias.test.ts` | 6 | frequências, idempotência, corte por `created_at`, exceções |
 | `fluxos_completos.test.ts` | 5 | cenários ponta a ponta de um mês real |
 
@@ -288,6 +351,8 @@ Já entregue:
 - ✅ **Saldo projetado** puxando de lançamentos futuros e de contas em aberto
 - ✅ **Lazy load do Recharts** — 890 kB → 491 kB no carregamento inicial
 - ✅ **Importar lista colada** do WhatsApp
+- ✅ **Adicionar escrevendo** — uma linha ou a lista inteira, com tipo, data e categoria adivinhados
+- ✅ **Repetir o mês anterior** pulando recorrências e o que já existe
 
 Próximas frentes, em ordem aproximada de prioridade:
 

@@ -146,3 +146,28 @@ export function hojeLocal(): string {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${dd}`;
 }
+
+export function diasNoMes(mes: number, ano: number): number {
+  // Dia 0 do mês seguinte é o último dia deste — vale para fevereiro bissexto.
+  return new Date(ano, mes + 1, 0).getDate();
+}
+
+export function competenciaAnterior(c: Competencia): Competencia {
+  return c.mes === 0
+    ? { mes: 11, ano: c.ano - 1 }
+    : { mes: c.mes - 1, ano: c.ano };
+}
+
+// Leva uma data para o mesmo dia de outro mês, encolhendo quando o dia não
+// existe lá: repetir "aluguel dia 31" em novembro tem que cair no dia 30, e
+// não escorregar para dezembro como faria `new Date(ano, mes, 31)`.
+export function mesmoDiaNoMes(
+  dataISO: string,
+  mes: number,
+  ano: number
+): string {
+  const dia = Math.min(Number(dataISO.slice(8, 10)), diasNoMes(mes, ano));
+  const mm = String(mes + 1).padStart(2, "0");
+  const dd = String(dia).padStart(2, "0");
+  return `${ano}-${mm}-${dd}`;
+}
