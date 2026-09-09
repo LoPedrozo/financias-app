@@ -80,7 +80,14 @@ const styles: Record<string, React.CSSProperties> = {
     paddingBottom: "env(safe-area-inset-bottom)",
     background: "var(--surface)",
     borderTop: "1px solid var(--border)",
-    zIndex: 50,
+    // Abaixo de qualquer modal. Empatada em 50 com ModalNovo e
+    // ModalRecorrencia, a barra ganhava por vir depois no DOM e pintava sua
+    // faixa branca sobre o rodapé da folha — bem onde mora o botão de salvar,
+    // que além de sumir passava a receber o toque do "+".
+    // Ficava invisível enquanto os modais eram centralizados; virou bug na
+    // hora em que eles passaram a subir ancorados no rodapé.
+    // A escala agora é: barra 30 · menus 40 · modais 50+ · toast 100.
+    zIndex: 30,
     alignItems: "center",
     justifyContent: "space-around",
   },

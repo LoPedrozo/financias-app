@@ -141,13 +141,8 @@ export default function ModalNovo({
   const lista = categoriasDe(tipo);
 
   return (
-    <div
-      style={styles.overlay}
-      className="overlay-sheet"
-      data-modal
-      onClick={onFechar}
-    >
-      <div style={styles.modal} className="modal-mobile modal-sheet" onClick={(e) => e.stopPropagation()}>
+    <div style={styles.overlay} data-modal onClick={onFechar}>
+      <div style={styles.modal} className="modal-mobile" onClick={(e) => e.stopPropagation()}>
         <div style={styles.head}>
           <h3 style={styles.titulo}>
             {editando ? "Editar lançamento" : "Novo lançamento"}
@@ -284,6 +279,10 @@ const styles: Record<string, React.CSSProperties> = {
     padding: 26,
     width: "100%",
     maxWidth: 420,
+    // Sem teto de altura o formulário simplesmente passava do fim da tela em
+    // aparelho baixo, sem rolagem e sem como alcançar o botão de salvar.
+    maxHeight: "calc(100vh - 40px)",
+    overflowY: "auto",
     boxShadow: "0 20px 60px rgba(16,24,40,0.18)",
     animation: "fadeUp 0.25s ease",
   },
