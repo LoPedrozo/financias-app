@@ -283,7 +283,7 @@ financias-app/
 │   │   ├── calculos.ts              # Funções puras: somas, agrupamentos, projeção
 │   │   ├── categorias.ts            # Adivinha categoria e tipo pela descrição
 │   │   ├── flags.ts                 # Interruptores de feature (contas a pagar)
-│   │   ├── format.ts                # Formatação BRL
+│   │   ├── format.ts                # Formatação BRL e leitura de valor pt-BR
 │   │   ├── importarLancamentos.ts   # Parser de lançamentos escritos como texto
 │   │   ├── importarLista.ts         # Parser de lista colada (pt-BR)
 │   │   ├── lancamentos.ts           # CRUD de lançamentos
