@@ -42,6 +42,15 @@ Também é onde aplico o que faço como engenheiro de software: RLS no banco em 
 ### Lançamentos
 - Criar lançamento com **data**, **categoria**, **descrição**, **valor** e **tipo** (entrada ou saída)
 - **Editar** com loading otimista e rollback automático em caso de erro
+- **Corrigir o valor na própria lista** — toque no número, ele vira campo com o
+  texto já selecionado, digite e saia. Sem modal. Quem confirma é a saída do
+  campo, e não o Enter: o teclado numérico do iPhone não tem tecla Enter. `Esc`
+  cancela, e sair sem mudar nada não vai ao servidor.
+  Como o update não envia `recorrencia_id`, o vínculo com a regra sobrevive à
+  correção — e a geração seguinte, que é `ON CONFLICT DO NOTHING` em
+  `(recorrencia_id, data)`, não sobrescreve o valor corrigido. É por isso que dá
+  para deixar a fatura do cartão como recorrência de valor aproximado e ajustar
+  o número quando ela chega
 - **Excluir** com modal de confirmação
 - **Validação de formulário** com feedback visual nos campos
 - Lista do mês ordenada por data, com descrição e valor formatado em BRL
@@ -389,6 +398,7 @@ Já entregue:
 - ✅ **Desfazer** a leva recém-lançada, direto no toast
 - ✅ **Atalho de compartilhamento** por URL, com receita para o app Atalhos do iPhone
 - ✅ **Aviso de conta já lançada** ao criar recorrência, com opção de pular o mês
+- ✅ **Corrigir o valor direto na lista**, sem abrir formulário
 
 Próximas frentes, em ordem aproximada de prioridade:
 

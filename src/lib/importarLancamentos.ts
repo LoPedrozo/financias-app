@@ -1,5 +1,5 @@
 import type { NovoLancamento, Tipo } from "../types";
-import { lerValor } from "./importarLista";
+import { lerValor } from "./format";
 import {
   CATEGORIA_PADRAO,
   adivinharCategoria,

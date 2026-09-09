@@ -4,7 +4,7 @@ import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, MESES } from "../types";
 import type { Lancamento, NovoLancamento } from "../types";
 import { mesmoDiaNoMes } from "../lib/calculos";
 import { chaveDaConta, conjuntoDeContas } from "../lib/duplicatas";
-import { brl } from "../lib/format";
+import { brl, lerValor } from "../lib/format";
 
 // A lista do mês passado colada no mês novo, que é o que se fazia à mão no
 // WhatsApp: quase tudo se repete, muda só o valor de um ou outro.
@@ -41,11 +41,6 @@ function paraTexto(valor: number): string {
   return valor.toFixed(2).replace(".", ",");
 }
 
-function lerNumero(texto: string): number | null {
-  const limpo = texto.trim().replace(/\./g, "").replace(",", ".");
-  const n = Number(limpo);
-  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
-}
 
 export default function ModalRepetirMes({
   mes,
@@ -99,11 +94,11 @@ export default function ModalRepetirMes({
 
   const escolhidos = candidatos.filter((l) => selecionados.has(l.id));
   const algumInvalido = escolhidos.some(
-    (l) => lerNumero(valores[l.id] ?? "") === null
+    (l) => lerValor(valores[l.id] ?? "") === null
   );
 
   const saldo = escolhidos.reduce((s, l) => {
-    const valor = lerNumero(valores[l.id] ?? "") ?? 0;
+    const valor = lerValor(valores[l.id] ?? "") ?? 0;
     return s + (l.tipo === "entrada" ? valor : -valor);
   }, 0);
 
@@ -114,7 +109,7 @@ export default function ModalRepetirMes({
       await onSalvar(
         escolhidos.map((l) => ({
           tipo: l.tipo,
-          valor: lerNumero(valores[l.id] ?? "")!,
+          valor: lerValor(valores[l.id] ?? "")!,
           descricao: l.descricao,
           categoria: l.categoria,
           mes,
@@ -163,7 +158,7 @@ export default function ModalRepetirMes({
               {candidatos.map((l) => {
                 const marcado = selecionados.has(l.id);
                 const texto = valores[l.id] ?? "";
-                const invalido = marcado && lerNumero(texto) === null;
+                const invalido = marcado && lerValor(texto) === null;
                 const cor =
                   l.tipo === "entrada" ? "var(--green)" : "var(--red)";
                 return (

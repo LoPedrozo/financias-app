@@ -12,7 +12,7 @@ import {
 } from "../lib/lancamentos";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
 import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
-import { brl } from "../lib/format";
+import { brl, lerValor } from "../lib/format";
 import {
   agruparPorCategoria,
   calcularBalancoAnual,
@@ -121,6 +121,15 @@ export default function Dashboard({
     quantidade: 0,
   });
   const [falhaAoAtualizar, setFalhaAoAtualizar] = useState(false);
+  // Edição do valor direto na lista: o caso do mês é a fatura que veio
+  // diferente do previsto, e abrir o formulário inteiro para trocar um
+  // número era o que fazia deixar para depois.
+  const [editandoValor, setEditandoValor] = useState<string | null>(null);
+  const [valorDigitado, setValorDigitado] = useState("");
+  // No teclado numérico do iPhone não existe Enter, então quem confirma é a
+  // saída do campo. Cancelar precisa avisar o blur para ele não gravar o que
+  // o usuário acabou de descartar.
+  const cancelandoValor = useRef(false);
   const longPressTimer = useRef<number | null>(null);
   const tooltipAutoHide = useRef<number | null>(null);
   const hoverDelayTimer = useRef<number | null>(null);
@@ -394,6 +403,55 @@ export default function Dashboard({
       // gravado. Recarregar deixa a tela igual ao servidor, e é isso que faz
       // o aviso de repetida aparecer se ele tentar salvar de novo.
       carregar();
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+    }
+  }
+
+  function abrirEdicaoValor(l: Lancamento) {
+    setEditandoValor(l.id);
+    cancelandoValor.current = false;
+    setValorDigitado(l.valor.toFixed(2).replace(".", ","));
+  }
+
+  async function salvarValorEditado(original: Lancamento) {
+    setEditandoValor(null);
+    if (cancelandoValor.current) {
+      cancelandoValor.current = false;
+      return;
+    }
+
+    const novoValor = lerValor(valorDigitado);
+    // Valor inválido ou igual ao que já estava não vira ida ao servidor: o
+    // toque no número para conferir e sair é mais comum que a correção.
+    if (novoValor === null || novoValor === original.valor) return;
+
+    setLancamentos((atual) =>
+      atual.map((l) =>
+        l.id === original.id ? { ...l, valor: novoValor } : l
+      )
+    );
+    try {
+      // recorrencia_id não vai no update e por isso sobrevive: o vínculo com
+      // a regra continua, e a geração seguinte encontra o conflito de
+      // (recorrencia_id, data) e não sobrescreve o valor corrigido.
+      const atualizado = await atualizarLancamento(original.id, {
+        tipo: original.tipo,
+        valor: novoValor,
+        descricao: original.descricao,
+        categoria: original.categoria,
+        mes: original.mes,
+        ano: original.ano,
+        data: original.data,
+      });
+      setLancamentos((atual) =>
+        atual.map((l) => (l.id === atualizado.id ? atualizado : l))
+      );
+      mostrarToast("sucesso", "Valor atualizado!");
+    } catch (e) {
+      console.error(e);
+      setLancamentos((atual) =>
+        atual.map((l) => (l.id === original.id ? original : l))
+      );
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
     }
   }
@@ -922,14 +980,51 @@ export default function Dashboard({
                     >
                       {l.categoria}
                     </span>
-                    <span
-                      style={{
-                        ...styles.valor,
-                        color: l.tipo === "entrada" ? "var(--green)" : "var(--red)",
-                      }}
-                    >
-                      {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
-                    </span>
+                    {editandoValor === l.id ? (
+                      <input
+                        value={valorDigitado}
+                        inputMode="decimal"
+                        autoFocus
+                        aria-label={`Valor de ${l.descricao}`}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onChange={(e) =>
+                          setValorDigitado(
+                            e.target.value.replace(/[^0-9.,]/g, "")
+                          )
+                        }
+                        onBlur={() => salvarValorEditado(l)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.blur();
+                          if (e.key === "Escape") {
+                            cancelandoValor.current = true;
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        style={{
+                          ...styles.valorInput,
+                          color:
+                            l.tipo === "entrada"
+                              ? "var(--green)"
+                              : "var(--red)",
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => abrirEdicaoValor(l)}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        title="Tocar para corrigir o valor"
+                        style={{
+                          ...styles.valor,
+                          color:
+                            l.tipo === "entrada"
+                              ? "var(--green)"
+                              : "var(--red)",
+                        }}
+                      >
+                        {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
+                      </button>
+                    )}
                   </div>
                   <div style={styles.itemBase}>
                     <span style={styles.desc}>{l.descricao || "—"}</span>
@@ -1414,6 +1509,9 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
   },
+  // O valor virou botão: tocar nele abre a correção sem passar pelo
+  // formulário. O tracejado embaixo é a única pista de que ele é
+  // tocável — um botão de verdade ali roubaria a atenção do número.
   valor: {
     fontFamily: "'Sora', sans-serif",
     fontSize: 15,
@@ -1421,6 +1519,25 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
     marginLeft: "auto",
     flexShrink: 0,
+    background: "none",
+    border: "none",
+    borderBottom: "1px dashed var(--border)",
+    padding: "2px 0",
+  },
+  valorInput: {
+    fontFamily: "'Sora', sans-serif",
+    // 16px para o Safari do iPhone não dar zoom ao focar o campo.
+    fontSize: 16,
+    fontWeight: 700,
+    marginLeft: "auto",
+    flexShrink: 0,
+    width: 104,
+    textAlign: "right",
+    background: "var(--bg)",
+    border: "1px solid var(--accent)",
+    borderRadius: 8,
+    padding: "3px 8px",
+    outline: "none",
   },
   acao: {
     background: "none",

@@ -10,6 +10,8 @@
 // com os itens era o que dobrava o valor da pilha quando o usuário lançava um
 // card "Total de Tudo" à mão.
 
+import { lerValor } from "./format";
+
 export interface ContaLida {
   descricao: string;
   valor: number;
@@ -33,30 +35,6 @@ const LINHA_TOTAL = /^\s*(total|soma|somat[óo]rio)\b/i;
 const LINHA_ITEM = /^(.*?)[\s\-–—:=]*R?\$?\s*([\d][\d.,]*)\s*$/;
 
 const DATA_CURTA = /\b(\d{1,2})[/.](\d{1,2})(?:[/.](\d{2,4}))?\b/;
-
-// Converte número no formato brasileiro. A vírgula, quando existe, é sempre o
-// decimal. Só com pontos, decide pelo tamanho do último grupo: "1.900" são mil
-// e novecentos, "10.50" são dez e cinquenta.
-export function lerValor(bruto: string): number | null {
-  const limpo = bruto.trim().replace(/\s/g, "");
-  if (!/^[\d.,]+$/.test(limpo) || !/\d/.test(limpo)) return null;
-
-  let normalizado: string;
-  if (limpo.includes(",")) {
-    normalizado = limpo.replace(/\./g, "").replace(",", ".");
-  } else {
-    const partes = limpo.split(".");
-    const ultima = partes[partes.length - 1];
-    normalizado =
-      partes.length > 1 && ultima.length !== 3
-        ? partes.slice(0, -1).join("") + "." + ultima
-        : partes.join("");
-  }
-
-  const valor = Number(normalizado);
-  if (!Number.isFinite(valor) || valor <= 0) return null;
-  return Math.round(valor * 100) / 100;
-}
 
 function lerData(texto: string, anoPadrao: number): string | null {
   const achou = texto.match(DATA_CURTA);
