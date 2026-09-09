@@ -223,15 +223,10 @@ export default function ModalRecorrencia({
   const lista = categoriasDe(tipo);
 
   return (
-    <div
-      style={styles.overlay}
-      className="overlay-sheet"
-      data-modal
-      onClick={onFechar}
-    >
+    <div style={styles.overlay} data-modal onClick={onFechar}>
       <div
         style={styles.modal}
-        className="modal-mobile modal-sheet"
+        className="modal-mobile"
         onClick={(e) => e.stopPropagation()}
       >
         <div style={styles.head}>
