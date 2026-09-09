@@ -411,15 +411,34 @@ describe("calcularPendentes", () => {
     });
   });
 
-  it("ignora futuros de outro mês", () => {
+  it("ignora o que pertence a um mês posterior ao visitado", () => {
+    const proximoMes = mesAtual === 11 ? 0 : mesAtual + 1;
+    const proximoAno = mesAtual === 11 ? anoAtual + 1 : anoAtual;
+    const dados = [
+      l({
+        tipo: "entrada",
+        valor: 500,
+        mes: proximoMes,
+        ano: proximoAno,
+        data: amanha,
+      }),
+    ];
+    const r = calcularPendentes(dados, mesAtual, anoAtual);
+    expect(r.entradas.quantidade).toBe(0);
+    expect(r.saidas.quantidade).toBe(0);
+  });
+
+  it("conta o que ficou para trás e ainda não caiu", () => {
+    // Competência anterior com data futura é um registro que o app não produz
+    // — mes/ano sempre saem da data. Mas se existir, o projetado soma e o saldo
+    // atual não: sem contar aqui, as quatro linhas do card param de fechar.
     const outroMes = mesAtual === 0 ? 11 : mesAtual - 1;
     const outroAno = mesAtual === 0 ? anoAtual - 1 : anoAtual;
     const dados = [
       l({ tipo: "entrada", valor: 500, mes: outroMes, ano: outroAno, data: amanha }),
     ];
     const r = calcularPendentes(dados, mesAtual, anoAtual);
-    expect(r.entradas.quantidade).toBe(0);
-    expect(r.saidas.quantidade).toBe(0);
+    expect(r.entradas).toEqual({ total: 500, quantidade: 1 });
   });
 });
 

@@ -13,11 +13,25 @@ function tokenDoConvite(): string | null {
   return new URLSearchParams(window.location.search).get("convite");
 }
 
-// Tira o token da URL depois de resolvido, para um F5 não tentar aceitar de
-// novo um convite que já foi consumido.
-function limparTokenDaUrl() {
+// Texto vindo de fora. O share_target de PWA só existe no Android, então o
+// caminho que serve nos dois é a URL: no iPhone, um atalho do app Atalhos
+// ("Receber texto → Abrir URL") manda a lista do WhatsApp para cá.
+//
+// O limite existe para uma URL absurda não travar a tela ao ser interpretada
+// a cada tecla dentro do Adicionar.
+const LIMITE_TEXTO = 4000;
+
+function textoDaUrl(): string | null {
+  const bruto = new URLSearchParams(window.location.search).get("texto");
+  if (!bruto || !bruto.trim()) return null;
+  return bruto.slice(0, LIMITE_TEXTO);
+}
+
+// Tira o parâmetro da URL depois de lido: um F5 não deve reabrir a mesma
+// lista, nem tentar aceitar de novo um convite já consumido.
+function limparDaUrl(nome: string) {
   const url = new URL(window.location.href);
-  url.searchParams.delete("convite");
+  url.searchParams.delete(nome);
   window.history.replaceState({}, "", url.toString());
 }
 
@@ -36,12 +50,18 @@ function limparCacheLegado() {
 export default function App() {
   const { session, carregando } = useAuth();
   const [convite, setConvite] = useState<string | null>(tokenDoConvite);
+  // Sobrevive à tela de login: quem compartilhou a lista sem estar logado
+  // entra e cai no Adicionar já preenchido.
+  const [textoCompartilhado, setTextoCompartilhado] = useState<string | null>(
+    textoDaUrl
+  );
 
   useEffect(() => {
     limparCacheLegado();
+    limparDaUrl("texto");
     // Convite ignorado ainda assim sai da URL, senão o parâmetro fica grudado
     // em todo compartilhamento do link do app.
-    if (!CONTAS_A_PAGAR_HABILITADO) limparTokenDaUrl();
+    if (!CONTAS_A_PAGAR_HABILITADO) limparDaUrl("convite");
   }, []);
 
   if (carregando) {
@@ -70,12 +90,18 @@ export default function App() {
       <AceitarConvite
         token={convite}
         onPronto={() => {
-          limparTokenDaUrl();
+          limparDaUrl("convite");
           setConvite(null);
         }}
       />
     );
   }
 
-  return <Dashboard session={session} />;
+  return (
+    <Dashboard
+      session={session}
+      textoInicial={textoCompartilhado ?? undefined}
+      onTextoInicialUsado={() => setTextoCompartilhado(null)}
+    />
+  );
 }

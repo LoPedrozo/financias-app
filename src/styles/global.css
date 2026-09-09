@@ -122,6 +122,52 @@ input, select {
   .modal-mobile {
     padding: 18px !important;
   }
+  /* Botão que só faz sentido onde não existe a barra de baixo. */
+  .so-desktop {
+    display: none !important;
+  }
+
+  /* No celular a ordem da tela é outra.
+     O app é aberto para lançar, não para analisar: os gráficos empurravam a
+     lista de lançamentos para três telas de rolagem abaixo. Aqui a página vira
+     coluna flex só para o `order` valer, e gráficos e recorrências descem para
+     o fim. No desktop nada muda — lá cabe tudo lado a lado. */
+  .page-root {
+    display: flex;
+    flex-direction: column;
+  }
+  .graficos-no-fim {
+    order: 5;
+  }
+  .recorrencias-no-fim {
+    order: 6;
+  }
+
+  /* Renda e Gastos são dois números sem detalhamento: cabem lado a lado e
+     devolvem uma tela inteira de rolagem. O Saldo atual continua inteiro —
+     é o que abre a conta do projetado, e é o que se olha de verdade. */
+  .cards {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+  .cards > .card-destaque {
+    grid-column: 1 / -1;
+  }
+  .cards > .card:not(.card-destaque) {
+    padding: 13px 13px !important;
+    gap: 10px !important;
+  }
+  .cards > .card:not(.card-destaque) .card-icone {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 9px !important;
+  }
+  .cards > .card:not(.card-destaque) .card-rotulo {
+    font-size: 12px !important;
+  }
+  .cards > .card:not(.card-destaque) .card-valor {
+    font-size: 16px !important;
+  }
   .month-picker-popover {
     min-width: 220px !important;
   }
@@ -140,4 +186,33 @@ input, select {
 }
 .abas-rolaveis::-webkit-scrollbar {
   display: none;
+}
+
+/* Folha que sobe de baixo, só no celular.
+   O app é usado quase sempre no telefone e quase sempre com uma mão: um modal
+   centralizado deixa o botão de salvar no meio da tela, longe do polegar, e
+   com o teclado aberto ele ainda é empurrado para fora. Ancorado no rodapé,
+   o campo fica logo acima do teclado e o botão continua alcançável. */
+@media (max-width: 640px) {
+  .overlay-sheet {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .modal-sheet {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: none !important;
+    max-height: 92vh !important;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+    overscroll-behavior: contain;
+    animation: subirFolha 0.22s ease !important;
+  }
+}
+
+@keyframes subirFolha {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
 }

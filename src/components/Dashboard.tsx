@@ -2,16 +2,17 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
-  Repeat, Home,
+  Repeat, Home, CopyPlus,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import {
-  listarLancamentos, criarLancamento, atualizarLancamento, removerLancamento,
+  listarLancamentos, criarLancamento, criarLancamentosEmLote,
+  atualizarLancamento, removerLancamento, removerLancamentosEmLote,
 } from "../lib/lancamentos";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
 import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
-import { brl } from "../lib/format";
+import { brl, lerValor } from "../lib/format";
 import {
   agruparPorCategoria,
   calcularBalancoAnual,
@@ -19,6 +20,7 @@ import {
   calcularSaldoAcumulado,
   calcularSaldoProjetado,
   compararCompetencia,
+  competenciaAnterior,
   competenciaAtual,
   filtrarPorMes,
   hojeLocal,
@@ -28,8 +30,10 @@ import Card from "./Card";
 import MonthPicker from "./MonthPicker";
 import { useSwipe } from "../hooks/useSwipe";
 import ModalNovo from "./ModalNovo";
+import ModalAdicionar from "./ModalAdicionar";
+import ModalRepetirMes from "./ModalRepetirMes";
 import ConfirmModal from "./ConfirmModal";
-import Toast, { type ToastDados } from "./Toast";
+import Toast, { type ToastAcao, type ToastDados } from "./Toast";
 import EmptyState from "./EmptyState";
 import { SkeletonLista } from "./Skeleton";
 import BottomNav from "./BottomNav";
@@ -38,6 +42,7 @@ import Recorrencias from "./Recorrencias";
 import { gerarLancamentosRecorrentes, listarRecorrencias } from "../lib/recorrencias";
 import { pendentesDeContas } from "../lib/listas";
 import { CONTAS_A_PAGAR_HABILITADO } from "../lib/flags";
+import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 
 // O recharts é metade do pacote e não aparece na aba Contas — sai do
@@ -71,12 +76,35 @@ function dataInicialNovoLancamento(mes: number, ano: number): string {
   return `${ano}-${mm}-01`;
 }
 
-export default function Dashboard({ session }: { session: Session }) {
+// Formulário completo aberto já preenchido — pela conta paga em Contas a
+// Pagar, ou pela linha que o Adicionar entregou para o usuário revisar.
+interface FormularioPreenchido {
+  valores: Partial<
+    Pick<NovoLancamento, "tipo" | "valor" | "descricao" | "categoria">
+  >;
+  data: string;
+}
+
+export default function Dashboard({
+  session,
+  textoInicial,
+  onTextoInicialUsado,
+}: {
+  session: Session;
+  /** Lista que chegou pelo atalho de compartilhamento, já pronta para revisar. */
+  textoInicial?: string;
+  onTextoInicialUsado?: () => void;
+}) {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [mes, setMes] = useState(new Date().getMonth());
   const [ano, setAno] = useState(new Date().getFullYear());
-  const [modal, setModal] = useState(false);
+  // Texto compartilhado abre o Adicionar sozinho: quem veio do atalho já
+  // pediu para lançar, não faz sentido cair no Dashboard e ter que tocar de
+  // novo. Guardado em estado para não voltar ao reabrir o modal pelo +.
+  const [textoAdicionar, setTextoAdicionar] = useState(textoInicial ?? "");
+  const [modalAdicionar, setModalAdicionar] = useState(!!textoInicial);
+  const [modalRepetir, setModalRepetir] = useState(false);
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
@@ -87,16 +115,22 @@ export default function Dashboard({ session }: { session: Session }) {
   const [verRecorrencias, setVerRecorrencias] = useState(false);
   const [recorrencias, setRecorrencias] = useState<Recorrencia[]>([]);
   const [carregandoRecorrencias, setCarregandoRecorrencias] = useState(true);
-  // Conta marcada como paga em "Contas a Pagar" que o usuário decidiu lançar
-  // como saída no próprio financeiro.
-  const [preLancamento, setPreLancamento] = useState<Partial<
-    Pick<NovoLancamento, "tipo" | "valor" | "descricao" | "categoria">
-  > | null>(null);
+  const [preLancamento, setPreLancamento] =
+    useState<FormularioPreenchido | null>(null);
   const [contasEmAberto, setContasEmAberto] = useState({
     total: 0,
     quantidade: 0,
   });
   const [falhaAoAtualizar, setFalhaAoAtualizar] = useState(false);
+  // Edição do valor direto na lista: o caso do mês é a fatura que veio
+  // diferente do previsto, e abrir o formulário inteiro para trocar um
+  // número era o que fazia deixar para depois.
+  const [editandoValor, setEditandoValor] = useState<string | null>(null);
+  const [valorDigitado, setValorDigitado] = useState("");
+  // No teclado numérico do iPhone não existe Enter, então quem confirma é a
+  // saída do campo. Cancelar precisa avisar o blur para ele não gravar o que
+  // o usuário acabou de descartar.
+  const cancelandoValor = useRef(false);
   const longPressTimer = useRef<number | null>(null);
   const tooltipAutoHide = useRef<number | null>(null);
   const hoverDelayTimer = useRef<number | null>(null);
@@ -170,7 +204,16 @@ export default function Dashboard({ session }: { session: Session }) {
   // Trocar de mês ou abrir qualquer modal tira o item de baixo do balão.
   useEffect(() => {
     fecharTooltipFuturo();
-  }, [mes, ano, modal, editando, confirmarId, preLancamento, fecharTooltipFuturo]);
+  }, [
+    mes,
+    ano,
+    modalAdicionar,
+    modalRepetir,
+    editando,
+    confirmarId,
+    preLancamento,
+    fecharTooltipFuturo,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -183,8 +226,8 @@ export default function Dashboard({ session }: { session: Session }) {
   }, []);
 
   const mostrarToast = useCallback(
-    (tipo: ToastDados["tipo"], mensagem: string) => {
-      setToast({ id: Date.now(), tipo, mensagem });
+    (tipo: ToastDados["tipo"], mensagem: string, acao?: ToastAcao) => {
+      setToast({ id: Date.now(), tipo, mensagem, acao });
     },
     []
   );
@@ -310,10 +353,116 @@ export default function Dashboard({ session }: { session: Session }) {
     try {
       const novo = await criarLancamento(item);
       setLancamentos((atual) => [novo, ...atual]);
-      setModal(false);
       mostrarToast("sucesso", "Lançamento salvo!");
     } catch (e) {
       console.error(e);
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+    }
+  }
+
+  // Tira do ar a leva que acabou de entrar. É o arrependimento rápido: colou
+  // a lista errada, trouxe o mês que não era. Passado o toast, o caminho
+  // volta a ser excluir um a um.
+  async function desfazerLote(ids: string[]) {
+    const alvo = new Set(ids);
+    setLancamentos((atual) => atual.filter((l) => !alvo.has(l.id)));
+    try {
+      await removerLancamentosEmLote(ids);
+      mostrarToast(
+        "sucesso",
+        ids.length === 1
+          ? "Lançamento desfeito."
+          : `${ids.length} lançamentos desfeitos.`
+      );
+    } catch (e) {
+      console.error(e);
+      // Recarrega em vez de restaurar uma cópia: esta função vive na closure
+      // do toast, criada antes de a leva entrar na lista. Guardar `lancamentos`
+      // ali devolveria a tela de antes do salvamento, escondendo linhas que
+      // continuam no banco e apagando o que tivesse entrado nesse meio-tempo.
+      carregar();
+      mostrarToast("erro", "Não foi possível desfazer.");
+    }
+  }
+
+  // Serve tanto ao Adicionar quanto ao Repetir mês: os dois entregam uma
+  // leva pronta, que pode ter uma linha só. A origem importa só para o
+  // rascunho, que é do Adicionar — salvar pelo Repetir não pode apagar um
+  // texto meio digitado que ainda está lá.
+  async function adicionarVarios(
+    itens: NovoLancamento[],
+    origem: "adicionar" | "repetir"
+  ) {
+    try {
+      const novos = await criarLancamentosEmLote(itens);
+      setLancamentos((atual) => [...novos, ...atual]);
+      // O que estava escrito virou lançamento: o rascunho perdeu a função.
+      if (origem === "adicionar") limparRascunho();
+      fecharAdicionar();
+      setModalRepetir(false);
+      const ids = novos.map((n) => n.id);
+      mostrarToast(
+        "sucesso",
+        novos.length === 1
+          ? "Lançamento salvo!"
+          : `${novos.length} lançamentos salvos!`,
+        { rotulo: "Desfazer", onAcao: () => desfazerLote(ids) }
+      );
+    } catch (e) {
+      console.error(e);
+      // A falha pode ser só a resposta perdida no caminho, com o insert já
+      // gravado. Recarregar deixa a tela igual ao servidor, e é isso que faz
+      // o aviso de repetida aparecer se ele tentar salvar de novo.
+      carregar();
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+    }
+  }
+
+  function abrirEdicaoValor(l: Lancamento) {
+    setEditandoValor(l.id);
+    cancelandoValor.current = false;
+    setValorDigitado(l.valor.toFixed(2).replace(".", ","));
+  }
+
+  async function salvarValorEditado(original: Lancamento) {
+    setEditandoValor(null);
+    if (cancelandoValor.current) {
+      cancelandoValor.current = false;
+      return;
+    }
+
+    const novoValor = lerValor(valorDigitado);
+    // Valor inválido ou igual ao que já estava não vira ida ao servidor: o
+    // toque no número para conferir e sair é mais comum que a correção.
+    if (novoValor === null || novoValor === original.valor) return;
+
+    setLancamentos((atual) =>
+      atual.map((l) =>
+        l.id === original.id ? { ...l, valor: novoValor } : l
+      )
+    );
+    try {
+      // recorrencia_id não vai no update e por isso sobrevive: o vínculo com
+      // a regra continua, e a geração seguinte encontra o conflito de
+      // (recorrencia_id, data) e não sobrescreve o valor corrigido.
+      const atualizado = await atualizarLancamento(original.id, {
+        tipo: original.tipo,
+        valor: novoValor,
+        descricao: original.descricao,
+        categoria: original.categoria,
+        mes: original.mes,
+        ano: original.ano,
+        data: original.data,
+      });
+      setLancamentos((atual) =>
+        atual.map((l) => (l.id === atualizado.id ? atualizado : l))
+      );
+      mostrarToast("sucesso", "Valor atualizado!");
+    } catch (e) {
+      console.error(e);
+      setLancamentos((atual) =>
+        atual.map((l) => (l.id === original.id ? original : l))
+      );
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
     }
   }
@@ -375,6 +524,19 @@ export default function Dashboard({ session }: { session: Session }) {
     [lancamentos, mes, ano]
   );
 
+  const anterior = useMemo(
+    () => competenciaAnterior({ mes, ano }),
+    [mes, ano]
+  );
+
+  const doMesAnterior = useMemo(
+    () => filtrarPorMes(lancamentos, anterior.mes, anterior.ano),
+    [lancamentos, anterior]
+  );
+
+  // Um mês só de recorrências não tem o que repetir: elas se geram sozinhas.
+  const podeRepetir = doMesAnterior.some((l) => !l.recorrencia_id);
+
   const renda = somarPorTipo(doMes, "entrada");
   const gastos = somarPorTipo(doMes, "saida");
 
@@ -429,8 +591,17 @@ export default function Dashboard({ session }: { session: Session }) {
   // Usada pelas duas navegações — a barra inferior no celular e o seletor do
   // header no desktop. Trocar de aba com um modal aberto deixaria o modal
   // pairando sobre a tela errada.
+  // Um caminho só para fechar: o texto do atalho precisa ser esquecido em
+  // todas as saídas, senão ele reaparece na próxima vez que o + for tocado.
+  const fecharAdicionar = useCallback(() => {
+    setModalAdicionar(false);
+    setTextoAdicionar("");
+    onTextoInicialUsado?.();
+  }, [onTextoInicialUsado]);
+
   function navegarPara(aba: "inicio" | "contas") {
-    setModal(false);
+    fecharAdicionar();
+    setModalRepetir(false);
     setEditando(null);
     setConfirmarId(null);
     setPreLancamento(null);
@@ -537,6 +708,7 @@ export default function Dashboard({ session }: { session: Session }) {
 
       {verRecorrencias ? (
         <Recorrencias
+          mesAlvo={{ mes, ano, nome: MESES[mes], lancamentos: doMes }}
           recorrencias={recorrencias}
           onRecorrenciasChange={setRecorrencias}
           onVoltar={() => setVerRecorrencias(false)}
@@ -550,7 +722,7 @@ export default function Dashboard({ session }: { session: Session }) {
 
       {falhaAoAtualizar && <AvisoDesatualizado onTentarDeNovo={atualizarTudo} />}
 
-      <div style={styles.cards}>
+      <div style={styles.cards} className="cards">
         <Card
           label="Renda"
           valor={renda}
@@ -579,7 +751,7 @@ export default function Dashboard({ session }: { session: Session }) {
         />
       </div>
 
-      <div style={styles.grid}>
+      <div style={styles.grid} className="graficos-no-fim">
         <div style={styles.panel} className="panel-mobile">
           <div style={styles.panelHead}>
             <h2 style={styles.panelTitleInline}>
@@ -646,9 +818,27 @@ export default function Dashboard({ session }: { session: Session }) {
       <div style={styles.panel} className="panel-mobile">
         <div style={styles.listHead}>
           <h2 style={styles.panelTitle}>Lançamentos de {MESES[mes]}</h2>
-          <button style={styles.add} onClick={() => setModal(true)}>
-            <Plus size={16} /> Novo
-          </button>
+          <div style={styles.listHeadAcoes}>
+            {podeRepetir && (
+              <button
+                style={styles.repetir}
+                onClick={() => setModalRepetir(true)}
+                title={`Repetir ${MESES[anterior.mes]} neste mês`}
+              >
+                <CopyPlus size={15} /> Repetir
+              </button>
+            )}
+            {/* No celular quem adiciona é o botão redondo da barra de
+                baixo. Repetir o mesmo botão aqui só roubava a largura que
+                o título e o Repetir precisam para caber lado a lado. */}
+            <button
+              style={styles.add}
+              className="so-desktop"
+              onClick={() => setModalAdicionar(true)}
+            >
+              <Plus size={16} /> Novo
+            </button>
+          </div>
         </div>
         {carregando ? (
           <SkeletonLista linhas={4} />
@@ -668,7 +858,23 @@ export default function Dashboard({ session }: { session: Session }) {
           <EmptyState
             icon={<Receipt size={24} />}
             titulo="Nenhum lançamento ainda."
-            sugestao="Clique em 'Novo' para adicionar seu primeiro lançamento."
+            // Sem citar botão: no celular quem adiciona é o + da barra de
+            // baixo, e no desktop é o Novo aqui do lado.
+            sugestao={
+              podeRepetir
+                ? `Traga ${MESES[anterior.mes]} de uma vez, ou adicione um a um.`
+                : "Ao adicionar, dá para escrever uma linha ou colar a lista inteira."
+            }
+            acao={
+              podeRepetir ? (
+                <button
+                  style={styles.repetirDestaque}
+                  onClick={() => setModalRepetir(true)}
+                >
+                  <CopyPlus size={15} /> Repetir {MESES[anterior.mes]}
+                </button>
+              ) : undefined
+            }
           />
         ) : (
           <div style={styles.list}>
@@ -785,14 +991,51 @@ export default function Dashboard({ session }: { session: Session }) {
                     >
                       {l.categoria}
                     </span>
-                    <span
-                      style={{
-                        ...styles.valor,
-                        color: l.tipo === "entrada" ? "var(--green)" : "var(--red)",
-                      }}
-                    >
-                      {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
-                    </span>
+                    {editandoValor === l.id ? (
+                      <input
+                        value={valorDigitado}
+                        inputMode="decimal"
+                        autoFocus
+                        aria-label={`Valor de ${l.descricao}`}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onChange={(e) =>
+                          setValorDigitado(
+                            e.target.value.replace(/[^0-9.,]/g, "")
+                          )
+                        }
+                        onBlur={() => salvarValorEditado(l)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.blur();
+                          if (e.key === "Escape") {
+                            cancelandoValor.current = true;
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        style={{
+                          ...styles.valorInput,
+                          color:
+                            l.tipo === "entrada"
+                              ? "var(--green)"
+                              : "var(--red)",
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => abrirEdicaoValor(l)}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        title="Tocar para corrigir o valor"
+                        style={{
+                          ...styles.valor,
+                          color:
+                            l.tipo === "entrada"
+                              ? "var(--green)"
+                              : "var(--red)",
+                        }}
+                      >
+                        {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
+                      </button>
+                    )}
                   </div>
                   <div style={styles.itemBase}>
                     <span style={styles.desc}>{l.descricao || "—"}</span>
@@ -835,32 +1078,53 @@ export default function Dashboard({ session }: { session: Session }) {
           session={session}
           onNovoLancamento={(item) =>
             setPreLancamento({
-              tipo: "saida",
-              valor: item.valor,
-              descricao: item.descricao,
-              categoria: item.categoria,
+              valores: {
+                tipo: "saida",
+                valor: item.valor,
+                descricao: item.descricao,
+                categoria: item.categoria,
+              },
+              data: hojeLocal(),
             })
           }
         />
       )}
 
+      {modalAdicionar && (
+        <ModalAdicionar
+          dataPadrao={dataInicialNovoLancamento(mes, ano)}
+          jaLancados={lancamentos}
+          textoInicial={textoAdicionar}
+          onFechar={fecharAdicionar}
+          onSalvar={(itens) => adicionarVarios(itens, "adicionar")}
+          onFormularioCompleto={(valores, data) => {
+            fecharAdicionar();
+            setPreLancamento({ valores, data });
+          }}
+        />
+      )}
+
+      {modalRepetir && (
+        <ModalRepetirMes
+          mes={mes}
+          ano={ano}
+          origem={doMesAnterior}
+          jaNoMes={doMes}
+          mesOrigemNome={MESES[anterior.mes]}
+          onFechar={() => setModalRepetir(false)}
+          onSalvar={(itens) => adicionarVarios(itens, "repetir")}
+        />
+      )}
+
       {preLancamento && (
         <ModalNovo
-          valoresIniciais={preLancamento}
-          dataInicial={hojeLocal()}
+          valoresIniciais={preLancamento.valores}
+          dataInicial={preLancamento.data}
           onFechar={() => setPreLancamento(null)}
           onSalvar={async (item) => {
             await adicionar(item);
             setPreLancamento(null);
           }}
-        />
-      )}
-
-      {modal && (
-        <ModalNovo
-          onFechar={() => setModal(false)}
-          onSalvar={adicionar}
-          dataInicial={dataInicialNovoLancamento(mes, ano)}
         />
       )}
 
@@ -891,7 +1155,7 @@ export default function Dashboard({ session }: { session: Session }) {
         onNavegar={navegarPara}
         onNovo={() => {
           setVerRecorrencias(false);
-          setModal(true);
+          setModalAdicionar(true);
         }}
       />
     </div>
@@ -934,7 +1198,7 @@ function RecorrenciasResumo({
   return (
     <div
       style={{ ...styles.panel, marginTop: 16 }}
-      className="panel-mobile"
+      className="panel-mobile recorrencias-no-fim"
     >
       <div style={styles.recorrenciasHead}>
         <div style={styles.recorrenciasTituloWrap}>
@@ -1122,6 +1386,36 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     marginBottom: 14,
   },
+  listHeadAcoes: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+  repetir: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    background: "var(--bg)",
+    color: "var(--text-soft)",
+    border: "1px solid var(--border)",
+    padding: "8px 12px",
+    borderRadius: 11,
+    fontWeight: 600,
+    fontSize: 13.5,
+  },
+  repetirDestaque: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    background: "var(--accent-soft)",
+    color: "var(--text)",
+    border: "none",
+    padding: "10px 16px",
+    borderRadius: 11,
+    fontWeight: 600,
+    fontSize: 13.5,
+  },
   add: {
     display: "flex",
     alignItems: "center",
@@ -1226,6 +1520,9 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     minWidth: 0,
   },
+  // O valor virou botão: tocar nele abre a correção sem passar pelo
+  // formulário. O tracejado embaixo é a única pista de que ele é
+  // tocável — um botão de verdade ali roubaria a atenção do número.
   valor: {
     fontFamily: "'Sora', sans-serif",
     fontSize: 15,
@@ -1233,6 +1530,25 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
     marginLeft: "auto",
     flexShrink: 0,
+    background: "none",
+    border: "none",
+    borderBottom: "1px dashed var(--border)",
+    padding: "2px 0",
+  },
+  valorInput: {
+    fontFamily: "'Sora', sans-serif",
+    // 16px para o Safari do iPhone não dar zoom ao focar o campo.
+    fontSize: 16,
+    fontWeight: 700,
+    marginLeft: "auto",
+    flexShrink: 0,
+    width: 104,
+    textAlign: "right",
+    background: "var(--bg)",
+    border: "1px solid var(--accent)",
+    borderRadius: 8,
+    padding: "3px 8px",
+    outline: "none",
   },
   acao: {
     background: "none",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { interpretarLista, lerValor, somar } from "./importarLista";
+import { interpretarLista, somar } from "./importarLista";
+import { lerValor } from "./format";
 
 describe("lerValor", () => {
   it("trata ponto como milhar quando o último grupo tem 3 dígitos", () => {

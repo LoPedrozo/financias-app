@@ -63,6 +63,7 @@ export default function Card({
 
   return (
     <div
+      className={destaque ? "card card-destaque" : "card"}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       onClick={
@@ -80,6 +81,7 @@ export default function Card({
       }}
     >
       <div
+        className="card-icone"
         style={{
           width: 42,
           height: 42,
@@ -95,7 +97,10 @@ export default function Card({
         {icon}
       </div>
       <div style={{ minWidth: 0 }}>
-        <p style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 2 }}>
+        <p
+          className="card-rotulo"
+          style={{ fontSize: 13, color: "var(--text-soft)", marginBottom: 2 }}
+        >
           {label}
         </p>
         <p
