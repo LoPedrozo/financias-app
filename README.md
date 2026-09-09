@@ -5,7 +5,7 @@
 ![Status](https://img.shields.io/badge/status-em%20produção-3f9e6a)
 ![Stack](https://img.shields.io/badge/stack-React%2018%20%2B%20TypeScript%20%2B%20Supabase-1a1f2b)
 ![PWA](https://img.shields.io/badge/PWA-installable-5d8aa8)
-![Testes](https://img.shields.io/badge/testes-189%20passando-c9a86a)
+![Testes](https://img.shields.io/badge/testes-194%20passando-c9a86a)
 
 **Em produção: [financias-app.vercel.app](https://financias-app.vercel.app)**
 
@@ -102,6 +102,11 @@ Total = 10.820
 - **Desfazer** — o toast da leva recém-salva traz um botão que apaga tudo que
   acabou de entrar. É o arrependimento rápido: colou a lista errada, trouxe o
   mês que não era
+- **Rascunho que sobrevive** — o Safari do iPhone descarrega a aba quando você
+  troca de app, e trocar de app no meio é o caso normal aqui: você vai no
+  WhatsApp copiar a lista e volta. O texto fica guardado no aparelho e é
+  devolvido ao reabrir, com um `Limpar` do lado. Some sozinho quando a leva
+  entra
 
 ### 📲 Atalho de compartilhamento (funciona no iPhone)
 
@@ -134,6 +139,22 @@ lista do WhatsApp não sabia:
 As datas vão para o mesmo dia do mês de destino, encolhendo quando o dia não
 existe lá: o aluguel do dia 31 cai no dia 30 em novembro, em vez de escorregar
 para dezembro.
+
+### 📱 Layout do celular
+
+O app é aberto para lançar, não para analisar — mas os gráficos ficavam entre
+os cards e a lista, empurrando o que mais se usa para três telas de rolagem
+abaixo. No celular a ordem passou a ser **cards → lançamentos → gráficos →
+recorrências**; no desktop nada muda, que lá cabe tudo lado a lado.
+
+Renda e Gastos, que são dois números sem detalhamento, foram para uma faixa de
+duas colunas. O Saldo atual continua inteiro, porque é ele que abre a conta do
+projetado.
+
+Somadas, as duas coisas trouxeram a lista de `y ≈ 1400px` para `y ≈ 330px` em
+uma tela de 390×844 — de três rolagens para nenhuma. É `order` de flexbox e
+`grid-column` dentro da media query de 640px: nenhuma lógica de cálculo foi
+tocada, e o desktop renderiza exatamente o que renderizava antes.
 
 ### Categorias
 **Saídas** — Alimentação, Transporte, Lazer, Educação, Assinaturas, Saúde, Tecnologia, Beleza, Casa, Cartão de Crédito / Contas, Vestuário, Outros.
@@ -289,6 +310,7 @@ financias-app/
 │   │   ├── lancamentos.ts           # CRUD de lançamentos
 │   │   ├── listas.ts                # Pilhas, membros, itens, convites
 │   │   ├── mensagens.ts             # Tradução de erros do Supabase para pt-BR
+│   │   ├── rascunho.ts              # Texto do Adicionar guardado no aparelho
 │   │   ├── recorrencias.ts          # CRUD + geração idempotente
 │   │   └── supabase.ts              # Cliente singleton
 │   ├── styles/global.css            # Reset + design tokens
@@ -329,7 +351,7 @@ npm run preview
 npm run test:run
 ```
 
-**189 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
+**194 testes**, todos sobre lógica pura — nenhum depende de rede ou de DOM:
 
 | Arquivo | Testes | Cobre |
 |---|---|---|
@@ -339,6 +361,7 @@ npm run test:run
 | `importarLista.test.ts` | 12 | parsing pt-BR, linha de total como conferência, linhas ignoradas, detecção de vencimento |
 | `categorias.test.ts` | 8 | normalização, palavra inteira, palavra mais longa, ambiguidade que não desempata |
 | `duplicatas.test.ts` | 9 | lista recolada, mesma conta em meses diferentes, valor ajustado |
+| `rascunho.test.ts` | 5 | guardar, limpar, e nunca estourar quando o armazenamento está bloqueado |
 | `recorrencias.test.ts` | 11 | frequências, idempotência, corte por `created_at`, exceções, datas geradas e encolhimento de dia |
 | `fluxos_completos.test.ts` | 5 | cenários ponta a ponta de um mês real |
 
@@ -399,6 +422,8 @@ Já entregue:
 - ✅ **Atalho de compartilhamento** por URL, com receita para o app Atalhos do iPhone
 - ✅ **Aviso de conta já lançada** ao criar recorrência, com opção de pular o mês
 - ✅ **Corrigir o valor direto na lista**, sem abrir formulário
+- ✅ **Lista antes dos gráficos no celular**, com Renda e Gastos em faixa
+- ✅ **Rascunho do Adicionar** sobrevivendo ao descarregamento da aba
 
 Próximas frentes, em ordem aproximada de prioridade:
 

@@ -10,6 +10,7 @@ import {
 } from "../lib/importarLancamentos";
 import { CATEGORIA_PADRAO, adivinharCategoria } from "../lib/categorias";
 import { chaveExata, conjuntoExato } from "../lib/duplicatas";
+import { lerRascunho, salvarRascunho } from "../lib/rascunho";
 import { brl } from "../lib/format";
 
 // Um campo só para os dois casos que antes eram telas diferentes: digitar
@@ -76,7 +77,12 @@ export default function ModalAdicionar({
   onSalvar,
   onFormularioCompleto,
 }: Props) {
-  const [texto, setTexto] = useState(textoInicial ?? "");
+  // O texto do atalho de compartilhamento manda; sem ele, o que sobrou da
+  // última vez que a aba foi descarregada no meio.
+  const [texto, setTexto] = useState(() => textoInicial || lerRascunho());
+  const [veioDeRascunho] = useState(
+    () => !textoInicial && lerRascunho().trim().length > 0
+  );
   const [dataLote, setDataLote] = useState(dataPadrao);
   const [ajustes, setAjustes] = useState<Record<string, Ajuste>>({});
   const [removidos, setRemovidos] = useState<Set<string>>(new Set());
@@ -98,6 +104,10 @@ export default function ModalAdicionar({
         .filter((linha) => !removidos.has(chave(linha))),
     [lida.itens, ajustes, removidos]
   );
+
+  useEffect(() => {
+    salvarRascunho(texto);
+  }, [texto]);
 
   // Cresce com o conteúdo até um teto, para a lista colada não empurrar o
   // botão de salvar para fora da tela do celular.
@@ -231,6 +241,19 @@ export default function ModalAdicionar({
           rows={1}
           autoFocus
         />
+
+        {veioDeRascunho && texto.trim().length > 0 && (
+          <p style={styles.rascunho}>
+            Recuperei o que você tinha escrito.{" "}
+            <button
+              type="button"
+              onClick={() => setTexto("")}
+              style={styles.rascunhoAcao}
+            >
+              Limpar
+            </button>
+          </p>
+        )}
 
         {linhas.length === 0 && (
           <p style={styles.ajuda}>
@@ -466,6 +489,21 @@ const styles: Record<string, React.CSSProperties> = {
     resize: "none",
     overflow: "auto",
     fontFamily: "inherit",
+  },
+  rascunho: {
+    fontSize: 12,
+    color: "var(--text-soft)",
+    lineHeight: 1.5,
+    marginTop: 8,
+  },
+  rascunhoAcao: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    color: "var(--accent)",
+    fontSize: 12,
+    fontWeight: 700,
+    textDecoration: "underline",
   },
   ajuda: {
     fontSize: 12,

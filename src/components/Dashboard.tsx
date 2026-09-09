@@ -42,6 +42,7 @@ import Recorrencias from "./Recorrencias";
 import { gerarLancamentosRecorrentes, listarRecorrencias } from "../lib/recorrencias";
 import { pendentesDeContas } from "../lib/listas";
 import { CONTAS_A_PAGAR_HABILITADO } from "../lib/flags";
+import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 
 // O recharts é metade do pacote e não aparece na aba Contas — sai do
@@ -387,6 +388,8 @@ export default function Dashboard({
     try {
       const novos = await criarLancamentosEmLote(itens);
       setLancamentos((atual) => [...novos, ...atual]);
+      // O que estava escrito virou lançamento: o rascunho perdeu a função.
+      limparRascunho();
       fecharAdicionar();
       setModalRepetir(false);
       const ids = novos.map((n) => n.id);
@@ -711,7 +714,7 @@ export default function Dashboard({
 
       {falhaAoAtualizar && <AvisoDesatualizado onTentarDeNovo={atualizarTudo} />}
 
-      <div style={styles.cards}>
+      <div style={styles.cards} className="cards">
         <Card
           label="Renda"
           valor={renda}
@@ -740,7 +743,7 @@ export default function Dashboard({
         />
       </div>
 
-      <div style={styles.grid}>
+      <div style={styles.grid} className="graficos-no-fim">
         <div style={styles.panel} className="panel-mobile">
           <div style={styles.panelHead}>
             <h2 style={styles.panelTitleInline}>
@@ -1187,7 +1190,7 @@ function RecorrenciasResumo({
   return (
     <div
       style={{ ...styles.panel, marginTop: 16 }}
-      className="panel-mobile"
+      className="panel-mobile recorrencias-no-fim"
     >
       <div style={styles.recorrenciasHead}>
         <div style={styles.recorrenciasTituloWrap}>
