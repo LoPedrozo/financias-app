@@ -57,7 +57,19 @@ const LINHA_TOTAL = /^(total|soma|somat[óo]rio)\b/i;
 const MARCADOR = /^[•‣▪●*]+\s*/;
 const SINAL = /^([+-])\s*/;
 const DATA_NA_FRENTE = /^(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?(?=\s|$)/;
-const DATA_SOLTA = /(\d{1,2})[/.](\d{1,2})(?:[/.](\d{2,4}))?/;
+const DATA_SOLTA = /(\d{1,2})[/.](\d{1,2})(?:[/.](\d{2,4}))?/g;
+
+// Descrição que termina em "05/" ou "05." denuncia que o valor encontrado
+// logo depois é, na verdade, a segunda metade de uma data.
+//
+// Sem isto, "Contas de outubro 05/10" virava um lançamento de R$ 10 chamado
+// "Contas de outubro 05/", e a data do bloco se perdia junto — a leva de
+// outubro inteira caía no mês que estava na tela, sem nada em `ignoradas`.
+//
+// O teste é na descrição, e não na linha toda, porque "almoço 25.10" é vinte
+// e cinco e dez: ali o valor casa inteiro ("25.10") e a descrição termina em
+// letra, não em separador de data.
+const RESTO_DE_DATA = /\d{1,2}[/.]$/;
 
 // Valor ancorado no fim, com separador e "R$" opcionais. A descrição é preguiçosa
 // para que hífens no meio ("Salário de bom filho - 500") não confundam o corte.
@@ -83,6 +95,26 @@ function montarData(dia: number, mes: number, ano: number): string | null {
   return `${ano}-${mm}-${dd}`;
 }
 
+// A primeira data que existe de verdade. Varre todas as ocorrências porque a
+// primeira que casa pode ser lixo: em "Contas 1.900 de outubro 05/10" o
+// padrão casa "1.90" antes, e mês 90 não existe.
+function primeiraDataValida(texto: string, anoPadrao: number): string | null {
+  DATA_SOLTA.lastIndex = 0;
+  let achado: RegExpExecArray | null;
+  while ((achado = DATA_SOLTA.exec(texto)) !== null) {
+    const data = montarData(
+      Number(achado[1]),
+      Number(achado[2]),
+      anoDe(achado[3], anoPadrao)
+    );
+    if (data) {
+      DATA_SOLTA.lastIndex = 0;
+      return data;
+    }
+  }
+  return null;
+}
+
 function limparDescricao(bruta: string): string {
   return bruta
     .replace(/^[\s\-–—:=*]+/, "")
@@ -97,7 +129,7 @@ interface ValorEDescricao {
 
 function extrairValor(linha: string): ValorEDescricao | null {
   const fim = linha.match(VALOR_NO_FIM);
-  if (fim) {
+  if (fim && !RESTO_DE_DATA.test(fim[1])) {
     const valor = lerValor(fim[2]);
     const descricao = limparDescricao(fim[1]);
     if (valor !== null && descricao.length >= 2) return { valor, descricao };
@@ -154,14 +186,7 @@ export function interpretarLancamentos(
     if (!lido) {
       // Sem valor, a linha só interessa pela data que carrega — é o cabeçalho
       // "Contas a Pagar 05/08:" mandando na leva inteira que vem abaixo.
-      const solta = linha.match(DATA_SOLTA);
-      const doCabecalho = solta
-        ? montarData(
-            Number(solta[1]),
-            Number(solta[2]),
-            anoDe(solta[3], anoPadrao)
-          )
-        : null;
+      const doCabecalho = primeiraDataValida(linha, anoPadrao);
       if (dataDaLinha || doCabecalho) {
         dataDoBloco = dataDaLinha ?? doCabecalho;
       } else {

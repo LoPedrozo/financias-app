@@ -10,7 +10,7 @@ import {
 } from "../lib/importarLancamentos";
 import { CATEGORIA_PADRAO, adivinharCategoria } from "../lib/categorias";
 import { chaveExata, conjuntoExato } from "../lib/duplicatas";
-import { lerRascunho, salvarRascunho } from "../lib/rascunho";
+import { lerRascunho, limparRascunho, salvarRascunho } from "../lib/rascunho";
 import { brl } from "../lib/format";
 
 // Um campo só para os dois casos que antes eram telas diferentes: digitar
@@ -57,8 +57,18 @@ interface Ajuste {
 // A data fica de fora de propósito. Ela entra na chave e trocar a data do
 // lote renomearia todas as linhas de uma vez, jogando fora as categorias que
 // o usuário tinha acabado de corrigir à mão.
-function chave(linha: LinhaLida): string {
-  return `${linha.descricao}|${linha.valor}`;
+//
+// O sufixo separa linhas idênticas: dois ubers de R$ 18 no mesmo dia são dois
+// lançamentos, e sem ele os dois dividiam chave — tirar um tirava os dois, e
+// o React ainda reclamava de key repetida.
+function chavearLinhas(itens: LinhaLida[]): string[] {
+  const vistas = new Map<string, number>();
+  return itens.map((linha) => {
+    const base = `${linha.descricao}|${linha.valor}`;
+    const quantas = vistas.get(base) ?? 0;
+    vistas.set(base, quantas + 1);
+    return quantas === 0 ? base : `${base}#${quantas}`;
+  });
 }
 
 function categoriasDe(tipo: Tipo) {
@@ -94,16 +104,20 @@ export default function ModalAdicionar({
     [texto, dataLote]
   );
 
-  const linhas = useMemo(
-    () =>
-      lida.itens
-        .map((linha) => {
-          const ajuste = ajustes[chave(linha)];
-          return ajuste ? { ...linha, ...ajuste } : linha;
-        })
-        .filter((linha) => !removidos.has(chave(linha))),
-    [lida.itens, ajustes, removidos]
-  );
+  // A chave é calculada sobre a lista inteira, antes de filtrar: tirar uma
+  // linha não pode renumerar as que sobraram.
+  const visiveis = useMemo(() => {
+    const chaves = chavearLinhas(lida.itens);
+    return lida.itens
+      .map((linha, i) => {
+        const chave = chaves[i];
+        const ajuste = ajustes[chave];
+        return { chave, linha: ajuste ? { ...linha, ...ajuste } : linha };
+      })
+      .filter(({ chave }) => !removidos.has(chave));
+  }, [lida.itens, ajustes, removidos]);
+
+  const linhas = useMemo(() => visiveis.map((v) => v.linha), [visiveis]);
 
   useEffect(() => {
     salvarRascunho(texto);
@@ -124,14 +138,14 @@ export default function ModalAdicionar({
   // também não deixa passar calado.
   const existentes = useMemo(() => conjuntoExato(jaLancados), [jaLancados]);
   const repetidas = useMemo(
-    () => linhas.filter((linha) => existentes.has(chaveExata(linha))),
-    [linhas, existentes]
+    () => visiveis.filter(({ linha }) => existentes.has(chaveExata(linha))),
+    [visiveis, existentes]
   );
 
   function tirarRepetidas() {
     setRemovidos((atual) => {
       const proximo = new Set(atual);
-      for (const linha of repetidas) proximo.add(chave(linha));
+      for (const { chave } of repetidas) proximo.add(chave);
       return proximo;
     });
   }
@@ -159,28 +173,28 @@ export default function ModalAdicionar({
       ? lida.totalInformado - somaConferida
       : null;
 
-  function trocarTipo(linha: LinhaLida) {
+  function trocarTipo(chave: string, linha: LinhaLida) {
     const tipo: Tipo = linha.tipo === "entrada" ? "saida" : "entrada";
     // A categoria antiga não existe na lista do outro tipo, então o palpite é
     // refeito em vez de deixar um valor órfão no select.
     setAjustes((atual) => ({
       ...atual,
-      [chave(linha)]: {
+      [chave]: {
         tipo,
         categoria: adivinharCategoria(linha.descricao, tipo) ?? CATEGORIA_PADRAO,
       },
     }));
   }
 
-  function trocarCategoria(linha: LinhaLida, categoria: string) {
+  function trocarCategoria(chave: string, linha: LinhaLida, categoria: string) {
     setAjustes((atual) => ({
       ...atual,
-      [chave(linha)]: { tipo: linha.tipo, categoria },
+      [chave]: { tipo: linha.tipo, categoria },
     }));
   }
 
-  function remover(linha: LinhaLida) {
-    setRemovidos((atual) => new Set(atual).add(chave(linha)));
+  function remover(chave: string) {
+    setRemovidos((atual) => new Set(atual).add(chave));
   }
 
   async function submit() {
@@ -194,6 +208,9 @@ export default function ModalAdicionar({
   }
 
   function abrirFormulario() {
+    // O texto já está indo para o formulário; deixá-lo no rascunho o traria
+    // de volta depois, e ele poderia ser salvo uma segunda vez.
+    limparRascunho();
     const unica = linhas.length === 1 ? linhas[0] : null;
     onFormularioCompleto(
       unica
@@ -317,15 +334,15 @@ export default function ModalAdicionar({
             )}
 
             <div style={styles.previa}>
-              {linhas.map((linha) => {
+              {visiveis.map(({ chave, linha }) => {
                 const entrada = linha.tipo === "entrada";
                 const cor = entrada ? "var(--green)" : "var(--red)";
                 return (
-                  <div key={chave(linha)} style={styles.linha}>
+                  <div key={chave} style={styles.linha}>
                     <div style={styles.linhaTopo}>
                       <button
                         type="button"
-                        onClick={() => trocarTipo(linha)}
+                        onClick={() => trocarTipo(chave, linha)}
                         style={{
                           ...styles.sinal,
                           background: entrada
@@ -351,7 +368,7 @@ export default function ModalAdicionar({
                       <select
                         value={linha.categoria}
                         onChange={(e) =>
-                          trocarCategoria(linha, e.target.value)
+                          trocarCategoria(chave, linha, e.target.value)
                         }
                         style={styles.selectCategoria}
                         aria-label={`Categoria de ${linha.descricao}`}
@@ -369,7 +386,7 @@ export default function ModalAdicionar({
                       <button
                         type="button"
                         style={styles.linhaRemover}
-                        onClick={() => remover(linha)}
+                        onClick={() => remover(chave)}
                         aria-label={`Tirar ${linha.descricao} da lista`}
                         title="Tirar da lista"
                       >

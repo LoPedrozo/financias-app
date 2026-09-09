@@ -154,6 +154,41 @@ Total = 8.850`;
     expect(lida.itens.map((i) => i.descricao)).toEqual(["uber", "ifood"]);
   });
 
+  it("cabeçalho sem dois-pontos não vira lançamento fantasma", () => {
+    // "Contas de outubro 05/10" terminava com "10", e o "10" virava valor:
+    // nascia um lançamento de R$ 10 chamado "Contas de outubro 05/", e a data
+    // do bloco se perdia — a leva de outubro inteira caía em setembro.
+    const lida = interpretarLancamentos(
+      "Contas de outubro 05/10\ncartão 1.900\nalmoço 25",
+      HOJE
+    );
+    expect(lida.itens.map((i) => i.descricao)).toEqual(["cartão", "almoço"]);
+    expect(lida.itens.map((i) => i.data)).toEqual([
+      "2026-10-05",
+      "2026-10-05",
+    ]);
+  });
+
+  it("valor com ponto decimal não é confundido com data", () => {
+    // O contrário do caso acima: "25.10" é vinte e cinco e dez, não 25 de
+    // outubro. Confundir os dois faria o lançamento sumir sem aviso.
+    const lida = interpretarLancamentos("almoço 25.10", HOJE);
+    expect(lida.itens).toHaveLength(1);
+    expect(lida.itens[0].valor).toBe(25.1);
+    expect(lida.itens[0].data).toBe(HOJE);
+  });
+
+  it("acha a data do cabeçalho mesmo com número parecido antes", () => {
+    // "1.90" casa com o padrão de data antes de "05/10" aparecer, e mês 90 não
+    // existe: a busca precisa continuar em vez de desistir na primeira.
+    const lida = interpretarLancamentos(
+      "Contas 1.900 de outubro 05/10:\ncartão 1.900",
+      HOJE
+    );
+    expect(lida.itens).toHaveLength(1);
+    expect(lida.itens[0].data).toBe("2026-10-05");
+  });
+
   it("linhas em branco não viram nada", () => {
     const lida = interpretarLancamentos("\n\nuber 18\n\n", HOJE);
     expect(lida.itens).toHaveLength(1);

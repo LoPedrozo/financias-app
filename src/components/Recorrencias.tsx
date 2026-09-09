@@ -112,16 +112,30 @@ export default function Recorrencias({
   async function criar(dados: NovaRecorrencia, datasParaPular: string[]) {
     try {
       const novo = await criarRecorrencia(dados);
-      // Antes do onMudanca, que é quem dispara a geração: a exceção precisa
-      // já estar no banco quando a materialização olhar as datas.
-      await pularOcorrencias(novo.id, datasParaPular);
+
+      // A regra já existe a partir daqui. Se pular o mês falhar, relatar erro
+      // faria o usuário tentar de novo e criar uma segunda regra — o dobro do
+      // problema que a tela veio evitar. Então a falha é avisada, e não
+      // desfaz o que deu certo.
+      let pulou = true;
+      try {
+        // Antes do onMudanca, que é quem dispara a geração: a exceção precisa
+        // já estar no banco quando a materialização olhar as datas.
+        await pularOcorrencias(novo.id, datasParaPular);
+      } catch (e) {
+        console.error(e);
+        pulou = false;
+      }
+
       aplicarItens((atual) => [novo, ...atual]);
       setModal(false);
       mostrarToast(
-        "sucesso",
-        datasParaPular.length > 0
-          ? "Recorrência criada — sem gerar neste mês."
-          : "Recorrência criada!"
+        pulou ? "sucesso" : "erro",
+        !pulou
+          ? "Recorrência criada, mas não consegui pular este mês — confira se duplicou."
+          : datasParaPular.length > 0
+            ? "Recorrência criada — sem gerar neste mês."
+            : "Recorrência criada!"
       );
       onMudanca?.();
     } catch (e) {

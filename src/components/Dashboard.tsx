@@ -364,7 +364,6 @@ export default function Dashboard({
   // a lista errada, trouxe o mês que não era. Passado o toast, o caminho
   // volta a ser excluir um a um.
   async function desfazerLote(ids: string[]) {
-    const anterior = lancamentos;
     const alvo = new Set(ids);
     setLancamentos((atual) => atual.filter((l) => !alvo.has(l.id)));
     try {
@@ -377,19 +376,28 @@ export default function Dashboard({
       );
     } catch (e) {
       console.error(e);
-      setLancamentos(anterior);
+      // Recarrega em vez de restaurar uma cópia: esta função vive na closure
+      // do toast, criada antes de a leva entrar na lista. Guardar `lancamentos`
+      // ali devolveria a tela de antes do salvamento, escondendo linhas que
+      // continuam no banco e apagando o que tivesse entrado nesse meio-tempo.
+      carregar();
       mostrarToast("erro", "Não foi possível desfazer.");
     }
   }
 
   // Serve tanto ao Adicionar quanto ao Repetir mês: os dois entregam uma
-  // leva pronta, que pode ter uma linha só.
-  async function adicionarVarios(itens: NovoLancamento[]) {
+  // leva pronta, que pode ter uma linha só. A origem importa só para o
+  // rascunho, que é do Adicionar — salvar pelo Repetir não pode apagar um
+  // texto meio digitado que ainda está lá.
+  async function adicionarVarios(
+    itens: NovoLancamento[],
+    origem: "adicionar" | "repetir"
+  ) {
     try {
       const novos = await criarLancamentosEmLote(itens);
       setLancamentos((atual) => [...novos, ...atual]);
       // O que estava escrito virou lançamento: o rascunho perdeu a função.
-      limparRascunho();
+      if (origem === "adicionar") limparRascunho();
       fecharAdicionar();
       setModalRepetir(false);
       const ids = novos.map((n) => n.id);
@@ -1088,7 +1096,7 @@ export default function Dashboard({
           jaLancados={lancamentos}
           textoInicial={textoAdicionar}
           onFechar={fecharAdicionar}
-          onSalvar={adicionarVarios}
+          onSalvar={(itens) => adicionarVarios(itens, "adicionar")}
           onFormularioCompleto={(valores, data) => {
             fecharAdicionar();
             setPreLancamento({ valores, data });
@@ -1104,7 +1112,7 @@ export default function Dashboard({
           jaNoMes={doMes}
           mesOrigemNome={MESES[anterior.mes]}
           onFechar={() => setModalRepetir(false)}
-          onSalvar={adicionarVarios}
+          onSalvar={(itens) => adicionarVarios(itens, "repetir")}
         />
       )}
 
