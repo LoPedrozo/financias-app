@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { ClipboardPaste, X } from "lucide-react";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA } from "../types";
 import type { Lancamento, NovoLancamento, Tipo } from "../types";
 import { hojeLocal } from "../lib/calculos";
@@ -12,6 +12,15 @@ interface Props {
   // Abre o formulário já preenchido sem entrar em modo de edição — usado
   // quando uma conta paga vira lançamento no financeiro pessoal.
   valoresIniciais?: Partial<Pick<NovoLancamento, "tipo" | "valor" | "descricao" | "categoria">>;
+  // Saída para o Adicionar, onde se escreve várias linhas de uma vez ou se
+  // cola a lista pronta. Leva junto o que já foi digitado aqui, porque
+  // trocar de tela não é motivo para perder o que a pessoa escreveu.
+  onColarLista?: (
+    valores: Partial<
+      Pick<NovoLancamento, "tipo" | "valor" | "descricao" | "categoria">
+    >,
+    data: string
+  ) => void;
 }
 
 interface Erros {
@@ -25,17 +34,27 @@ function categoriasDe(tipo: Tipo) {
   return tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
 }
 
+// O campo aceita "10,50" e também texto pela metade. Vale só o que já é
+// número; o resto vira undefined e não atrapalha quem está de saída.
+function valorNumerico(valor: string): number | undefined {
+  const limpo = valor.trim().replace(",", ".");
+  if (!limpo) return undefined;
+  const n = parseFloat(limpo);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 export default function ModalNovo({
   onFechar,
   onSalvar,
   lancamentoParaEditar,
   dataInicial,
   valoresIniciais,
+  onColarLista,
 }: Props) {
   const editando = !!lancamentoParaEditar;
 
   const [tipo, setTipo] = useState<Tipo>(
-    lancamentoParaEditar?.tipo ?? valoresIniciais?.tipo ?? "saida"
+    lancamentoParaEditar?.tipo ?? valoresIniciais?.tipo ?? "entrada"
   );
   const [valor, setValor] = useState(() => {
     const inicial = lancamentoParaEditar?.valor ?? valoresIniciais?.valor;
@@ -50,7 +69,7 @@ export default function ModalNovo({
       const existe = lista.some((c) => c.nome === lancamentoParaEditar.categoria);
       return existe ? lancamentoParaEditar.categoria : lista[0].nome;
     }
-    const lista = categoriasDe(valoresIniciais?.tipo ?? "saida");
+    const lista = categoriasDe(valoresIniciais?.tipo ?? "entrada");
     const sugerida = valoresIniciais?.categoria;
     if (sugerida && lista.some((c) => c.nome === sugerida)) return sugerida;
     return lista[0].nome;
@@ -157,7 +176,7 @@ export default function ModalNovo({
         </div>
 
         <div style={styles.toggle}>
-          {(["saida", "entrada"] as Tipo[]).map((t) => (
+          {(["entrada", "saida"] as Tipo[]).map((t) => (
             <button
               key={t}
               onClick={() => trocarTipo(t)}
@@ -256,6 +275,26 @@ export default function ModalNovo({
             ? "Salvar alterações"
             : "Salvar lançamento"}
         </button>
+
+        {!editando && onColarLista && (
+          <button
+            type="button"
+            style={styles.colarLista}
+            onClick={() =>
+              onColarLista(
+                {
+                  tipo,
+                  valor: valorNumerico(valor),
+                  descricao: descricao.trim(),
+                  categoria,
+                },
+                data
+              )
+            }
+          >
+            <ClipboardPaste size={14} /> Escrever ou colar vários
+          </button>
+        )}
       </div>
     </div>
   );
@@ -340,6 +379,20 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 0,
     marginBottom: 12,
   },
+  colarLista: {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    background: "none",
+    border: "none",
+    color: "var(--text-soft)",
+    fontSize: 13,
+    fontWeight: 500,
+    padding: "12px 0 2px",
+  },
+
   salvar: {
     width: "100%",
     background: "var(--accent)",

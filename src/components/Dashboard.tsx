@@ -76,13 +76,25 @@ function dataInicialNovoLancamento(mes: number, ano: number): string {
   return `${ano}-${mm}-01`;
 }
 
-// Formulário completo aberto já preenchido — pela conta paga em Contas a
-// Pagar, ou pela linha que o Adicionar entregou para o usuário revisar.
-interface FormularioPreenchido {
+// O formulário completo de lançamento. É o que o + abre, e também como
+// chega a conta paga em Contas a Pagar ou a linha que o Adicionar entregou
+// para o usuário revisar — nesses casos com `valores` já preenchidos.
+interface FormularioLancamento {
   valores: Partial<
     Pick<NovoLancamento, "tipo" | "valor" | "descricao" | "categoria">
   >;
   data: string;
+}
+
+// O Adicionar lê uma linha por lançamento, com "+" marcando entrada. É assim
+// que o que foi digitado no formulário atravessa para lá sem se perder.
+function comoLinha(valores: FormularioLancamento["valores"]): string {
+  const descricao = valores.descricao?.trim();
+  if (!descricao) return "";
+  const valor =
+    valores.valor == null ? "" : ` ${String(valores.valor).replace(".", ",")}`;
+  const sinal = valores.tipo === "entrada" ? "+ " : "";
+  return `${sinal}${descricao}${valor}`;
 }
 
 export default function Dashboard({
@@ -104,6 +116,9 @@ export default function Dashboard({
   // novo. Guardado em estado para não voltar ao reabrir o modal pelo +.
   const [textoAdicionar, setTextoAdicionar] = useState(textoInicial ?? "");
   const [modalAdicionar, setModalAdicionar] = useState(!!textoInicial);
+  // Data escolhida no formulário antes de trocar para o Adicionar. Sem ela a
+  // leva voltaria para o dia padrão do mês, perdendo a data já informada.
+  const [dataAdicionar, setDataAdicionar] = useState<string | null>(null);
   const [modalRepetir, setModalRepetir] = useState(false);
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
@@ -115,8 +130,8 @@ export default function Dashboard({
   const [verRecorrencias, setVerRecorrencias] = useState(false);
   const [recorrencias, setRecorrencias] = useState<Recorrencia[]>([]);
   const [carregandoRecorrencias, setCarregandoRecorrencias] = useState(true);
-  const [preLancamento, setPreLancamento] =
-    useState<FormularioPreenchido | null>(null);
+  const [formulario, setFormulario] =
+    useState<FormularioLancamento | null>(null);
   const [contasEmAberto, setContasEmAberto] = useState({
     total: 0,
     quantidade: 0,
@@ -211,7 +226,7 @@ export default function Dashboard({
     modalRepetir,
     editando,
     confirmarId,
-    preLancamento,
+    formulario,
     fecharTooltipFuturo,
   ]);
 
@@ -593,9 +608,21 @@ export default function Dashboard({
   // pairando sobre a tela errada.
   // Um caminho só para fechar: o texto do atalho precisa ser esquecido em
   // todas as saídas, senão ele reaparece na próxima vez que o + for tocado.
+  // O + e o Novo abrem o formulário de sempre. Escrever várias linhas ou
+  // colar a lista continua a um toque, pelo botão dentro do formulário —
+  // antes era o contrário, e caía no campo de texto quem só queria lançar um.
+  const abrirFormulario = useCallback(
+    (valores: FormularioLancamento["valores"] = {}, data?: string) => {
+      setVerRecorrencias(false);
+      setFormulario({ valores, data: data ?? dataInicialNovoLancamento(mes, ano) });
+    },
+    [mes, ano]
+  );
+
   const fecharAdicionar = useCallback(() => {
     setModalAdicionar(false);
     setTextoAdicionar("");
+    setDataAdicionar(null);
     onTextoInicialUsado?.();
   }, [onTextoInicialUsado]);
 
@@ -604,7 +631,7 @@ export default function Dashboard({
     setModalRepetir(false);
     setEditando(null);
     setConfirmarId(null);
-    setPreLancamento(null);
+    setFormulario(null);
     setVerRecorrencias(false);
     setAbaAtiva(aba);
   }
@@ -834,7 +861,7 @@ export default function Dashboard({
             <button
               style={styles.add}
               className="so-desktop"
-              onClick={() => setModalAdicionar(true)}
+              onClick={() => abrirFormulario()}
             >
               <Plus size={16} /> Novo
             </button>
@@ -1077,7 +1104,7 @@ export default function Dashboard({
           ano={ano}
           session={session}
           onNovoLancamento={(item) =>
-            setPreLancamento({
+            setFormulario({
               valores: {
                 tipo: "saida",
                 valor: item.valor,
@@ -1092,14 +1119,14 @@ export default function Dashboard({
 
       {modalAdicionar && (
         <ModalAdicionar
-          dataPadrao={dataInicialNovoLancamento(mes, ano)}
+          dataPadrao={dataAdicionar ?? dataInicialNovoLancamento(mes, ano)}
           jaLancados={lancamentos}
           textoInicial={textoAdicionar}
           onFechar={fecharAdicionar}
           onSalvar={(itens) => adicionarVarios(itens, "adicionar")}
           onFormularioCompleto={(valores, data) => {
             fecharAdicionar();
-            setPreLancamento({ valores, data });
+            setFormulario({ valores, data });
           }}
         />
       )}
@@ -1116,14 +1143,20 @@ export default function Dashboard({
         />
       )}
 
-      {preLancamento && (
+      {formulario && (
         <ModalNovo
-          valoresIniciais={preLancamento.valores}
-          dataInicial={preLancamento.data}
-          onFechar={() => setPreLancamento(null)}
+          valoresIniciais={formulario.valores}
+          dataInicial={formulario.data}
+          onFechar={() => setFormulario(null)}
+          onColarLista={(valores, data) => {
+            setFormulario(null);
+            setTextoAdicionar(comoLinha(valores));
+            setDataAdicionar(data);
+            setModalAdicionar(true);
+          }}
           onSalvar={async (item) => {
             await adicionar(item);
-            setPreLancamento(null);
+            setFormulario(null);
           }}
         />
       )}
@@ -1153,10 +1186,7 @@ export default function Dashboard({
         abaAtiva={abaAtiva}
         mostrarContas={CONTAS_A_PAGAR_HABILITADO}
         onNavegar={navegarPara}
-        onNovo={() => {
-          setVerRecorrencias(false);
-          setModalAdicionar(true);
-        }}
+        onNovo={() => abrirFormulario()}
       />
     </div>
   );
