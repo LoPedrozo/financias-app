@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
 import Dashboard from "./Dashboard";
 import { criarLancamento, listarLancamentos } from "../lib/lancamentos";
+import { MESES } from "../types";
 
 // O Dashboard conversa com o servidor por estes quatro módulos. Mockados, a
 // tela inteira roda em memória e dá para provocar a falha de rede que é
@@ -138,6 +139,7 @@ describe("Dashboard", () => {
     render(<Dashboard session={sessao} />);
     await screen.findByText(/almoço; café/);
     await userEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Tudo/ }));
 
     expect(urls).toHaveLength(1);
     expect(conteudo).toMatch(/^\ufeffData;Tipo;Descrição;Categoria;Valor/);
@@ -171,10 +173,11 @@ describe("Dashboard", () => {
     render(<Dashboard session={sessao} />);
     await screen.findByText("mesada");
     await userEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Tudo/ }));
 
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
     const enviado = share.mock.calls[0][0];
-    expect(enviado.files![0].name).toMatch(/^financas-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(enviado.files![0].name).toMatch(/^financas-tudo-\d{4}-\d{2}-\d{2}\.csv$/);
     expect(await enviado.files![0].text()).toContain("mesada");
 
     vi.unstubAllGlobals();
@@ -201,6 +204,7 @@ describe("Dashboard", () => {
     render(<Dashboard session={sessao} />);
     await screen.findByText("mesada");
     await userEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Tudo/ }));
 
     await waitFor(() =>
       expect(screen.queryByText(/Não foi possível exportar/)).not.toBeInTheDocument()
@@ -244,5 +248,126 @@ describe("etiqueta de categoria", () => {
 
     expect(etiqueta.style.background).not.toContain("var(");
     expect(etiqueta.style.background).toBeTruthy();
+  });
+});
+
+// Recorte por período. O Dashboard abre no mês corrente, então os dados são
+// montados a partir de hoje — com data fixa, o teste quebraria no mês que vem.
+describe("exportar por período", () => {
+  const hoje = new Date();
+  const mesAtual = hoje.getMonth();
+  const anoAtual = hoje.getFullYear();
+  const anterior =
+    mesAtual === 0
+      ? { mes: 11, ano: anoAtual - 1 }
+      : { mes: mesAtual - 1, ano: anoAtual };
+  const iso = (mes: number, ano: number) =>
+    `${ano}-${String(mes + 1).padStart(2, "0")}-01`;
+
+  function lanc(id: string, descricao: string, mes: number, ano: number) {
+    return {
+      id, user_id: "u1", tipo: "saida" as const, valor: 10, descricao,
+      categoria: "Outros", mes, ano, data: iso(mes, ano), created_at: "",
+    };
+  }
+
+  function capturarDownload() {
+    const capturado = { conteudo: "", nome: "" };
+    const BlobOriginal = globalThis.Blob;
+    vi.stubGlobal(
+      "Blob",
+      class extends BlobOriginal {
+        constructor(partes: string[], opcoes?: BlobPropertyBag) {
+          super(partes, opcoes);
+          capturado.conteudo = partes.join("");
+        }
+      }
+    );
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: () => "blob:x",
+      revokeObjectURL: vi.fn(),
+    });
+    // O nome sai no atributo download do link criado na hora do clique.
+    const clicarOriginal = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function (this: HTMLAnchorElement) {
+      capturado.nome = this.download;
+    };
+    return {
+      capturado,
+      restaurar: () => {
+        HTMLAnchorElement.prototype.click = clicarOriginal;
+        vi.unstubAllGlobals();
+      },
+    };
+  }
+
+  it("o mês na tela exporta só aquele mês", async () => {
+    vi.mocked(listarLancamentos).mockResolvedValue([
+      lanc("a", "deste mês", mesAtual, anoAtual),
+      lanc("b", "do mês passado", anterior.mes, anterior.ano),
+    ]);
+    const { capturado, restaurar } = capturarDownload();
+
+    render(<Dashboard session={sessao} />);
+    await screen.findByText("deste mês");
+    await userEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: new RegExp(`^${MESES[mesAtual]} de ${anoAtual}`),
+      })
+    );
+
+    expect(capturado.conteudo).toContain("deste mês");
+    expect(capturado.conteudo).not.toContain("do mês passado");
+    expect(capturado.nome).toBe(
+      `financas-${anoAtual}-${String(mesAtual + 1).padStart(2, "0")}.csv`
+    );
+    restaurar();
+  });
+
+  it("o ano exporta os meses daquele ano", async () => {
+    vi.mocked(listarLancamentos).mockResolvedValue([
+      lanc("a", "deste ano", mesAtual, anoAtual),
+      lanc("b", "do ano passado", mesAtual, anoAtual - 1),
+    ]);
+    const { capturado, restaurar } = capturarDownload();
+
+    render(<Dashboard session={sessao} />);
+    await screen.findByText("deste ano");
+    await userEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: new RegExp(`^Ano de ${anoAtual}`) })
+    );
+
+    expect(capturado.conteudo).toContain("deste ano");
+    expect(capturado.conteudo).not.toContain("do ano passado");
+    expect(capturado.nome).toBe(`financas-${anoAtual}.csv`);
+    restaurar();
+  });
+
+  // Sem isso daria para baixar um CSV só com o cabeçalho e achar que os
+  // dados sumiram.
+  it("período sem lançamento fica desligado e diz por quê", async () => {
+    vi.mocked(listarLancamentos).mockResolvedValue([
+      lanc("b", "do ano passado", mesAtual, anoAtual - 1),
+    ]);
+
+    render(<Dashboard session={sessao} />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Exportar CSV" })
+    );
+
+    // Dado só do ano passado: o mês e o ano da tela ficam os dois vazios.
+    const doMes = await screen.findByRole("button", {
+      name: new RegExp(`^${MESES[mesAtual]} de ${anoAtual}.*nenhum lançamento`),
+    });
+    expect(doMes).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: new RegExp(`^Ano de ${anoAtual}`) })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /^Tudo.*1 lançamento/ })
+    ).toBeEnabled();
   });
 });

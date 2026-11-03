@@ -43,7 +43,9 @@ import Recorrencias from "./Recorrencias";
 import { gerarLancamentosRecorrentes, listarRecorrencias } from "../lib/recorrencias";
 import { pendentesDeContas } from "../lib/listas";
 import { CONTAS_A_PAGAR_HABILITADO } from "../lib/flags";
-import { gerarCsv, nomeDoArquivo } from "../lib/csv";
+import { filtrarPeriodo, gerarCsv, nomeDoArquivo } from "../lib/csv";
+import type { Periodo } from "../lib/csv";
+import ModalExportar from "./ModalExportar";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 
@@ -122,6 +124,7 @@ export default function Dashboard({
   // leva voltaria para o dia padrão do mês, perdendo a data já informada.
   const [dataAdicionar, setDataAdicionar] = useState<string | null>(null);
   const [modalRepetir, setModalRepetir] = useState(false);
+  const [modalExportar, setModalExportar] = useState(false);
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
@@ -226,6 +229,7 @@ export default function Dashboard({
     ano,
     modalAdicionar,
     modalRepetir,
+    modalExportar,
     editando,
     confirmarId,
     formulario,
@@ -456,18 +460,22 @@ export default function Dashboard({
     }
   }
 
-  async function exportarCsv() {
-    if (lancamentos.length === 0) {
-      mostrarToast("erro", "Nada para exportar ainda.");
+  async function exportarCsv(periodo: Periodo) {
+    setModalExportar(false);
+    const alvo = filtrarPeriodo(lancamentos, periodo);
+    // O modal já desliga a opção vazia; isto é a rede para o caso de a lista
+    // ter mudado entre abrir o modal e tocar.
+    if (alvo.length === 0) {
+      mostrarToast("erro", "Nada para exportar nesse período.");
       return;
     }
 
-    const csv = gerarCsv(lancamentos);
-    const nome = nomeDoArquivo(hojeLocal());
+    const csv = gerarCsv(alvo);
+    const nome = nomeDoArquivo(periodo, hojeLocal());
     const aviso =
-      lancamentos.length === 1
+      alvo.length === 1
         ? "1 lançamento exportado."
-        : `${lancamentos.length} lançamentos exportados.`;
+        : `${alvo.length} lançamentos exportados.`;
 
     // No iPhone, `<a download>` dentro do app instalado costuma abrir o CSV
     // como texto na tela em vez de salvar. O compartilhamento nativo resolve:
@@ -710,6 +718,7 @@ export default function Dashboard({
   function navegarPara(aba: "inicio" | "contas") {
     fecharAdicionar();
     setModalRepetir(false);
+    setModalExportar(false);
     setEditando(null);
     setConfirmarId(null);
     setFormulario(null);
@@ -805,9 +814,9 @@ export default function Dashboard({
           )}
           <button
             style={styles.sair}
-            onClick={exportarCsv}
+            onClick={() => setModalExportar(true)}
             aria-label="Exportar CSV"
-            title="Exportar tudo em CSV"
+            title="Exportar em CSV"
           >
             <Download size={17} />
           </button>
@@ -1263,6 +1272,16 @@ export default function Dashboard({
           onSalvar={async (item) => {
             await editar(item);
           }}
+        />
+      )}
+
+      {modalExportar && (
+        <ModalExportar
+          mes={mes}
+          ano={ano}
+          lancamentos={lancamentos}
+          onExportar={exportarCsv}
+          onFechar={() => setModalExportar(false)}
         />
       )}
 
