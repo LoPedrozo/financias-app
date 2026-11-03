@@ -4,6 +4,7 @@ import Login from "./components/Login";
 import Dashboard from "./components/Dashboard";
 import AceitarConvite from "./components/AceitarConvite";
 import { CONTAS_A_PAGAR_HABILITADO } from "./lib/flags";
+import AvisoNovaVersao from "./components/AvisoNovaVersao";
 
 // Convite de lista compartilhada chega como ?convite=<token>. Sem router no
 // app, é aqui que ele é lido. Com a feature de contas desligada o link não
@@ -64,44 +65,56 @@ export default function App() {
     if (!CONTAS_A_PAGAR_HABILITADO) limparDaUrl("convite");
   }, []);
 
-  if (carregando) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--text-faint)",
-          fontSize: 15,
-        }}
-      >
-        Carregando...
-      </div>
-    );
-  }
+  // As telas viraram uma função porque o aviso de versão nova tem que
+  // aparecer em todas — inclusive na de login e na de carregando. Com um
+  // `return` em cada ramo, ele teria que ser repetido em todos eles.
+  function tela() {
+    if (carregando) {
+      return (
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--text-faint)",
+            fontSize: 15,
+          }}
+        >
+          Carregando...
+        </div>
+      );
+    }
 
-  if (!session) return <Login />;
+    if (!session) return <Login />;
 
-  // O token sobrevive à tela de login: quem recebeu o link sem ter conta se
-  // cadastra e cai direto no convite.
-  if (convite) {
+    // O token sobrevive à tela de login: quem recebeu o link sem ter conta se
+    // cadastra e cai direto no convite.
+    if (convite) {
+      return (
+        <AceitarConvite
+          token={convite}
+          onPronto={() => {
+            limparDaUrl("convite");
+            setConvite(null);
+          }}
+        />
+      );
+    }
+
     return (
-      <AceitarConvite
-        token={convite}
-        onPronto={() => {
-          limparDaUrl("convite");
-          setConvite(null);
-        }}
+      <Dashboard
+        session={session}
+        textoInicial={textoCompartilhado ?? undefined}
+        onTextoInicialUsado={() => setTextoCompartilhado(null)}
       />
     );
   }
 
   return (
-    <Dashboard
-      session={session}
-      textoInicial={textoCompartilhado ?? undefined}
-      onTextoInicialUsado={() => setTextoCompartilhado(null)}
-    />
+    <>
+      <AvisoNovaVersao />
+      {tela()}
+    </>
   );
 }
