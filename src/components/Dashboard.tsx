@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
-  Repeat, Home, CopyPlus,
+  Repeat, Home, CopyPlus, Download,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -43,6 +43,7 @@ import Recorrencias from "./Recorrencias";
 import { gerarLancamentosRecorrentes, listarRecorrencias } from "../lib/recorrencias";
 import { pendentesDeContas } from "../lib/listas";
 import { CONTAS_A_PAGAR_HABILITADO } from "../lib/flags";
+import { gerarCsv, nomeDoArquivo } from "../lib/csv";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 
@@ -455,6 +456,33 @@ export default function Dashboard({
     }
   }
 
+  function exportarCsv() {
+    if (lancamentos.length === 0) {
+      mostrarToast("erro", "Nada para exportar ainda.");
+      return;
+    }
+
+    const url = URL.createObjectURL(
+      new Blob([gerarCsv(lancamentos)], { type: "text/csv;charset=utf-8" })
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nomeDoArquivo(hojeLocal());
+    // Precisa estar no documento para o clique valer em alguns navegadores
+    // de celular; sai logo em seguida.
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    mostrarToast(
+      "sucesso",
+      lancamentos.length === 1
+        ? "1 lançamento exportado."
+        : `${lancamentos.length} lançamentos exportados.`
+    );
+  }
+
   function abrirEdicaoValor(l: Lancamento) {
     setEditandoValor(l.id);
     cancelandoValor.current = false;
@@ -749,6 +777,14 @@ export default function Dashboard({
               }}
             />
           )}
+          <button
+            style={styles.sair}
+            onClick={exportarCsv}
+            aria-label="Exportar CSV"
+            title="Exportar tudo em CSV"
+          >
+            <Download size={17} />
+          </button>
           <button
             style={styles.sair}
             onClick={() => supabase.auth.signOut()}

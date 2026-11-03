@@ -101,6 +101,53 @@ describe("Dashboard", () => {
     expect(screen.getByLabelText("Descrição")).toHaveValue("mesada pai");
   });
 
+  it("exporta tudo em CSV, com BOM e separador de planilha brasileira", async () => {
+    vi.mocked(listarLancamentos).mockResolvedValue([
+      {
+        id: "l1", user_id: "u1", tipo: "saida", valor: 40,
+        descricao: "almoço; café", categoria: "Alimentação",
+        mes: 10, ano: 2026, data: "2026-11-01", created_at: "",
+      },
+    ]);
+
+    // jsdom não implementa nem o Blob URL nem o download de verdade: o que dá
+    // para provar aqui é o conteúdo gerado e o nome do arquivo.
+    const urls: string[] = [];
+    let conteudo = "";
+    vi.stubGlobal("URL", {
+      ...URL,
+      createObjectURL: (b: Blob) => {
+        conteudo = (b as unknown as { __texto?: string }).__texto ?? "";
+        urls.push("blob:x");
+        return "blob:x";
+      },
+      revokeObjectURL: vi.fn(),
+    });
+    const BlobOriginal = globalThis.Blob;
+    vi.stubGlobal(
+      "Blob",
+      class extends BlobOriginal {
+        __texto: string;
+        constructor(partes: string[], opcoes?: BlobPropertyBag) {
+          super(partes, opcoes);
+          this.__texto = partes.join("");
+        }
+      }
+    );
+
+    render(<Dashboard session={sessao} />);
+    await screen.findByText(/almoço; café/);
+    await userEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+
+    expect(urls).toHaveLength(1);
+    expect(conteudo).toMatch(/^\ufeffData;Tipo;Descrição;Categoria;Valor/);
+    expect(conteudo).toContain('"almoço; café"');
+    expect(conteudo).toContain(";40,00;-40,00");
+    expect(await screen.findByText(/1 lançamento exportado/)).toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
   // Antes, trocar de mês refazia o fetch de todos os lançamentos de todos os
   // meses — a cada toque na seta.
   it("navegar entre meses não rebaixa a base inteira", async () => {
