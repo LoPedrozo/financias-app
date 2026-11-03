@@ -154,7 +154,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     padding: 20,
     background:
-      "radial-gradient(circle at 50% 0%, #fdfbf6 0%, var(--bg) 55%)",
+      "radial-gradient(circle at 50% 0%, var(--brilho-topo) 0%, var(--bg) 55%)",
   },
   card: {
     background: "var(--surface)",

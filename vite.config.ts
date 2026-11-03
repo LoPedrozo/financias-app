@@ -9,7 +9,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      // "prompt" em vez de "autoUpdate": a versão nova fica esperando e quem
+      // decide a hora de trocar é o usuário, pelo AvisoNovaVersao. Com o
+      // autoUpdate a troca acontecia sem aviso e só valia no carregamento
+      // seguinte — na prática, era preciso forçar refresh para ver a correção.
+      registerType: "prompt",
       includeAssets: [
         "favicon-32.png",
         "favicon-64.png",
@@ -82,7 +86,11 @@ export default defineConfig({
     }),
   ],
   test: {
+    // Node é o padrão porque a maior parte da suíte são funções puras. Quem
+    // renderiza componente pede jsdom no topo do próprio arquivo.
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    globals: true,
+    setupFiles: ["./src/teste/setup.ts"],
   },
 });

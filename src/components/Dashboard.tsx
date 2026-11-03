@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
-  Repeat, Home, CopyPlus,
+  Repeat, Home, CopyPlus, Download,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -26,6 +26,7 @@ import {
   hojeLocal,
   somarPorTipo,
 } from "../lib/calculos";
+import type { Competencia } from "../lib/calculos";
 import Card from "./Card";
 import MonthPicker from "./MonthPicker";
 import { useSwipe } from "../hooks/useSwipe";
@@ -42,6 +43,7 @@ import Recorrencias from "./Recorrencias";
 import { gerarLancamentosRecorrentes, listarRecorrencias } from "../lib/recorrencias";
 import { pendentesDeContas } from "../lib/listas";
 import { CONTAS_A_PAGAR_HABILITADO } from "../lib/flags";
+import { gerarCsv, nomeDoArquivo } from "../lib/csv";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 
@@ -259,26 +261,41 @@ export default function Dashboard({
       .finally(() => setCarregando(false));
   }, []);
 
-  const sincronizarRecorrentes = useCallback(() => {
-    // Só gera para o mês corrente e futuros. Navegar para trás no MonthPicker
-    // não deve materializar lançamentos em meses fechados. A trava definitiva
-    // vive em gerarLancamentosRecorrentes; aqui evitamos só a ida ao servidor.
-    if (compararCompetencia({ mes, ano }, competenciaAtual()) < 0) return;
+  const sincronizarCompetencia = useCallback(
+    (alvo: Competencia) => {
+      // Só gera para o mês corrente e futuros. Navegar para trás no
+      // MonthPicker não deve materializar lançamentos em meses fechados. A
+      // trava definitiva vive em gerarLancamentosRecorrentes; aqui evitamos
+      // só a ida ao servidor.
+      if (compararCompetencia(alvo, competenciaAtual()) < 0) return;
 
-    gerarLancamentosRecorrentes(mes, ano)
-      .then((novos) => {
-        if (novos.length > 0) carregar();
-      })
-      .catch((e) => {
-        console.error(e);
-        setFalhaAoAtualizar(true);
-      });
-  }, [carregar, mes, ano]);
+      gerarLancamentosRecorrentes(alvo.mes, alvo.ano)
+        .then((novos) => {
+          if (novos.length > 0) carregar();
+        })
+        .catch((e) => {
+          console.error(e);
+          setFalhaAoAtualizar(true);
+        });
+    },
+    [carregar]
+  );
+
+  const sincronizarRecorrentes = useCallback(() => {
+    sincronizarCompetencia({ mes, ano });
+  }, [sincronizarCompetencia, mes, ano]);
 
   useEffect(() => {
     carregar();
+  }, [carregar]);
+
+  // Separado do carregar de propósito: `sincronizarRecorrentes` muda de
+  // identidade a cada mês visitado, e com os dois juntos navegar para
+  // setembro e voltar rebaixava todos os lançamentos de novo, sem precisar.
+  // Quando a geração cria algo, ela mesma chama o carregar.
+  useEffect(() => {
     sincronizarRecorrentes();
-  }, [carregar, sincronizarRecorrentes]);
+  }, [sincronizarRecorrentes]);
 
   useEffect(() => {
     listarRecorrencias()
@@ -364,14 +381,20 @@ export default function Dashboard({
     };
   }, [carregarContasEmAberto]);
 
-  async function adicionar(item: NovoLancamento) {
+  // Devolve se entrou. Quem chama só fecha o formulário com `true`: fechar de
+  // qualquer jeito jogava fora o que a pessoa tinha acabado de digitar
+  // justamente quando a conexão falhou, que é quando ela menos quer digitar
+  // tudo de novo.
+  async function adicionar(item: NovoLancamento): Promise<boolean> {
     try {
       const novo = await criarLancamento(item);
       setLancamentos((atual) => [novo, ...atual]);
       mostrarToast("sucesso", "Lançamento salvo!");
+      return true;
     } catch (e) {
       console.error(e);
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+      return false;
     }
   }
 
@@ -433,6 +456,59 @@ export default function Dashboard({
     }
   }
 
+  async function exportarCsv() {
+    if (lancamentos.length === 0) {
+      mostrarToast("erro", "Nada para exportar ainda.");
+      return;
+    }
+
+    const csv = gerarCsv(lancamentos);
+    const nome = nomeDoArquivo(hojeLocal());
+    const aviso =
+      lancamentos.length === 1
+        ? "1 lançamento exportado."
+        : `${lancamentos.length} lançamentos exportados.`;
+
+    // No iPhone, `<a download>` dentro do app instalado costuma abrir o CSV
+    // como texto na tela em vez de salvar. O compartilhamento nativo resolve:
+    // é dali que se manda para o Arquivos, para o Drive ou para outra pessoa.
+    const arquivo =
+      typeof File === "undefined"
+        ? null
+        : new File([csv], nome, { type: "text/csv" });
+    if (arquivo && navigator.canShare?.({ files: [arquivo] })) {
+      try {
+        await navigator.share({ files: [arquivo], title: nome });
+        mostrarToast("sucesso", aviso);
+      } catch (e) {
+        // Fechar a folha de compartilhamento é desistir, não é erro.
+        if ((e as Error).name !== "AbortError") {
+          console.error(e);
+          mostrarToast("erro", "Não foi possível exportar.");
+        }
+      }
+      return;
+    }
+
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8" })
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = nome;
+    // Precisa estar no documento para o clique valer em alguns navegadores
+    // de celular; sai logo em seguida.
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Revogar na mesma volta do laço cancela o download que acabou de
+    // começar em parte dos navegadores — o endereço morre antes de o arquivo
+    // ser lido. Um instante depois já é seguro.
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+
+    mostrarToast("sucesso", aviso);
+  }
+
   function abrirEdicaoValor(l: Lancamento) {
     setEditandoValor(l.id);
     cancelandoValor.current = false;
@@ -482,26 +558,31 @@ export default function Dashboard({
     }
   }
 
-  async function editar(item: NovoLancamento) {
-    if (!editando) return;
+  // A lista muda na hora, mas o formulário só fecha quando o servidor
+  // confirma: falhando, a linha volta ao valor antigo e a correção continua
+  // escrita na tela, pronta para tentar de novo.
+  async function editar(item: NovoLancamento): Promise<boolean> {
+    if (!editando) return false;
     const original = editando;
     const otimista: Lancamento = { ...original, ...item };
     setLancamentos((atual) =>
       atual.map((l) => (l.id === original.id ? otimista : l))
     );
-    setEditando(null);
     try {
       const atualizado = await atualizarLancamento(original.id, item);
       setLancamentos((atual) =>
         atual.map((l) => (l.id === atualizado.id ? atualizado : l))
       );
+      setEditando(null);
       mostrarToast("sucesso", "Lançamento atualizado!");
+      return true;
     } catch (e) {
       console.error(e);
       setLancamentos((atual) =>
         atual.map((l) => (l.id === original.id ? original : l))
       );
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+      return false;
     }
   }
 
@@ -724,6 +805,14 @@ export default function Dashboard({
           )}
           <button
             style={styles.sair}
+            onClick={exportarCsv}
+            aria-label="Exportar CSV"
+            title="Exportar tudo em CSV"
+          >
+            <Download size={17} />
+          </button>
+          <button
+            style={styles.sair}
             onClick={() => supabase.auth.signOut()}
             aria-label="Sair"
             title="Sair"
@@ -742,6 +831,9 @@ export default function Dashboard({
           onMudanca={() => {
             carregar();
             sincronizarRecorrentes();
+            // A edição de uma regra refaz a ocorrência de hoje, que vive no
+            // mês corrente — e não necessariamente no mês que está na tela.
+            sincronizarCompetencia(competenciaAtual());
           }}
         />
       ) : abaAtiva === "inicio" || !CONTAS_A_PAGAR_HABILITADO ? (
@@ -909,9 +1001,12 @@ export default function Dashboard({
               const lista =
                 l.tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
               const cat = lista.find((c) => c.nome === l.categoria);
-              const cor =
-                cat?.cor ??
-                (l.tipo === "entrada" ? "var(--green)" : "#9aa3b0");
+              // Precisa ser hex: logo abaixo vira `cor + "1f"` para montar o
+              // fundo da etiqueta, e `var(--green)1f` não é cor nenhuma — a
+              // etiqueta ficava sem fundo para entrada de categoria
+              // desconhecida. Cinza serve aos dois tipos, e é o mesmo tom do
+              // "Outros", que é onde cai o que não se reconhece.
+              const cor = cat?.cor ?? "#9aa3b0";
               const dia = Number(dataOrdenacao(l).slice(8, 10));
               const futuro = !!l.data && l.data > hojeLocal();
               const dataFmt = futuro
@@ -1155,8 +1250,7 @@ export default function Dashboard({
             setModalAdicionar(true);
           }}
           onSalvar={async (item) => {
-            await adicionar(item);
-            setFormulario(null);
+            if (await adicionar(item)) setFormulario(null);
           }}
         />
       )}
@@ -1165,7 +1259,10 @@ export default function Dashboard({
         <ModalNovo
           lancamentoParaEditar={editando}
           onFechar={() => setEditando(null)}
-          onSalvar={editar}
+          // `editar` fecha sozinho quando o servidor confirma.
+          onSalvar={async (item) => {
+            await editar(item);
+          }}
         />
       )}
 
@@ -1592,8 +1689,8 @@ const styles: Record<string, React.CSSProperties> = {
     position: "absolute",
     bottom: "calc(100% + 6px)",
     left: 8,
-    background: "#0d0d0d",
-    color: "#fff",
+    background: "var(--tooltip-bg)",
+    color: "var(--tooltip-text)",
     fontSize: 12,
     fontWeight: 500,
     borderRadius: 8,
@@ -1609,8 +1706,8 @@ const styles: Record<string, React.CSSProperties> = {
     position: "absolute",
     top: "calc(100% + 6px)",
     left: 8,
-    background: "#0d0d0d",
-    color: "#fff",
+    background: "var(--tooltip-bg)",
+    color: "var(--tooltip-text)",
     fontSize: 12,
     fontWeight: 500,
     borderRadius: 8,
@@ -1630,7 +1727,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: 0,
     borderLeft: "6px solid transparent",
     borderRight: "6px solid transparent",
-    borderTop: "6px solid #0d0d0d",
+    borderTop: "6px solid var(--tooltip-bg)",
   },
   tooltipSetaCima: {
     position: "absolute",
@@ -1640,7 +1737,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: 0,
     borderLeft: "6px solid transparent",
     borderRight: "6px solid transparent",
-    borderBottom: "6px solid #0d0d0d",
+    borderBottom: "6px solid var(--tooltip-bg)",
   },
   recorrenciasHead: {
     display: "flex",

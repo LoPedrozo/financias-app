@@ -15,6 +15,53 @@
   --red-soft: #fbeaea;
   --shadow: 0 1px 3px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.04);
   --radius: 16px;
+  /* O balão do lançamento futuro é o contrário do fundo: escuro no claro,
+     claro no escuro. Fixo em #0d0d0d ele sumia dentro do tema escuro. */
+  --tooltip-bg: #0d0d0d;
+  --tooltip-text: #ffffff;
+  --barra-rolagem: #d8dce3;
+  /* Brilho do topo da tela de login. É cor de fundo, então acompanha o tema:
+     fixo em #fdfbf6 virava um clarão cinza no meio do escuro. */
+  --brilho-topo: #fdfbf6;
+  color-scheme: light;
+}
+
+/* Tema escuro.
+   Só os tokens mudam: a tela inteira é pintada por eles, então não há layout
+   duplicado aqui. Segue a preferência do sistema — o app não tem (nem precisa
+   de) um interruptor próprio, e quem usa de noite já deixou o celular no
+   escuro.
+
+   Os valores não são o claro invertido. Fundo e superfície ficam a dois
+   degraus de distância para o cartão continuar se destacando sem borda forte,
+   o dourado clareia um pouco (o tom original some no escuro), e verde e
+   vermelho ganham luminosidade para seguirem legíveis sobre fundo escuro. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14161a;
+    --surface: #1c2027;
+    --border: #2b313c;
+    --text: #e9ecf1;
+    --text-soft: #a3acba;
+    --text-faint: #737d8c;
+    --accent: #d8bb81;
+    --accent-soft: #342c1c;
+    --green: #74b994;
+    --green-soft: #1a2c22;
+    --red: #e58282;
+    --red-soft: #332020;
+    /* Sombra suave não existe no escuro: o que separa os planos é a sombra
+       densa, bem mais escura que o fundo. */
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 6px 20px rgba(0, 0, 0, 0.35);
+    --tooltip-bg: #e9ecf1;
+    --tooltip-text: #14161a;
+    --barra-rolagem: #39404d;
+    --brilho-topo: #1f242c;
+    /* Faz o navegador desenhar o calendário do campo de data e a lista do
+       select em escuro. Sem isto, tocar na data abre um painel branco no meio
+       da tela escura. */
+    color-scheme: dark;
+  }
 }
 
 * {
@@ -49,7 +96,7 @@ input, select {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d8dce3;
+  background: var(--barra-rolagem);
   border-radius: 4px;
 }
 
