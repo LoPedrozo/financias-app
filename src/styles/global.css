@@ -28,41 +28,63 @@
 
 /* Tema escuro.
    Só os tokens mudam: a tela inteira é pintada por eles, então não há layout
-   duplicado aqui. Segue a preferência do sistema — o app não tem (nem precisa
-   de) um interruptor próprio, e quem usa de noite já deixou o celular no
-   escuro.
+   duplicado aqui.
+
+   Quem decide é o atributo data-tema no <html>, e não um media query: assim o
+   "Claro" e o "Escuro" escolhidos nas preferências valem mesmo contra o
+   sistema. O "Automático" continua seguindo o celular — quem lê o sistema é o
+   script no index.html, antes da primeira pintura, e depois o
+   PreferenciasProvider.
 
    Os valores não são o claro invertido. Fundo e superfície ficam a dois
    degraus de distância para o cartão continuar se destacando sem borda forte,
    o dourado clareia um pouco (o tom original some no escuro), e verde e
    vermelho ganham luminosidade para seguirem legíveis sobre fundo escuro. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14161a;
-    --surface: #1c2027;
-    --border: #2b313c;
-    --text: #e9ecf1;
-    --text-soft: #a3acba;
-    --text-faint: #737d8c;
-    --accent: #d8bb81;
-    --accent-soft: #342c1c;
-    --green: #74b994;
-    --green-soft: #1a2c22;
-    --red: #e58282;
-    --red-soft: #332020;
-    /* Sombra suave não existe no escuro: o que separa os planos é a sombra
-       densa, bem mais escura que o fundo. */
-    --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 6px 20px rgba(0, 0, 0, 0.35);
-    --tooltip-bg: #e9ecf1;
-    --tooltip-text: #14161a;
-    --barra-rolagem: #39404d;
-    --brilho-topo: #1f242c;
-    /* Faz o navegador desenhar o calendário do campo de data e a lista do
-       select em escuro. Sem isto, tocar na data abre um painel branco no meio
-       da tela escura. */
-    color-scheme: dark;
-  }
+:root[data-tema="escuro"] {
+  --bg: #14161a;
+  --surface: #1c2027;
+  --border: #2b313c;
+  --text: #e9ecf1;
+  --text-soft: #a3acba;
+  --text-faint: #737d8c;
+  --accent: #d8bb81;
+  --accent-soft: #342c1c;
+  --green: #74b994;
+  --green-soft: #1a2c22;
+  --red: #e58282;
+  --red-soft: #332020;
+  /* Sombra suave não existe no escuro: o que separa os planos é a sombra
+     densa, bem mais escura que o fundo. */
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --tooltip-bg: #e9ecf1;
+  --tooltip-text: #14161a;
+  --barra-rolagem: #39404d;
+  --brilho-topo: #1f242c;
+  /* Faz o navegador desenhar o calendário do campo de data e a lista do
+     select em escuro. Sem isto, tocar na data abre um painel branco no meio
+     da tela escura. */
+  color-scheme: dark;
 }
+
+/* Cores de destaque.
+   O dourado é o padrão e mora nos blocos acima; as outras trocam só o par
+   accent/accent-soft. Cada uma tem a versão do escuro, mais clara, pelo mesmo
+   motivo do dourado.
+
+   A ordem importa: o seletor com tema e destaque juntos é o mais específico
+   e vence os dois sozinhos, então toda combinação cai na cor certa.
+
+   Nenhuma tem contraste com o texto branco pior que o dourado do mesmo tema
+   (há teste para isso) — trocar a cor não pode deixar botão ilegível. */
+:root[data-destaque="azul"] { --accent: #4a7fc1; --accent-soft: #e6eef8; }
+:root[data-destaque="roxo"] { --accent: #8467c4; --accent-soft: #ede8f8; }
+:root[data-destaque="rosa"] { --accent: #c2649a; --accent-soft: #f7e7f0; }
+:root[data-destaque="grafite"] { --accent: #5b6475; --accent-soft: #e9ebef; }
+
+:root[data-tema="escuro"][data-destaque="azul"] { --accent: #6f9bd6; --accent-soft: #1c2636; }
+:root[data-tema="escuro"][data-destaque="roxo"] { --accent: #a28ae0; --accent-soft: #262036; }
+:root[data-tema="escuro"][data-destaque="rosa"] { --accent: #d886b4; --accent-soft: #33202b; }
+:root[data-tema="escuro"][data-destaque="grafite"] { --accent: #8a93a3; --accent-soft: #262a32; }
 
 * {
   box-sizing: border-box;
@@ -263,3 +285,31 @@ input, select {
     transform: translateY(0);
   }
 }
+
+/* Lista compacta.
+   As linhas da lista são estilizadas inline no Dashboard, então só !important
+   alcança — o mesmo recurso que os ajustes de celular acima já usam. Mexe só
+   em espaçamento e tamanho: nenhuma informação some da linha.
+
+   Os ícones de editar e excluir ficam do tamanho normal de propósito. Eles já
+   estão no limite do que um dedo acerta, e errar o toque ali é apagar um
+   lançamento sem querer — economia de espaço não vale isso. */
+:root[data-lista="compacta"] .lista-lancamentos {
+  gap: 4px !important;
+}
+:root[data-lista="compacta"] .item-lancamento {
+  padding: 6px 12px !important;
+  gap: 1px !important;
+}
+:root[data-lista="compacta"] .item-lancamento .tag-categoria {
+  padding: 2px 8px !important;
+  font-size: 11px !important;
+}
+:root[data-lista="compacta"] .item-lancamento .valor-lancamento {
+  font-size: 14px !important;
+  padding: 0 !important;
+}
+:root[data-lista="compacta"] .item-lancamento .descricao-lancamento {
+  font-size: 13.5px !important;
+}
+
