@@ -1496,7 +1496,11 @@ const styles: Record<string, React.CSSProperties> = {
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(310px, 1fr))",
+    // O min() deixa a coluna encolher abaixo de 310px quando a tela não tem
+    // isso de sobra. Com 310 fixo, em celular de 320px (iPhone SE antigo,
+    // Android pequeno) os dois painéis de gráfico passavam da borda e a
+    // página inteira ganhava rolagem para o lado.
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(310px, 100%), 1fr))",
     gap: 16,
     marginBottom: 16,
   },
