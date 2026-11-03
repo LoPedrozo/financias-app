@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, LogOut,
+  Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Settings,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
   Repeat, Home, CopyPlus, Download,
 } from "lucide-react";
@@ -12,7 +12,8 @@ import {
 } from "../lib/lancamentos";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
 import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
-import { brl, lerValor } from "../lib/format";
+import { lerValor } from "../lib/format";
+import { useDinheiro } from "../hooks/usePreferencias";
 import {
   agruparPorCategoria,
   calcularBalancoAnual,
@@ -46,6 +47,7 @@ import { CONTAS_A_PAGAR_HABILITADO } from "../lib/flags";
 import { filtrarPeriodo, gerarCsv, nomeDoArquivo } from "../lib/csv";
 import type { Periodo } from "../lib/csv";
 import ModalExportar from "./ModalExportar";
+import ModalPreferencias from "./ModalPreferencias";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 
@@ -125,6 +127,8 @@ export default function Dashboard({
   const [dataAdicionar, setDataAdicionar] = useState<string | null>(null);
   const [modalRepetir, setModalRepetir] = useState(false);
   const [modalExportar, setModalExportar] = useState(false);
+  const [modalPreferencias, setModalPreferencias] = useState(false);
+  const dinheiro = useDinheiro();
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
@@ -230,6 +234,7 @@ export default function Dashboard({
     modalAdicionar,
     modalRepetir,
     modalExportar,
+    modalPreferencias,
     editando,
     confirmarId,
     formulario,
@@ -719,6 +724,7 @@ export default function Dashboard({
     fecharAdicionar();
     setModalRepetir(false);
     setModalExportar(false);
+    setModalPreferencias(false);
     setEditando(null);
     setConfirmarId(null);
     setFormulario(null);
@@ -820,13 +826,15 @@ export default function Dashboard({
           >
             <Download size={17} />
           </button>
+          {/* O Sair mora dentro das preferências agora: era o ícone que
+              menos se usa ocupando o lugar que a personalização precisava. */}
           <button
             style={styles.sair}
-            onClick={() => supabase.auth.signOut()}
-            aria-label="Sair"
-            title="Sair"
+            onClick={() => setModalPreferencias(true)}
+            aria-label="Preferências"
+            title="Preferências"
           >
-            <LogOut size={17} />
+            <Settings size={17} />
           </button>
         </div>
       </header>
@@ -927,7 +935,7 @@ export default function Dashboard({
                 {porCategoria.map((c) => (
                   <span key={c.name} style={styles.legendItem}>
                     <span style={{ ...styles.dot, background: c.cor }} />
-                    {c.name} · {brl(c.value)}
+                    {c.name} · {dinheiro(c.value)}
                   </span>
                 ))}
               </div>
@@ -1005,7 +1013,7 @@ export default function Dashboard({
             }
           />
         ) : (
-          <div style={styles.list}>
+          <div style={styles.list} className="lista-lancamentos">
             {doMes.map((l, idx) => {
               const lista =
                 l.tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
@@ -1022,7 +1030,7 @@ export default function Dashboard({
                 ? `${l.data!.slice(8, 10)}/${l.data!.slice(5, 7)}`
                 : "";
               const titleFuturo = futuro
-                ? `Será contabilizado em ${dataFmt} · ${brl(l.valor)}`
+                ? `Será contabilizado em ${dataFmt} · ${dinheiro(l.valor)}`
                 : undefined;
               const corBorda =
                 l.tipo === "entrada" ? "var(--green)" : "var(--red)";
@@ -1044,6 +1052,7 @@ export default function Dashboard({
                 <div
                   key={l.id}
                   style={itemStyle}
+                  className="item-lancamento"
                   title={futuro ? undefined : titleFuturo}
                   onTouchStart={
                     futuro
@@ -1087,7 +1096,7 @@ export default function Dashboard({
                           : styles.tooltipFuturo
                       }
                     >
-                      Será contabilizado em {dataFmt} · {brl(l.valor)}
+                      Será contabilizado em {dataFmt} · {dinheiro(l.valor)}
                       <span
                         style={
                           idx === 0
@@ -1114,6 +1123,7 @@ export default function Dashboard({
                       <span style={styles.dia}>{dia}</span>
                     )}
                     <span
+                      className="tag-categoria"
                       style={{
                         ...styles.tag,
                         background: cor + "1f",
@@ -1156,6 +1166,7 @@ export default function Dashboard({
                         onClick={() => abrirEdicaoValor(l)}
                         onTouchStart={(e) => e.stopPropagation()}
                         title="Tocar para corrigir o valor"
+                        className="valor-lancamento"
                         style={{
                           ...styles.valor,
                           color:
@@ -1164,12 +1175,14 @@ export default function Dashboard({
                               : "var(--red)",
                         }}
                       >
-                        {l.tipo === "entrada" ? "+" : "−"} {brl(l.valor)}
+                        {l.tipo === "entrada" ? "+" : "−"} {dinheiro(l.valor)}
                       </button>
                     )}
                   </div>
                   <div style={styles.itemBase}>
-                    <span style={styles.desc}>{l.descricao || "—"}</span>
+                    <span style={styles.desc} className="descricao-lancamento">
+                      {l.descricao || "—"}
+                    </span>
                     <div style={styles.acoes}>
                       <button
                         style={styles.acao}
@@ -1275,6 +1288,14 @@ export default function Dashboard({
         />
       )}
 
+      {modalPreferencias && (
+        <ModalPreferencias
+          email={email}
+          onSair={() => supabase.auth.signOut()}
+          onFechar={() => setModalPreferencias(false)}
+        />
+      )}
+
       {modalExportar && (
         <ModalExportar
           mes={mes}
@@ -1337,6 +1358,7 @@ function RecorrenciasResumo({
   carregando: boolean;
   onAbrir: () => void;
 }) {
+  const dinheiro = useDinheiro();
   const ativas = recorrencias.filter((r) => r.ativo);
   const visiveis = ativas.slice(0, 3);
   const restantes = ativas.length - visiveis.length;
@@ -1381,7 +1403,7 @@ function RecorrenciasResumo({
             return (
               <div key={r.id} style={styles.recorrenciaLinha}>
                 <span style={{ ...styles.recorrenciaValor, color: cor }}>
-                  {r.tipo === "entrada" ? "+" : "−"} {brl(r.valor)}
+                  {r.tipo === "entrada" ? "+" : "−"} {dinheiro(r.valor)}
                 </span>
                 <span style={styles.recorrenciasSep}>·</span>
                 <span style={styles.recorrenciaDesc}>{r.descricao}</span>

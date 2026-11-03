@@ -11,6 +11,33 @@
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png" />
     <title>Minhas Finanças</title>
+    <!--
+      Aplica tema, cor e lista antes da primeira pintura. O React só monta
+      depois de baixar o bundle, e esperar por ele daria um flash claro em
+      quem escolheu o escuro, a cada abertura do app.
+
+      Espelha src/lib/preferencias.ts — mesma chave, mesma regra do
+      automático. Um teste executa este script e compara com a biblioteca.
+      Fica em JS puro e sem dependência porque roda antes de tudo.
+    -->
+    <script>
+      (function () {
+        var p = {};
+        try {
+          p = JSON.parse(localStorage.getItem("financas:preferencias") || "{}") || {};
+        } catch (e) {}
+        var sistemaEscuro =
+          !!window.matchMedia &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var escuro = p.tema === "escuro" || (p.tema !== "claro" && sistemaEscuro);
+        var raiz = document.documentElement;
+        raiz.setAttribute("data-tema", escuro ? "escuro" : "claro");
+        if (p.destaque && p.destaque !== "dourado") {
+          raiz.setAttribute("data-destaque", p.destaque);
+        }
+        if (p.listaCompacta === true) raiz.setAttribute("data-lista", "compacta");
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -9,7 +9,7 @@ import {
   pularOcorrencias,
   toggleRecorrencia,
 } from "../lib/recorrencias";
-import { brl } from "../lib/format";
+import { useDinheiro } from "../hooks/usePreferencias";
 import ModalRecorrencia from "./ModalRecorrencia";
 import type { MesAlvo } from "./ModalRecorrencia";
 import ConfirmModal from "./ConfirmModal";
@@ -53,6 +53,7 @@ export default function Recorrencias({
   onMudanca,
   onVoltar,
 }: Props) {
+  const dinheiro = useDinheiro();
   const controlado = recorrencias !== undefined;
   const [itensLocais, setItensLocais] = useState<Recorrencia[]>([]);
   const [carregandoLocal, setCarregandoLocal] = useState(!controlado);
@@ -252,7 +253,7 @@ export default function Recorrencias({
                   <div style={styles.linhaMeta}>
                     <span style={{ ...styles.valor, color: corValor }}>
                       {r.tipo === "entrada" ? "+ " : "− "}
-                      {brl(r.valor)}
+                      {dinheiro(r.valor)}
                     </span>
                     <span style={styles.sep}>·</span>
                     <span style={styles.freq}>{textoFrequencia(r)}</span>

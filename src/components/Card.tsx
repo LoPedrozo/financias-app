@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Receipt } from "lucide-react";
-import { brl } from "../lib/format";
+import { useDinheiro } from "../hooks/usePreferencias";
 
 interface PendenteItem {
   total: number;
@@ -33,6 +33,7 @@ export default function Card({
   contasAPagar,
   saldoProjetado,
 }: Props) {
+  const dinheiro = useDinheiro();
   const [hover, setHover] = useState(false);
   const [semHover, setSemHover] = useState(false);
 
@@ -115,7 +116,7 @@ export default function Card({
             textOverflow: "ellipsis",
           }}
         >
-          {brl(valor)}
+          {dinheiro(valor)}
         </p>
         {mostrarPendentes && (
           <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -130,7 +131,7 @@ export default function Card({
                   gap: 4,
                 }}
               >
-                <TrendingUp size={11} />+ {brl(pendente!.entradas.total)} a receber
+                <TrendingUp size={11} />+ {dinheiro(pendente!.entradas.total)} a receber
                 ({pendente!.entradas.quantidade})
               </p>
             )}
@@ -145,7 +146,7 @@ export default function Card({
                   gap: 4,
                 }}
               >
-                <TrendingDown size={11} />− {brl(saidasLancamentos.total)} a pagar
+                <TrendingDown size={11} />− {dinheiro(saidasLancamentos.total)} a pagar
                 ({saidasLancamentos.quantidade})
               </p>
             )}
@@ -160,7 +161,7 @@ export default function Card({
                   gap: 4,
                 }}
               >
-                <Receipt size={11} />− {brl(contas.total)} em contas a pagar (
+                <Receipt size={11} />− {dinheiro(contas.total)} em contas a pagar (
                 {contas.quantidade})
               </p>
             )}
@@ -181,7 +182,7 @@ export default function Card({
                     whiteSpace: "nowrap",
                   }}
                 >
-                  ≈ Saldo projetado: {brl(saldoProjetado)}
+                  ≈ Saldo projetado: {dinheiro(saldoProjetado)}
                 </p>
               </>
             )}
