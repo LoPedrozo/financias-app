@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gerarCsv, nomeDoArquivo } from "./csv";
+import { filtrarPeriodo, gerarCsv, nomeDoArquivo } from "./csv";
 import type { Lancamento } from "../types";
 
 function l(parcial: Partial<Lancamento>): Lancamento {
@@ -74,7 +74,47 @@ describe("gerarCsv", () => {
     expect(csv[1]).toMatch(/^2026-01-01;/);
   });
 
-  it("nomeia o arquivo com a data de hoje", () => {
-    expect(nomeDoArquivo("2026-11-03")).toBe("financas-2026-11-03.csv");
+});
+
+describe("período", () => {
+  const base = [
+    l({ id: "a", mes: 10, ano: 2026, data: "2026-11-03" }),
+    l({ id: "b", mes: 9, ano: 2026, data: "2026-10-15" }),
+    l({ id: "c", mes: 10, ano: 2025, data: "2025-11-20" }),
+    // Competência manda, não a data: um lançamento de novembro com data
+    // em outubro (caso antigo) pertence a novembro, como na tela.
+    l({ id: "d", mes: 10, ano: 2026, data: null }),
+  ];
+  const ids = (ls: { id: string }[]) => ls.map((x) => x.id).sort();
+
+  it("mês pega só aquela competência, e não o mesmo mês de outro ano", () => {
+    expect(ids(filtrarPeriodo(base, { tipo: "mes", mes: 10, ano: 2026 }))).toEqual([
+      "a",
+      "d",
+    ]);
+  });
+
+  it("ano pega os doze meses daquele ano", () => {
+    expect(ids(filtrarPeriodo(base, { tipo: "ano", ano: 2026 }))).toEqual([
+      "a",
+      "b",
+      "d",
+    ]);
+  });
+
+  it("tudo é tudo", () => {
+    expect(filtrarPeriodo(base, { tipo: "tudo" })).toHaveLength(4);
+  });
+
+  it("o nome do arquivo diz o período", () => {
+    expect(nomeDoArquivo({ tipo: "mes", mes: 0, ano: 2026 }, "2026-11-03")).toBe(
+      "financas-2026-01.csv"
+    );
+    expect(nomeDoArquivo({ tipo: "ano", ano: 2026 }, "2026-11-03")).toBe(
+      "financas-2026.csv"
+    );
+    expect(nomeDoArquivo({ tipo: "tudo" }, "2026-11-03")).toBe(
+      "financas-tudo-2026-11-03.csv"
+    );
   });
 });

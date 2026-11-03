@@ -69,6 +69,40 @@ export function gerarCsv(lancamentos: Lancamento[]): string {
   return BOM + [COLUNAS.join(SEPARADOR), ...linhas].join("\r\n") + "\r\n";
 }
 
-export function nomeDoArquivo(hoje: string): string {
-  return `financas-${hoje}.csv`;
+// Recorte do que vai para o arquivo. O corte é pela competência (mês/ano do
+// lançamento), que é como o app inteiro agrupa — o mesmo critério da lista
+// "Lançamentos de Novembro". Assim o CSV do mês bate linha a linha com a tela.
+export type Periodo =
+  | { tipo: "mes"; mes: number; ano: number }
+  | { tipo: "ano"; ano: number }
+  | { tipo: "tudo" };
+
+export function filtrarPeriodo(
+  lancamentos: Lancamento[],
+  periodo: Periodo
+): Lancamento[] {
+  switch (periodo.tipo) {
+    case "mes":
+      return lancamentos.filter(
+        (l) => l.mes === periodo.mes && l.ano === periodo.ano
+      );
+    case "ano":
+      return lancamentos.filter((l) => l.ano === periodo.ano);
+    case "tudo":
+      return lancamentos;
+  }
+}
+
+// O nome diz o que tem dentro, para os arquivos não virarem uma pilha de
+// "financas (3).csv" na pasta de downloads. O "tudo" leva a data de hoje
+// porque é uma foto: exportado de novo amanhã, já tem outro conteúdo.
+export function nomeDoArquivo(periodo: Periodo, hoje: string): string {
+  switch (periodo.tipo) {
+    case "mes":
+      return `financas-${periodo.ano}-${String(periodo.mes + 1).padStart(2, "0")}.csv`;
+    case "ano":
+      return `financas-${periodo.ano}.csv`;
+    case "tudo":
+      return `financas-tudo-${hoje}.csv`;
+  }
 }
