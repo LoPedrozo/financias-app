@@ -26,6 +26,7 @@ import {
   hojeLocal,
   somarPorTipo,
 } from "../lib/calculos";
+import type { Competencia } from "../lib/calculos";
 import Card from "./Card";
 import MonthPicker from "./MonthPicker";
 import { useSwipe } from "../hooks/useSwipe";
@@ -259,26 +260,41 @@ export default function Dashboard({
       .finally(() => setCarregando(false));
   }, []);
 
-  const sincronizarRecorrentes = useCallback(() => {
-    // Só gera para o mês corrente e futuros. Navegar para trás no MonthPicker
-    // não deve materializar lançamentos em meses fechados. A trava definitiva
-    // vive em gerarLancamentosRecorrentes; aqui evitamos só a ida ao servidor.
-    if (compararCompetencia({ mes, ano }, competenciaAtual()) < 0) return;
+  const sincronizarCompetencia = useCallback(
+    (alvo: Competencia) => {
+      // Só gera para o mês corrente e futuros. Navegar para trás no
+      // MonthPicker não deve materializar lançamentos em meses fechados. A
+      // trava definitiva vive em gerarLancamentosRecorrentes; aqui evitamos
+      // só a ida ao servidor.
+      if (compararCompetencia(alvo, competenciaAtual()) < 0) return;
 
-    gerarLancamentosRecorrentes(mes, ano)
-      .then((novos) => {
-        if (novos.length > 0) carregar();
-      })
-      .catch((e) => {
-        console.error(e);
-        setFalhaAoAtualizar(true);
-      });
-  }, [carregar, mes, ano]);
+      gerarLancamentosRecorrentes(alvo.mes, alvo.ano)
+        .then((novos) => {
+          if (novos.length > 0) carregar();
+        })
+        .catch((e) => {
+          console.error(e);
+          setFalhaAoAtualizar(true);
+        });
+    },
+    [carregar]
+  );
+
+  const sincronizarRecorrentes = useCallback(() => {
+    sincronizarCompetencia({ mes, ano });
+  }, [sincronizarCompetencia, mes, ano]);
 
   useEffect(() => {
     carregar();
+  }, [carregar]);
+
+  // Separado do carregar de propósito: `sincronizarRecorrentes` muda de
+  // identidade a cada mês visitado, e com os dois juntos navegar para
+  // setembro e voltar rebaixava todos os lançamentos de novo, sem precisar.
+  // Quando a geração cria algo, ela mesma chama o carregar.
+  useEffect(() => {
     sincronizarRecorrentes();
-  }, [carregar, sincronizarRecorrentes]);
+  }, [sincronizarRecorrentes]);
 
   useEffect(() => {
     listarRecorrencias()
@@ -364,14 +380,20 @@ export default function Dashboard({
     };
   }, [carregarContasEmAberto]);
 
-  async function adicionar(item: NovoLancamento) {
+  // Devolve se entrou. Quem chama só fecha o formulário com `true`: fechar de
+  // qualquer jeito jogava fora o que a pessoa tinha acabado de digitar
+  // justamente quando a conexão falhou, que é quando ela menos quer digitar
+  // tudo de novo.
+  async function adicionar(item: NovoLancamento): Promise<boolean> {
     try {
       const novo = await criarLancamento(item);
       setLancamentos((atual) => [novo, ...atual]);
       mostrarToast("sucesso", "Lançamento salvo!");
+      return true;
     } catch (e) {
       console.error(e);
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+      return false;
     }
   }
 
@@ -482,26 +504,31 @@ export default function Dashboard({
     }
   }
 
-  async function editar(item: NovoLancamento) {
-    if (!editando) return;
+  // A lista muda na hora, mas o formulário só fecha quando o servidor
+  // confirma: falhando, a linha volta ao valor antigo e a correção continua
+  // escrita na tela, pronta para tentar de novo.
+  async function editar(item: NovoLancamento): Promise<boolean> {
+    if (!editando) return false;
     const original = editando;
     const otimista: Lancamento = { ...original, ...item };
     setLancamentos((atual) =>
       atual.map((l) => (l.id === original.id ? otimista : l))
     );
-    setEditando(null);
     try {
       const atualizado = await atualizarLancamento(original.id, item);
       setLancamentos((atual) =>
         atual.map((l) => (l.id === atualizado.id ? atualizado : l))
       );
+      setEditando(null);
       mostrarToast("sucesso", "Lançamento atualizado!");
+      return true;
     } catch (e) {
       console.error(e);
       setLancamentos((atual) =>
         atual.map((l) => (l.id === original.id ? original : l))
       );
       mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+      return false;
     }
   }
 
@@ -742,6 +769,9 @@ export default function Dashboard({
           onMudanca={() => {
             carregar();
             sincronizarRecorrentes();
+            // A edição de uma regra refaz a ocorrência de hoje, que vive no
+            // mês corrente — e não necessariamente no mês que está na tela.
+            sincronizarCompetencia(competenciaAtual());
           }}
         />
       ) : abaAtiva === "inicio" || !CONTAS_A_PAGAR_HABILITADO ? (
@@ -1155,8 +1185,7 @@ export default function Dashboard({
             setModalAdicionar(true);
           }}
           onSalvar={async (item) => {
-            await adicionar(item);
-            setFormulario(null);
+            if (await adicionar(item)) setFormulario(null);
           }}
         />
       )}
@@ -1165,7 +1194,10 @@ export default function Dashboard({
         <ModalNovo
           lancamentoParaEditar={editando}
           onFechar={() => setEditando(null)}
-          onSalvar={editar}
+          // `editar` fecha sozinho quando o servidor confirma.
+          onSalvar={async (item) => {
+            await editar(item);
+          }}
         />
       )}
 

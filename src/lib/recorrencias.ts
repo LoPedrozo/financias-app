@@ -42,16 +42,30 @@ export async function criarRecorrencia(
   return data;
 }
 
-async function deletarLancamentosFuturos(
+// Apaga as ocorrências que a regra ainda vai recriar. O corte é hoje, e o que
+// muda é se hoje entra:
+//
+// - editando a regra, entra. A ocorrência de hoje é recriada logo em seguida
+//   com o valor novo, e sem isso corrigir o aluguel no próprio dia 3 não
+//   pegava no dia 3 — o índice único (recorrencia_id, data) faz a geração
+//   seguinte achar que já existe e deixar o valor velho na tela, calado.
+// - pausando ou apagando a regra, não entra. Aí não há recriação, e o
+//   lançamento de hoje já foi contado no saldo: sumir com ele seria mexer em
+//   dinheiro que a pessoa já deu por gasto.
+async function deletarLancamentosGerados(
   userId: string,
-  recorrenciaId: string
+  recorrenciaId: string,
+  { incluirHoje }: { incluirHoje: boolean }
 ): Promise<void> {
-  const { error } = await supabase
+  const alvo = supabase
     .from("lancamentos")
     .delete()
     .eq("user_id", userId)
-    .eq("recorrencia_id", recorrenciaId)
-    .gt("data", hojeLocal());
+    .eq("recorrencia_id", recorrenciaId);
+
+  const { error } = incluirHoje
+    ? await alvo.gte("data", hojeLocal())
+    : await alvo.gt("data", hojeLocal());
   if (error) throw error;
 }
 
@@ -73,10 +87,10 @@ export async function atualizarRecorrencia(
 
   if (error) throw error;
 
-  // Limpa os futuros com os valores antigos — a próxima chamada de
+  // Limpa de hoje em diante com os valores antigos — a próxima chamada de
   // gerarLancamentosRecorrentes recria com os novos valores. Passados
   // permanecem intactos (histórico imutável).
-  await deletarLancamentosFuturos(userId, id);
+  await deletarLancamentosGerados(userId, id, { incluirHoje: true });
 
   return data;
 }
@@ -89,7 +103,7 @@ export async function deletarRecorrencia(id: string): Promise<void> {
   // Remove os lançamentos futuros ainda não contabilizados. Os passados
   // continuam existindo — o FK ON DELETE SET NULL vai zerar o recorrencia_id
   // deles quando a recorrência for apagada, preservando o histórico.
-  await deletarLancamentosFuturos(userId, id);
+  await deletarLancamentosGerados(userId, id, { incluirHoje: false });
 
   const { error } = await supabase
     .from("recorrencias")
@@ -110,7 +124,7 @@ export async function toggleRecorrencia(
   // Ao pausar, remove os futuros para não poluir o mês corrente.
   // Ao ativar, o Dashboard dispara gerarLancamentosRecorrentes e recria.
   if (!ativo) {
-    await deletarLancamentosFuturos(userId, id);
+    await deletarLancamentosGerados(userId, id, { incluirHoje: false });
   }
 
   const { data, error } = await supabase

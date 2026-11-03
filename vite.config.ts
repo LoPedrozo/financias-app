@@ -82,7 +82,11 @@ export default defineConfig({
     }),
   ],
   test: {
+    // Node é o padrão porque a maior parte da suíte são funções puras. Quem
+    // renderiza componente pede jsdom no topo do próprio arquivo.
     environment: "node",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
+    globals: true,
+    setupFiles: ["./src/teste/setup.ts"],
   },
 });
