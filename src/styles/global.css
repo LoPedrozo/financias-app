@@ -216,7 +216,10 @@ input, select {
      devolvem uma tela inteira de rolagem. O Saldo atual continua inteiro —
      é o que abre a conta do projetado, e é o que se olha de verdade. */
   .cards {
-    grid-template-columns: 1fr 1fr !important;
+    /* minmax(0, 1fr), e não 1fr: o 1fr sozinho não deixa a coluna ficar mais
+       estreita que o valor escrito nela, e um "R$ 12.345,67" num celular
+       pequeno empurrava a página inteira para o lado. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     gap: 10px !important;
   }
   .cards > .card-destaque {
@@ -313,3 +316,15 @@ input, select {
   font-size: 13.5px !important;
 }
 
+/* Celular bem estreito (iPhone SE antigo, Android pequeno).
+   Nos dois cards lado a lado não cabe ícone e valor de cinco dígitos ao mesmo
+   tempo. O ícone é o que cede: o rótulo "Renda" / "Gastos" já diz o que é, e
+   o número é o motivo de o card existir. Acima de 360px nada muda. */
+@media (max-width: 360px) {
+  .cards > .card:not(.card-destaque) .card-icone {
+    display: none !important;
+  }
+  .cards > .card:not(.card-destaque) .card-valor {
+    font-size: 15px !important;
+  }
+}
