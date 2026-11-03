@@ -15,8 +15,11 @@ import { brl } from "../lib/format";
 
 // Um campo só para os dois casos que antes eram telas diferentes: digitar
 // "almoço 25" e colar a lista inteira do mês. É a mesma gramática, e o número
-// de linhas é que decide se aquilo é um lançamento ou uma leva — por isso não
-// existe um botão "colar lista" em lugar nenhum: colar já é usar.
+// de linhas é que decide se aquilo é um lançamento ou uma leva.
+//
+// Não é mais o que o + abre: quem toca em adicionar cai no formulário, e
+// chega aqui pelo "Escrever ou colar vários" de lá. Lançar um por um é o
+// comum; a leva é a exceção, e exceção não merece a porta da frente.
 //
 // Nada aqui salva às cegas. O palpite de tipo e de categoria aparece em uma
 // prévia onde cada linha pode ser corrigida com um toque, porque errar a
