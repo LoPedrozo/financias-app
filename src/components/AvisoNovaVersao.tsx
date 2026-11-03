@@ -10,7 +10,9 @@ import { ArrowUpCircle, X } from "lucide-react";
 // escolher.
 //
 // Fica no topo de propósito: a barra de baixo é do botão de lançar, e cobrir
-// ela seria trocar um incômodo por outro.
+// ela seria trocar um incômodo por outro. E entra no fluxo da página, não
+// flutuando por cima: fixo, a faixa tapava o nome do app e o e-mail no
+// cabeçalho enquanto estivesse na tela.
 export default function AvisoNovaVersao() {
   const {
     needRefresh: [precisaAtualizar, setPrecisaAtualizar],
@@ -42,16 +44,13 @@ export default function AvisoNovaVersao() {
 
 const estilos: Record<string, React.CSSProperties> = {
   faixa: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 60,
     display: "flex",
     alignItems: "center",
     gap: 10,
     padding: "10px 14px",
     paddingTop: "max(10px, env(safe-area-inset-top))",
+    position: "relative",
+    zIndex: 60,
     background: "var(--accent)",
     color: "#fff",
     fontSize: 13.5,

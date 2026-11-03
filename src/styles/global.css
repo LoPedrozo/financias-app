@@ -20,6 +20,9 @@
   --tooltip-bg: #0d0d0d;
   --tooltip-text: #ffffff;
   --barra-rolagem: #d8dce3;
+  /* Brilho do topo da tela de login. É cor de fundo, então acompanha o tema:
+     fixo em #fdfbf6 virava um clarão cinza no meio do escuro. */
+  --brilho-topo: #fdfbf6;
   color-scheme: light;
 }
 
@@ -53,6 +56,7 @@
     --tooltip-bg: #e9ecf1;
     --tooltip-text: #14161a;
     --barra-rolagem: #39404d;
+    --brilho-topo: #1f242c;
     /* Faz o navegador desenhar o calendário do campo de data e a lista do
        select em escuro. Sem isto, tocar na data abre um painel branco no meio
        da tela escura. */

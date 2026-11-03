@@ -456,31 +456,57 @@ export default function Dashboard({
     }
   }
 
-  function exportarCsv() {
+  async function exportarCsv() {
     if (lancamentos.length === 0) {
       mostrarToast("erro", "Nada para exportar ainda.");
       return;
     }
 
+    const csv = gerarCsv(lancamentos);
+    const nome = nomeDoArquivo(hojeLocal());
+    const aviso =
+      lancamentos.length === 1
+        ? "1 lançamento exportado."
+        : `${lancamentos.length} lançamentos exportados.`;
+
+    // No iPhone, `<a download>` dentro do app instalado costuma abrir o CSV
+    // como texto na tela em vez de salvar. O compartilhamento nativo resolve:
+    // é dali que se manda para o Arquivos, para o Drive ou para outra pessoa.
+    const arquivo =
+      typeof File === "undefined"
+        ? null
+        : new File([csv], nome, { type: "text/csv" });
+    if (arquivo && navigator.canShare?.({ files: [arquivo] })) {
+      try {
+        await navigator.share({ files: [arquivo], title: nome });
+        mostrarToast("sucesso", aviso);
+      } catch (e) {
+        // Fechar a folha de compartilhamento é desistir, não é erro.
+        if ((e as Error).name !== "AbortError") {
+          console.error(e);
+          mostrarToast("erro", "Não foi possível exportar.");
+        }
+      }
+      return;
+    }
+
     const url = URL.createObjectURL(
-      new Blob([gerarCsv(lancamentos)], { type: "text/csv;charset=utf-8" })
+      new Blob([csv], { type: "text/csv;charset=utf-8" })
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = nomeDoArquivo(hojeLocal());
+    link.download = nome;
     // Precisa estar no documento para o clique valer em alguns navegadores
     // de celular; sai logo em seguida.
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    // Revogar na mesma volta do laço cancela o download que acabou de
+    // começar em parte dos navegadores — o endereço morre antes de o arquivo
+    // ser lido. Um instante depois já é seguro.
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
 
-    mostrarToast(
-      "sucesso",
-      lancamentos.length === 1
-        ? "1 lançamento exportado."
-        : `${lancamentos.length} lançamentos exportados.`
-    );
+    mostrarToast("sucesso", aviso);
   }
 
   function abrirEdicaoValor(l: Lancamento) {
@@ -975,9 +1001,12 @@ export default function Dashboard({
               const lista =
                 l.tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
               const cat = lista.find((c) => c.nome === l.categoria);
-              const cor =
-                cat?.cor ??
-                (l.tipo === "entrada" ? "var(--green)" : "#9aa3b0");
+              // Precisa ser hex: logo abaixo vira `cor + "1f"` para montar o
+              // fundo da etiqueta, e `var(--green)1f` não é cor nenhuma — a
+              // etiqueta ficava sem fundo para entrada de categoria
+              // desconhecida. Cinza serve aos dois tipos, e é o mesmo tom do
+              // "Outros", que é onde cai o que não se reconhece.
+              const cor = cat?.cor ?? "#9aa3b0";
               const dia = Number(dataOrdenacao(l).slice(8, 10));
               const futuro = !!l.data && l.data > hojeLocal();
               const dataFmt = futuro

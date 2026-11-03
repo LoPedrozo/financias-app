@@ -148,6 +148,68 @@ describe("Dashboard", () => {
     vi.unstubAllGlobals();
   });
 
+  // No iPhone o <a download> dentro do app instalado abre o CSV como texto em
+  // vez de salvar. Onde existe compartilhamento nativo, é por ele que o
+  // arquivo sai — é dali que se manda para o Arquivos ou para alguém.
+  it("usa o compartilhamento nativo quando o aparelho tem", async () => {
+    vi.mocked(listarLancamentos).mockResolvedValue([
+      {
+        id: "l1", user_id: "u1", tipo: "entrada", valor: 130,
+        descricao: "mesada", categoria: "Mesada",
+        mes: 10, ano: 2026, data: "2026-11-01", created_at: "",
+      },
+    ]);
+
+    // Tipado com o parâmetro para o `mock.calls[0][0]` lá embaixo existir.
+    const share = vi.fn(async (_dados: ShareData) => {});
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      canShare: () => true,
+      share,
+    });
+
+    render(<Dashboard session={sessao} />);
+    await screen.findByText("mesada");
+    await userEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    const enviado = share.mock.calls[0][0];
+    expect(enviado.files![0].name).toMatch(/^financas-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(await enviado.files![0].text()).toContain("mesada");
+
+    vi.unstubAllGlobals();
+  });
+
+  it("desistir do compartilhamento não vira erro na tela", async () => {
+    vi.mocked(listarLancamentos).mockResolvedValue([
+      {
+        id: "l1", user_id: "u1", tipo: "entrada", valor: 130,
+        descricao: "mesada", categoria: "Mesada",
+        mes: 10, ano: 2026, data: "2026-11-01", created_at: "",
+      },
+    ]);
+
+    const abortar = Object.assign(new Error("cancelou"), { name: "AbortError" });
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      canShare: () => true,
+      share: vi.fn(async () => {
+        throw abortar;
+      }),
+    });
+
+    render(<Dashboard session={sessao} />);
+    await screen.findByText("mesada");
+    await userEvent.click(screen.getByRole("button", { name: "Exportar CSV" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Não foi possível exportar/)).not.toBeInTheDocument()
+    );
+    expect(screen.queryByText(/exportado/)).not.toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
   // Antes, trocar de mês refazia o fetch de todos os lançamentos de todos os
   // meses — a cada toque na seta.
   it("navegar entre meses não rebaixa a base inteira", async () => {
@@ -159,5 +221,28 @@ describe("Dashboard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Mês anterior" }));
 
     expect(listarLancamentos).toHaveBeenCalledTimes(1);
+  });
+});
+
+// A cor da etiqueta é concatenada com a transparência (`cor + "1f"`), então
+// uma categoria fora da lista não pode cair num var(--...): o resultado seria
+// CSS inválido e a etiqueta perderia o fundo.
+describe("etiqueta de categoria", () => {
+  it("categoria desconhecida ainda pinta o fundo da etiqueta", async () => {
+    vi.mocked(listarLancamentos).mockResolvedValue([
+      {
+        id: "l1", user_id: "u1", tipo: "entrada", valor: 100,
+        descricao: "bico antigo", categoria: "Categoria que não existe mais",
+        mes: new Date().getMonth(), ano: new Date().getFullYear(),
+        data: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-01`,
+        created_at: "",
+      },
+    ]);
+
+    render(<Dashboard session={sessao} />);
+    const etiqueta = await screen.findByText("Categoria que não existe mais");
+
+    expect(etiqueta.style.background).not.toContain("var(");
+    expect(etiqueta.style.background).toBeTruthy();
   });
 });
