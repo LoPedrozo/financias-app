@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Settings,
+  Eye, EyeOff,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
   Repeat, Home, CopyPlus, Download,
 } from "lucide-react";
@@ -13,7 +14,7 @@ import {
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
 import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
 import { lerValor } from "../lib/format";
-import { useDinheiro } from "../hooks/usePreferencias";
+import { useDinheiro, usePreferencias } from "../hooks/usePreferencias";
 import {
   agruparPorCategoria,
   calcularBalancoAnual,
@@ -129,6 +130,8 @@ export default function Dashboard({
   const [modalExportar, setModalExportar] = useState(false);
   const [modalPreferencias, setModalPreferencias] = useState(false);
   const dinheiro = useDinheiro();
+  const { preferencias, mudar } = usePreferencias();
+  const ocultos = preferencias.ocultarValores;
   const [editando, setEditando] = useState<Lancamento | null>(null);
   const [confirmarId, setConfirmarId] = useState<string | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
@@ -767,10 +770,25 @@ export default function Dashboard({
       <header style={styles.header}>
         <div style={styles.brand}>
           <img src="/icon-192.png" alt="" style={styles.logo} />
-          <div>
+          <div style={{ minWidth: 0 }}>
             <h1 style={styles.title} className="app-title">Minhas Finanças</h1>
             <p style={styles.user}>{email}</p>
           </div>
+          {/* Atalho do "esconder valores", como os apps de banco fazem: a
+              ideia é esconder antes de alguém ver, e três toques pela
+              engrenagem eram tempo demais. Fica na linha do título porque é
+              a que tem espaço sobrando no celular — a de baixo já está cheia
+              com o mês, o download e a engrenagem. É a mesma preferência do
+              interruptor lá dentro: mexer num mexe no outro. */}
+          <button
+            style={{ ...styles.sair, marginLeft: "auto", flexShrink: 0 }}
+            onClick={() => mudar({ ocultarValores: !ocultos })}
+            aria-label={ocultos ? "Mostrar valores" : "Esconder valores"}
+            aria-pressed={ocultos}
+            title={ocultos ? "Mostrar valores" : "Esconder valores"}
+          >
+            {ocultos ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
         </div>
         <div style={styles.headerRight}>
           {/* No desktop a barra inferior não existe, e ela era o único caminho
@@ -1439,7 +1457,19 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
     gap: 14,
   },
-  brand: { display: "flex", alignItems: "center", gap: 12 },
+  brand: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    // "1 1 auto", e não "1": o atalho `flex: 1` parte de largura zero, e aí o
+    // navegador achava que a marca cabia ao lado do mês e não quebrava a
+    // linha — espremia o título até virar "Minhas" debaixo do seletor. Com
+    // auto, a quebra é decidida pelo tamanho de verdade: no celular a marca
+    // ganha a linha inteira (com o olho na ponta), no desktop divide com os
+    // controles.
+    flex: "1 1 auto",
+    minWidth: 0,
+  },
   logo: {
     width: 44,
     height: 44,
@@ -1448,7 +1478,15 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   title: { fontSize: 22, fontWeight: 700 },
-  user: { fontSize: 12.5, color: "var(--text-faint)" },
+  // E-mail não quebra linha (não tem espaço). Sem o corte, um endereço
+  // comprido mais o olho ao lado passavam da tela em celular pequeno.
+  user: {
+    fontSize: 12.5,
+    color: "var(--text-faint)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
   headerRight: { display: "flex", alignItems: "center", gap: 10 },
   navDesktop: {
     gap: 3,
