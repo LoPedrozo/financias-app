@@ -774,23 +774,8 @@ export default function Dashboard({
             <h1 style={styles.title} className="app-title">Minhas Finanças</h1>
             <p style={styles.user}>{email}</p>
           </div>
-          {/* Atalho do "esconder valores", como os apps de banco fazem: a
-              ideia é esconder antes de alguém ver, e três toques pela
-              engrenagem eram tempo demais. Fica na linha do título porque é
-              a que tem espaço sobrando no celular — a de baixo já está cheia
-              com o mês, o download e a engrenagem. É a mesma preferência do
-              interruptor lá dentro: mexer num mexe no outro. */}
-          <button
-            style={{ ...styles.sair, marginLeft: "auto", flexShrink: 0 }}
-            onClick={() => mudar({ ocultarValores: !ocultos })}
-            aria-label={ocultos ? "Mostrar valores" : "Esconder valores"}
-            aria-pressed={ocultos}
-            title={ocultos ? "Mostrar valores" : "Esconder valores"}
-          >
-            {ocultos ? <EyeOff size={17} /> : <Eye size={17} />}
-          </button>
         </div>
-        <div style={styles.headerRight}>
+        <div style={styles.headerRight} className="cabecalho-acoes">
           {/* No desktop a barra inferior não existe, e ela era o único caminho
               para Contas a Pagar — a aba ficava inalcançável em tela grande. */}
           {CONTAS_A_PAGAR_HABILITADO && (
@@ -838,6 +823,7 @@ export default function Dashboard({
           )}
           <button
             style={styles.sair}
+            className="botao-cabecalho"
             onClick={() => setModalExportar(true)}
             aria-label="Exportar CSV"
             title="Exportar em CSV"
@@ -846,8 +832,25 @@ export default function Dashboard({
           </button>
           {/* O Sair mora dentro das preferências agora: era o ícone que
               menos se usa ocupando o lugar que a personalização precisava. */}
+          {/* Atalho do "esconder valores", como os apps de banco fazem:
+              esconder é para antes de alguém ver, e três toques pela
+              engrenagem eram tempo demais. Fica colado na engrenagem, no
+              mesmo grupo de controles — solto na linha do título parecia
+              não pertencer ao resto. É a mesma preferência do interruptor
+              lá dentro: mexer num mexe no outro. */}
           <button
             style={styles.sair}
+            className="botao-cabecalho"
+            onClick={() => mudar({ ocultarValores: !ocultos })}
+            aria-label={ocultos ? "Mostrar valores" : "Esconder valores"}
+            aria-pressed={ocultos}
+            title={ocultos ? "Mostrar valores" : "Esconder valores"}
+          >
+            {ocultos ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
+          <button
+            style={styles.sair}
+            className="botao-cabecalho"
             onClick={() => setModalPreferencias(true)}
             aria-label="Preferências"
             title="Preferências"
@@ -1461,13 +1464,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     gap: 12,
-    // "1 1 auto", e não "1": o atalho `flex: 1` parte de largura zero, e aí o
-    // navegador achava que a marca cabia ao lado do mês e não quebrava a
-    // linha — espremia o título até virar "Minhas" debaixo do seletor. Com
-    // auto, a quebra é decidida pelo tamanho de verdade: no celular a marca
-    // ganha a linha inteira (com o olho na ponta), no desktop divide com os
-    // controles.
-    flex: "1 1 auto",
+    // Deixa a marca encolher (e o e-mail ganhar reticências) em vez de
+    // empurrar a página quando o endereço é comprido e a tela é pequena.
     minWidth: 0,
   },
   logo: {

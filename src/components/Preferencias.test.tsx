@@ -216,6 +216,17 @@ describe("preferências", () => {
   // O atalho do olho, como nos apps de banco: um toque esconde, sem passar
   // pela engrenagem.
   describe("atalho do olho", () => {
+    // Pedido explícito: colado na engrenagem, no mesmo grupo de controles —
+    // solto na linha do título, parecia não pertencer ao resto.
+    it("fica no grupo de controles, logo antes da engrenagem", async () => {
+      montar();
+      const olho = screen.getByRole("button", { name: "Esconder valores" });
+      const engrenagem = screen.getByRole("button", { name: "Preferências" });
+      expect(olho.nextElementSibling).toBe(engrenagem);
+      expect(olho.closest(".cabecalho-acoes")).not.toBeNull();
+      expect(olho.closest("h1, .app-title")).toBeNull();
+    });
+
     it("um toque esconde todos os valores, outro mostra de volta", async () => {
       montar();
       await screen.findByText("salário");

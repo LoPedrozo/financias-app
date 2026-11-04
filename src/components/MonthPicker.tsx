@@ -69,7 +69,11 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
         aria-haspopup="dialog"
         aria-expanded={aberto}
       >
-        {MESES[mes]} {ano}
+        {/* As duas formas vão no HTML e o CSS mostra uma: em tela estreita
+            o mês abreviado cabe numa linha só, junto dos botões do
+            cabeçalho, em vez de quebrar "Novembro" e "2026" em duas. */}
+        <span className="mp-mes-longo">{MESES[mes]}</span>
+        <span className="mp-mes-curto">{MESES[mes].slice(0, 3)}</span> {ano}
       </button>
 
       <button
