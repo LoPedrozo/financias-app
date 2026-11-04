@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
 import Dashboard from "./Dashboard";
-import { PreferenciasProvider } from "../hooks/usePreferencias";
+import { PreferenciasProvider, useDinheiro } from "../hooks/usePreferencias";
 import { CHAVE_PREFERENCIAS, VALOR_OCULTO } from "../lib/preferencias";
 import { listarLancamentos } from "../lib/lancamentos";
 import { listarRecorrencias } from "../lib/recorrencias";
@@ -211,6 +211,91 @@ describe("preferências", () => {
     }
 
     vi.useRealTimers();
+  });
+
+  // O atalho do olho, como nos apps de banco: um toque esconde, sem passar
+  // pela engrenagem.
+  describe("atalho do olho", () => {
+    it("um toque esconde todos os valores, outro mostra de volta", async () => {
+      montar();
+      await screen.findByText("salário");
+      expect(screen.getAllByText(/1\.790,00/).length).toBeGreaterThan(0);
+
+      await userEvent.click(screen.getByRole("button", { name: "Esconder valores" }));
+      expect(screen.queryByText(/1\.790,00/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/99,90/)).not.toBeInTheDocument();
+
+      // O botão diz o que vai fazer agora, e avisa que está ligado.
+      const olho = screen.getByRole("button", { name: "Mostrar valores" });
+      expect(olho).toHaveAttribute("aria-pressed", "true");
+
+      await userEvent.click(olho);
+      expect(screen.getAllByText(/1\.790,00/).length).toBeGreaterThan(0);
+      expect(
+        screen.getByRole("button", { name: "Esconder valores" })
+      ).toHaveAttribute("aria-pressed", "false");
+    });
+
+    // É a mesma preferência por baixo. Se os dois divergissem, a engrenagem
+    // diria "desligado" com os valores escondidos na tela.
+    it("o olho e o interruptor das preferências andam juntos", async () => {
+      montar();
+      await screen.findByText("salário");
+      await userEvent.click(screen.getByRole("button", { name: "Esconder valores" }));
+
+      const modal = await abrirPreferencias();
+      const interruptor = within(modal).getByRole("switch", { name: /Esconder valores/ });
+      expect(interruptor).toHaveAttribute("aria-checked", "true");
+
+      // E pelo outro lado: desligar lá dentro volta o olho.
+      await userEvent.click(interruptor);
+      await userEvent.click(within(modal).getByRole("button", { name: "Fechar" }));
+      expect(
+        screen.getByRole("button", { name: "Esconder valores" })
+      ).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getAllByText(/1\.790,00/).length).toBeGreaterThan(0);
+    });
+
+    // O ponto de esconder é ninguém ver. Abrindo o app com os valores
+    // escondidos, nem o primeiro render pode sair com número.
+    //
+    // A sonda anota o que useDinheiro devolve a cada render. Observar o DOM
+    // não serve: o render do testing-library aplica o primeiro render e os
+    // efeitos de uma vez, e o observador só vê o estado final — um provider
+    // que lesse a preferência num efeito, depois de já ter pintado um
+    // número, passaria. Anotando no próprio render, nenhum quadro escapa.
+    it("abrindo o app já escondido, nem o primeiro render mostra valor", () => {
+      localStorage.setItem(
+        CHAVE_PREFERENCIAS,
+        JSON.stringify({ tema: "auto", destaque: "dourado", ocultarValores: true, listaCompacta: false })
+      );
+      const renders: string[] = [];
+      function Sonda() {
+        renders.push(useDinheiro()(1790));
+        return null;
+      }
+
+      render(
+        <PreferenciasProvider>
+          <Sonda />
+        </PreferenciasProvider>
+      );
+
+      expect(renders.length).toBeGreaterThan(0);
+      expect(renders[0]).toBe(VALOR_OCULTO);
+      expect(renders.every((r) => r === VALOR_OCULTO)).toBe(true);
+    });
+
+    it("escondido pelo olho continua escondido depois de fechar e abrir", async () => {
+      const { unmount } = montar();
+      await screen.findByText("salário");
+      await userEvent.click(screen.getByRole("button", { name: "Esconder valores" }));
+      unmount();
+
+      montar();
+      await screen.findByText("salário");
+      expect(screen.queryByText(/1\.790,00/)).not.toBeInTheDocument();
+    });
   });
 });
 
