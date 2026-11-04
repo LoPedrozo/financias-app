@@ -328,3 +328,35 @@ input, select {
     font-size: 15px !important;
   }
 }
+
+/* Mês abreviado só aparece em tela estreita (regra abaixo). */
+.mp-mes-curto {
+  display: none;
+}
+
+/* Cabeçalho em tela estreita.
+   Seletor de mês + download + olho + engrenagem não cabem lado a lado
+   abaixo de 390px: a 320px a engrenagem saía da tela, e a 360–375px
+   (Android comum, iPhone SE, iPhone mini) o mês quebrava em duas linhas —
+   "Fevereiro", o nome mais longo, é o pior caso. O mês vira abreviado e os
+   botões encolhem um pouco. De 390px para cima nada muda. */
+@media (max-width: 389px) {
+  .mp-mes-longo {
+    display: none;
+  }
+  .mp-mes-curto {
+    display: inline;
+  }
+  .month-picker button[aria-haspopup] {
+    min-width: 0 !important;
+    padding: 4px 6px !important;
+  }
+  .cabecalho-acoes {
+    gap: 6px !important;
+  }
+  .botao-cabecalho {
+    width: 36px !important;
+    height: 36px !important;
+  }
+}
+
