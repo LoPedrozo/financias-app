@@ -12,7 +12,7 @@ import {
   atualizarLancamento, removerLancamento, removerLancamentosEmLote,
 } from "../lib/lancamentos";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
-import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
+import type { Lancamento, NovoLancamento, Recorrencia, Tipo } from "../types";
 import { lerValor } from "../lib/format";
 import { useDinheiro, usePreferencias } from "../hooks/usePreferencias";
 import {
@@ -36,7 +36,6 @@ import { useSwipe } from "../hooks/useSwipe";
 import ModalNovo from "./ModalNovo";
 import ModalAdicionar from "./ModalAdicionar";
 import ModalRepetirMes from "./ModalRepetirMes";
-import ConfirmModal from "./ConfirmModal";
 import Toast, { type ToastAcao, type ToastDados } from "./Toast";
 import EmptyState from "./EmptyState";
 import { SkeletonLista } from "./Skeleton";
@@ -56,6 +55,7 @@ import { useAgora } from "../hooks/useAgora";
 import { dataCurta, periodoDoDia, primeiroNome, saudacao } from "../lib/saudacao";
 import type { Periodo as PeriodoDoDia } from "../lib/saudacao";
 import { podeAnimar, vibrar } from "../lib/movimento";
+import { useRemocaoComDesfazer } from "../hooks/useRemocaoComDesfazer";
 
 // O recharts é metade do pacote e não aparece na aba Contas — sai do
 // carregamento inicial e chega quando o Início realmente precisa desenhar.
@@ -138,7 +138,12 @@ export default function Dashboard({
   const { preferencias, mudar } = usePreferencias();
   const ocultos = preferencias.ocultarValores;
   const [editando, setEditando] = useState<Lancamento | null>(null);
-  const [confirmarId, setConfirmarId] = useState<string | null>(null);
+  // Tocar em Renda ou Gastos filtra a lista (só a lista: cards, saldo e
+  // gráficos continuam olhando o mês inteiro). Fica ligado ao trocar de mês —
+  // quem está comparando entradas quer seguir vendo entradas —, e o aviso no
+  // título da lista não deixa esquecer que está filtrado.
+  const [filtroTipo, setFiltroTipo] = useState<Tipo | null>(null);
+  const listaRef = useRef<HTMLDivElement | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
   const [toast, setToast] = useState<ToastDados | null>(null);
   const [erroCarregar, setErroCarregar] = useState(false);
@@ -244,7 +249,6 @@ export default function Dashboard({
     modalExportar,
     modalPreferencias,
     editando,
-    confirmarId,
     formulario,
     fecharTooltipFuturo,
   ]);
@@ -266,17 +270,38 @@ export default function Dashboard({
     []
   );
 
+  // Apagar com Desfazer: o lançamento sai da tela na hora e só é apagado no
+  // servidor quando o aviso com o Desfazer some (ver o hook).
+  const remocao = useRemocaoComDesfazer<Lancamento>({
+    remover: removerLancamento,
+    aoTirar: (l) => setLancamentos((atual) => atual.filter((x) => x.id !== l.id)),
+    aoDevolver: (l) =>
+      setLancamentos((atual) => (atual.some((x) => x.id === l.id) ? atual : [l, ...atual])),
+    aoFalhar: (l, e) => {
+      console.error(e);
+      setLancamentos((atual) => (atual.some((x) => x.id === l.id) ? atual : [l, ...atual]));
+      mostrarToast("erro", "Não foi possível excluir. Verifique sua conexão.");
+    },
+  });
+  const idEsperandoRemocao = remocao.idEsperando;
+
   const carregar = useCallback(() => {
     setCarregando(true);
     setErroCarregar(false);
     listarLancamentos()
-      .then(setLancamentos)
+      // O que está na janela do Desfazer ainda existe no servidor; recarregar
+      // nesse meio-tempo (uma recorrência gerada, um "tentar de novo") não
+      // pode trazê-lo de volta à tela.
+      .then((lista) => {
+        const esperando = idEsperandoRemocao();
+        setLancamentos(esperando ? lista.filter((l) => l.id !== esperando) : lista);
+      })
       .catch((e) => {
         console.error(e);
         setErroCarregar(true);
       })
       .finally(() => setCarregando(false));
-  }, []);
+  }, [idEsperandoRemocao]);
 
   const sincronizarCompetencia = useCallback(
     (alvo: Competencia) => {
@@ -607,22 +632,18 @@ export default function Dashboard({
     }
   }
 
-  async function confirmarRemocao() {
-    if (!confirmarId) return;
-    const id = confirmarId;
-    setConfirmarId(null);
-    const anterior = lancamentos;
-    const alvo = anterior.find((l) => l.id === id);
-    if (!alvo) return;
-    setLancamentos((atual) => atual.filter((l) => l.id !== id));
-    try {
-      await removerLancamento(alvo);
-      mostrarToast("sucesso", "Lançamento excluído.");
-    } catch (e) {
-      console.error(e);
-      setLancamentos(anterior);
-      mostrarToast("erro", "Não foi possível excluir. Verifique sua conexão.");
-    }
+  // Sem "tem certeza?": apaga e oferece o Desfazer. A pergunta antes de cada
+  // exclusão cansava, e não salvava ninguém de nada — quem toca na lixeira
+  // quer apagar; quem errou o toque precisa é de um jeito de voltar.
+  function excluir(l: Lancamento) {
+    remocao.apagar(l);
+    mostrarToast("sucesso", `"${l.descricao || "Lançamento"}" excluído.`, {
+      rotulo: "Desfazer",
+      onAcao: () => {
+        if (remocao.desfazer(l.id)) mostrarToast("sucesso", "Lançamento de volta.");
+        else mostrarToast("erro", "Não deu tempo: ele já tinha sido excluído.");
+      },
+    });
   }
 
   function dataOrdenacao(l: Lancamento): string {
@@ -653,6 +674,11 @@ export default function Dashboard({
 
   // Um mês só de recorrências não tem o que repetir: elas se geram sozinhas.
   const podeRepetir = doMesAnterior.some((l) => !l.recorrencia_id);
+
+  const listaVisivel = useMemo(
+    () => (filtroTipo ? doMes.filter((l) => l.tipo === filtroTipo) : doMes),
+    [doMes, filtroTipo]
+  );
 
   const renda = somarPorTipo(doMes, "entrada");
   const gastos = somarPorTipo(doMes, "saida");
@@ -735,7 +761,6 @@ export default function Dashboard({
     setModalExportar(false);
     setModalPreferencias(false);
     setEditando(null);
-    setConfirmarId(null);
     setFormulario(null);
     setVerRecorrencias(false);
     setAbaAtiva(aba);
@@ -932,7 +957,22 @@ export default function Dashboard({
       {falhaAoAtualizar && <AvisoDesatualizado onTentarDeNovo={atualizarTudo} />}
 
       <div style={styles.cards} className="cards anima-mes">
-        <ResumoMes renda={renda} gastos={gastos} />
+        <ResumoMes
+          renda={renda}
+          gastos={gastos}
+          filtro={filtroTipo}
+          onFiltrar={(tipo) => {
+            vibrar();
+            const novo = filtroTipo === tipo ? null : tipo;
+            setFiltroTipo(novo);
+            // Ligando o filtro, leva até a lista: no celular ela fica abaixo
+            // do cartão do saldo, e o toque pareceria não ter feito nada.
+            const lista = listaRef.current;
+            if (novo && lista && typeof lista.scrollIntoView === "function") {
+              lista.scrollIntoView({ behavior: podeAnimar() ? "smooth" : "auto", block: "start" });
+            }
+          }}
+        />
         <CardSaldo
           valor={saldoAcumulado}
           pendente={pendentes}
@@ -1009,9 +1049,25 @@ export default function Dashboard({
         </div>
       </div>
 
-      <div style={styles.panel} className="panel-mobile anima-mes">
+      <div ref={listaRef} style={{ ...styles.panel, scrollMarginTop: 12 }} className="panel-mobile anima-mes">
         <div style={styles.listHead}>
-          <h2 style={styles.panelTitle}>Lançamentos de {MESES[mes]}</h2>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ ...styles.panelTitle, marginBottom: filtroTipo ? 6 : 0 }}>
+              Lançamentos de {MESES[mes]}
+            </h2>
+            {filtroTipo && (
+              <button
+                type="button"
+                onClick={() => setFiltroTipo(null)}
+                style={{
+                  ...styles.filtroAviso,
+                  color: filtroTipo === "entrada" ? "var(--green)" : "var(--red)",
+                }}
+              >
+                Só {filtroTipo === "entrada" ? "entradas" : "saídas"} · <u>Mostrar todos</u>
+              </button>
+            )}
+          </div>
           <div style={styles.listHeadAcoes}>
             {podeRepetir && (
               <button
@@ -1048,6 +1104,16 @@ export default function Dashboard({
               <RotateCw size={14} /> Tentar novamente
             </button>
           </div>
+        ) : doMes.length > 0 && listaVisivel.length === 0 ? (
+          <EmptyState
+            icon={<Receipt size={24} />}
+            titulo={`Nenhuma ${filtroTipo === "entrada" ? "entrada" : "saída"} em ${MESES[mes]}.`}
+            acao={
+              <button style={styles.repetirDestaque} onClick={() => setFiltroTipo(null)}>
+                Mostrar todos
+              </button>
+            }
+          />
         ) : doMes.length === 0 ? (
           <EmptyState
             icon={<Receipt size={24} />}
@@ -1072,7 +1138,7 @@ export default function Dashboard({
           />
         ) : (
           <div style={styles.list} className="lista-lancamentos">
-            {doMes.map((l, idx) => {
+            {listaVisivel.map((l, idx) => {
               const lista =
                 l.tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
               const cat = lista.find((c) => c.nome === l.categoria);
@@ -1252,7 +1318,7 @@ export default function Dashboard({
                       </button>
                       <button
                         style={styles.acao}
-                        onClick={() => setConfirmarId(l.id)}
+                        onClick={() => excluir(l)}
                         aria-label="Excluir lançamento"
                         title="Excluir"
                       >
@@ -1365,17 +1431,6 @@ export default function Dashboard({
       )}
 
       {toast && <Toast toast={toast} onFechar={() => setToast(null)} />}
-
-      {confirmarId && (
-        <ConfirmModal
-          titulo="Excluir lançamento"
-          mensagem="Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita."
-          textoConfirmar="Excluir"
-          textoCancelar="Cancelar"
-          onConfirmar={confirmarRemocao}
-          onCancelar={() => setConfirmarId(null)}
-        />
-      )}
 
       <BottomNav
         abaAtiva={abaAtiva}
@@ -1612,6 +1667,15 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 14,
+  },
+  filtroAviso: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    font: "inherit",
+    fontSize: 12.5,
+    fontWeight: 600,
+    cursor: "pointer",
   },
   listHeadAcoes: {
     display: "flex",
