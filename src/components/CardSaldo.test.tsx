@@ -162,3 +162,39 @@ describe("CardSaldo no Dashboard", () => {
     expect(naTela.fim).toBe(2419.73);
   });
 });
+
+// Com a animação ligada (o jsdom não tem matchMedia, então aqui ela é
+// ligada à mão), o número passa pelo meio do caminho mas para no valor
+// exato — e o alerta de negativo segue o valor de verdade desde o início.
+describe("CardSaldo com os números rolando", () => {
+  afterEach(() => {
+    // @ts-expect-error — o jsdom não tem matchMedia; tiramos o mock.
+    delete window.matchMedia;
+  });
+
+  it("termina exatamente nos valores novos", async () => {
+    const { act } = await import("@testing-library/react");
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout", "requestAnimationFrame", "cancelAnimationFrame", "performance"],
+    });
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false }) as never;
+
+    const { rerender } = doPrint();
+    const atual = () => screen.getByText("Saldo atual").nextElementSibling;
+    const fim = () => screen.getByText("≈ Fim do mês").nextElementSibling;
+
+    rerender(
+      <CardSaldo valor={-12.34} pendente={pendente(2500, 1, 67.93, 2)} saldoProjetado={2419.73} />
+    );
+    // O alerta não espera a animação: o valor de verdade já é negativo.
+    expect(atual()?.querySelector('[title="Valor negativo"]')).not.toBeNull();
+
+    act(() => vi.advanceTimersByTime(120));
+    expect(atual()).not.toHaveTextContent("-R$ 12,34");
+    expect(fim()).not.toHaveTextContent("R$ 2.419,73");
+
+    act(() => vi.advanceTimersByTime(600));
+    expect(atual()).toHaveTextContent("-R$ 12,34");
+    expect(fim()).toHaveTextContent("R$ 2.419,73");
+  });
+});

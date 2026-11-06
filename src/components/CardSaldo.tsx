@@ -1,5 +1,6 @@
 import { AlertTriangle, TrendingDown, TrendingUp } from "lucide-react";
 import { useDinheiro } from "../hooks/usePreferencias";
+import { useValorAnimado } from "../hooks/useValorAnimado";
 import type { ResumoPendentes } from "../lib/calculos";
 
 // O card do saldo, no estilo cartão de banco.
@@ -48,6 +49,11 @@ export default function CardSaldo({
   const sai = pendente.saidas;
   const contas = contasAPagar ?? { total: 0, quantidade: 0 };
   const temPendentes = saldoProjetado !== undefined;
+  // Os dois números rolam até o valor novo ao trocar de mês e sempre terminam
+  // no valor exato (useValorAnimado). O alerta de negativo olha o valor de
+  // verdade, não o do meio da animação — senão piscaria no caminho.
+  const atualNaTela = useValorAnimado(valor);
+  const fimNaTela = useValorAnimado(saldoProjetado ?? valor);
 
   // A barra é proporção, não conta: mostra quanto do movimento previsto é
   // entrada e quanto é saída. Os valores de verdade estão escritos embaixo.
@@ -61,7 +67,7 @@ export default function CardSaldo({
       <div style={estilos.topo}>
         <div style={estilos.bloco}>
           <p style={estilos.rotulo}>Saldo atual</p>
-          <Valor valor={valor} texto={dinheiro(valor)} />
+          <Valor valor={valor} texto={dinheiro(atualNaTela)} />
         </div>
         {temPendentes && (
           <div style={{ ...estilos.bloco, textAlign: "right", marginLeft: "auto" }}>
@@ -71,7 +77,7 @@ export default function CardSaldo({
               )}
               ≈ Fim do mês
             </p>
-            <Valor valor={saldoProjetado} texto={dinheiro(saldoProjetado)} />
+            <Valor valor={saldoProjetado} texto={dinheiro(fimNaTela)} />
           </div>
         )}
       </div>
