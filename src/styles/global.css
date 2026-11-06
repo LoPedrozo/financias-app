@@ -86,6 +86,12 @@
 :root[data-tema="escuro"][data-destaque="rosa"] { --accent: #d886b4; --accent-soft: #33202b; }
 :root[data-tema="escuro"][data-destaque="grafite"] { --accent: #8a93a3; --accent-soft: #262a32; }
 
+/* O card do saldo ocupa a linha inteira dos cards em qualquer largura —
+   no celular e no desktop. Ver o comentário de `cards` no Dashboard. */
+.cards > .card-destaque {
+  grid-column: 1 / -1;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -221,9 +227,6 @@ input, select {
        pequeno empurrava a página inteira para o lado. */
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     gap: 10px !important;
-  }
-  .cards > .card-destaque {
-    grid-column: 1 / -1;
   }
   .cards > .card:not(.card-destaque) {
     padding: 13px 13px !important;

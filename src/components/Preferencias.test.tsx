@@ -170,9 +170,8 @@ describe("preferências", () => {
     expect(screen.queryByText(/1\.790,00/)).not.toBeInTheDocument();
   });
 
-  // As linhas "a receber", "a pagar" e o projetado só entram no DOM com o
-  // card aberto (hover no computador, toque no celular). Sem abrir, um teste
-  // de privacidade passaria sem nunca ter olhado para elas.
+  // O card do saldo mostra a conta inteira sempre à vista: entra, sai e o
+  // fim do mês. Nenhum desses pode sobrar com "esconder valores" ligado.
   it("esconde também o detalhe do card do saldo", async () => {
     vi.setSystemTime(new Date(2026, 10, 3, 12));
     vi.mocked(listarRecorrencias).mockResolvedValue([]);
@@ -190,25 +189,19 @@ describe("preferências", () => {
 
     montar();
     await screen.findByText("aluguel");
-    const card = screen.getByText("Saldo atual").closest(".card") as HTMLElement;
+    const card = document.querySelector(".card-saldo") as HTMLElement;
 
-    await userEvent.hover(card);
-    expect(within(card).getByText(/a receber/)).toHaveTextContent("130,00");
-    expect(within(card).getByText(/a pagar/)).toHaveTextContent("800,00");
+    // Sem tocar em nada: o detalhe já está lá.
+    expect(within(card).getByText(/entra/)).toHaveTextContent("130,00");
+    expect(within(card).getByText(/sai \(/)).toHaveTextContent("800,00");
     // 1.790 + 130 − 800
-    expect(within(card).getByText(/Saldo projetado/)).toHaveTextContent("1.120,00");
+    expect(within(card).getByText("≈ Fim do mês").nextElementSibling).toHaveTextContent("1.120,00");
 
-    await userEvent.unhover(card);
-    const modal = await abrirPreferencias();
-    await userEvent.click(within(modal).getByRole("switch", { name: /Esconder valores/ }));
-    await userEvent.click(within(modal).getByRole("button", { name: "Fechar" }));
+    await userEvent.click(screen.getByRole("button", { name: "Esconder valores" }));
 
-    await userEvent.hover(card);
-    for (const linha of [/a receber/, /a pagar/, /Saldo projetado/]) {
-      const texto = within(card).getByText(linha).textContent ?? "";
-      expect(texto, `vazou em: ${texto}`).not.toMatch(/\d,\d{2}/);
-      expect(texto).toContain("•••••");
-    }
+    const texto = card.textContent ?? "";
+    expect(texto, `vazou em: ${texto}`).not.toMatch(/\d,\d{2}/);
+    expect(texto.match(/•••••/g)?.length).toBe(4); // atual, fim, entra, sai
 
     vi.useRealTimers();
   });

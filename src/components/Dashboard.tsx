@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus, Trash2, Pencil, Wallet, TrendingUp, TrendingDown, Settings,
+  Plus, Trash2, Pencil, TrendingUp, TrendingDown, Settings,
   Eye, EyeOff,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
   Repeat, Home, CopyPlus, Download,
@@ -30,6 +30,7 @@ import {
 } from "../lib/calculos";
 import type { Competencia } from "../lib/calculos";
 import Card from "./Card";
+import CardSaldo from "./CardSaldo";
 import MonthPicker from "./MonthPicker";
 import { useSwipe } from "../hooks/useSwipe";
 import ModalNovo from "./ModalNovo";
@@ -892,12 +893,8 @@ export default function Dashboard({
           icon={<TrendingDown size={18} />}
           cor="var(--red)"
         />
-        <Card
-          label="Saldo atual"
+        <CardSaldo
           valor={saldoAcumulado}
-          icon={<Wallet size={18} />}
-          cor={saldoAcumulado >= 0 ? "var(--accent)" : "var(--red)"}
-          destaque
           pendente={pendentes}
           contasAPagar={contasEmAberto}
           saldoProjetado={
@@ -1523,10 +1520,13 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
   },
   cards: {
-    // 250px é o mínimo para caber "−R$ 3.139,90" ao lado do ícone sem cortar.
-    // Com 200px o saldo aparecia como "−R$ 32..." em telas médias.
+    // Renda e Gastos lado a lado, e o card do saldo na linha inteira embaixo
+    // (.card-destaque no global.css) — em qualquer largura. Ele mostra a conta
+    // do fim do mês com dois valores grandes lado a lado e uma barra, e numa
+    // coluna de um terço da tela não cabia sem quebrar e ficar mais alto que
+    // os vizinhos. minmax(0, 1fr) para valor comprido não empurrar a página.
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
     gap: 14,
     marginBottom: 16,
   },
