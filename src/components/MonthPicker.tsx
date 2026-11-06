@@ -2,15 +2,33 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { MESES } from "../types";
 
+// Seletor de mês em carrossel.
+//
+// O mês da tela fica no meio, grande; os vizinhos aparecem dos dois lados e
+// somem nas bordas. É o desenho do gesto que já existia — deslizar o dedo
+// troca de mês — posto à vista: dá para ver que há um mês de cada lado.
+// Tocar num vizinho vai até ele; tocar no do meio abre a grade com os doze
+// meses e o ano, para saltos longos.
+//
+// Os vizinhos imediatos se chamam "Mês anterior" e "Próximo mês" para leitor
+// de tela (e para os testes, que navegam por eles); o nome do mês aparece no
+// title.
+
 interface Props {
   mes: number; // 0-11
   ano: number;
   onChange: (mes: number, ano: number) => void;
 }
 
+// Mês relativo: deslocar(10, 2026, 3) = { mes: 1, ano: 2027 }.
+function deslocar(mes: number, ano: number, passos: number) {
+  const total = ano * 12 + mes + passos;
+  return { mes: ((total % 12) + 12) % 12, ano: Math.floor(total / 12) };
+}
+
 export default function MonthPicker({ mes, ano, onChange }: Props) {
   const [aberto, setAberto] = useState(false);
-  // Ano "navegável" dentro do picker — pode divergir do ano selecionado
+  // Ano "navegável" dentro da grade — pode divergir do ano selecionado
   // enquanto o usuário escolhe um mês.
   const [anoPicker, setAnoPicker] = useState(ano);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -24,10 +42,7 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
   useEffect(() => {
     if (!aberto) return;
     function onMouseDown(e: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setAberto(false);
       }
     }
@@ -35,14 +50,9 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, [aberto]);
 
-  function anterior() {
-    if (mes === 0) onChange(11, ano - 1);
-    else onChange(mes - 1, ano);
-  }
-
-  function proximo() {
-    if (mes === 11) onChange(0, ano + 1);
-    else onChange(mes + 1, ano);
+  function ir(passos: number) {
+    const alvo = deslocar(mes, ano, passos);
+    onChange(alvo.mes, alvo.ano);
   }
 
   function selecionarMes(novoMes: number) {
@@ -50,41 +60,56 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
     setAberto(false);
   }
 
+  // Vizinho com o nome do mês e, quando vira o ano (dezembro → janeiro), o
+  // ano junto — senão "Janeiro" ao lado de "Dezembro 2026" pareceria 2026.
+  function vizinho(passos: number) {
+    const alvo = deslocar(mes, ano, passos);
+    const imediato = Math.abs(passos) === 1;
+    const nome = `${MESES[alvo.mes]} de ${alvo.ano}`;
+    return (
+      <button
+        key={passos}
+        type="button"
+        className={"mp-vizinho" + (imediato ? "" : " mp-longe")}
+        onClick={() => ir(passos)}
+        aria-label={imediato ? (passos < 0 ? "Mês anterior" : "Próximo mês") : nome}
+        title={nome}
+        tabIndex={imediato ? 0 : -1}
+      >
+        {/* As duas formas vão no HTML e o CSS mostra uma: num celular de
+            320px "Dezembro" inteiro não cabe ao lado do mês do meio. */}
+        <span className="mp-nome-longo">{MESES[alvo.mes]}</span>
+        <span className="mp-nome-curto">{MESES[alvo.mes].slice(0, 3)}</span>
+        {/* Só nos vizinhos imediatos: o distante fica cortado pela borda, e
+            sobrava só o "2026" solto, sem o nome do mês. */}
+        {imediato && alvo.ano !== ano && <span className="mp-vizinho-ano"> {alvo.ano}</span>}
+      </button>
+    );
+  }
+
   return (
-    <div ref={containerRef} style={styles.container} className="month-picker">
-      <button
-        type="button"
-        className="mp-seta"
-        style={styles.seta}
-        onClick={anterior}
-        aria-label="Mês anterior"
-      >
-        <ChevronLeft size={16} />
-      </button>
+    <div ref={containerRef} className="month-picker mp-carrossel">
+      <div className="mp-trilho anima-mes">
+        <div className="mp-lado mp-esq">{[-2, -1].map(vizinho)}</div>
+        <button
+          type="button"
+          className="mp-atual"
+          onClick={() => setAberto((v) => !v)}
+          aria-haspopup="dialog"
+          aria-expanded={aberto}
+          aria-label={`Escolher outro mês (agora: ${MESES[mes]} de ${ano})`}
+        >
+          {MESES[mes]} <span className="mp-atual-ano">{ano}</span>
+        </button>
+        <div className="mp-lado mp-dir">{[1, 2].map(vizinho)}</div>
+      </div>
 
-      <button
-        type="button"
-        style={styles.texto}
-        onClick={() => setAberto((v) => !v)}
-        aria-haspopup="dialog"
-        aria-expanded={aberto}
-      >
-        {/* As duas formas vão no HTML e o CSS mostra uma: em tela estreita
-            o mês abreviado cabe numa linha só, junto dos botões do
-            cabeçalho, em vez de quebrar "Novembro" e "2026" em duas. */}
-        <span className="mp-mes-longo">{MESES[mes]}</span>
-        <span className="mp-mes-curto">{MESES[mes].slice(0, 3)}</span> {ano}
-      </button>
-
-      <button
-        type="button"
-        className="mp-seta"
-        style={styles.seta}
-        onClick={proximo}
-        aria-label="Próximo mês"
-      >
-        <ChevronRight size={16} />
-      </button>
+      {/* Os pontinhos dizem "isto desliza", como nos carrosséis de foto. */}
+      <div className="mp-pontos" aria-hidden="true">
+        <span />
+        <span className="mp-ponto-atual" />
+        <span />
+      </div>
 
       {aberto && (
         <div
@@ -122,9 +147,7 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
                 <button
                   key={nome}
                   type="button"
-                  className={
-                    "mp-cell" + (selecionado ? " mp-cell-selected" : "")
-                  }
+                  className={"mp-cell" + (selecionado ? " mp-cell-selected" : "")}
                   style={{
                     ...styles.cell,
                     ...(selecionado ? styles.cellSelected : {}),
@@ -144,16 +167,6 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: {
-    position: "relative",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 2,
-    background: "var(--surface)",
-    border: "1px solid var(--border)",
-    borderRadius: 12,
-    padding: "4px 6px",
-  },
   seta: {
     background: "transparent",
     border: "none",
@@ -165,27 +178,19 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     cursor: "pointer",
   },
-  texto: {
-    background: "transparent",
-    border: "none",
-    color: "var(--text)",
-    fontSize: 14,
-    fontWeight: 600,
-    padding: "4px 12px",
-    cursor: "pointer",
-    minWidth: 120,
-    textAlign: "center",
-  },
+  // A grade abre centralizada embaixo do mês do meio, que é quem a abre.
   picker: {
     position: "absolute",
-    top: "calc(100% + 8px)",
+    top: "calc(100% + 4px)",
     left: 0,
+    right: 0,
+    margin: "0 auto",
+    width: 250,
     background: "var(--surface)",
     border: "1px solid var(--border)",
     borderRadius: 14,
     boxShadow: "0 20px 60px rgba(16,24,40,0.18)",
     padding: 14,
-    minWidth: 240,
     zIndex: 100,
     animation: "fadeUp 0.22s ease-out",
   },

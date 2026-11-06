@@ -31,7 +31,7 @@ describe("saudacao", () => {
 
 describe("dataPorExtenso", () => {
   it("escreve dia da semana, dia e mês em português", () => {
-    expect(dataPorExtenso(new Date(2026, 10, 6))).toBe("Sexta-feira, 6 de novembro");
+    expect(dataPorExtenso(new Date(2026, 10, 6))).toBe("Sexta, 6 de novembro");
     expect(dataPorExtenso(new Date(2026, 1, 1))).toBe("Domingo, 1 de fevereiro");
     expect(dataPorExtenso(new Date(2026, 2, 14))).toBe("Sábado, 14 de março");
   });

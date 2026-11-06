@@ -58,3 +58,27 @@ describe("vibração", () => {
     expect(vibrate).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("saudação do topo", () => {
+  it("cumprimenta pelo primeiro nome da conta Google, com a data de hoje", async () => {
+    vi.setSystemTime(new Date(2026, 10, 6, 15));
+    const comNome = {
+      user: { id: "u1", email: "eu@x.com", user_metadata: { full_name: "Lorenzo Pedrozo" } },
+    } as unknown as Session;
+    render(<Dashboard session={comNome} />);
+    await screen.findByText(/Nenhum lançamento/);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Boa tarde, Lorenzo");
+    expect(screen.getByText("Minhas Finanças").parentElement).toHaveTextContent(
+      "Minhas Finanças · Sexta, 6 de novembro"
+    );
+    // O e-mail saiu do topo (continua nas preferências).
+    expect(screen.queryByText("eu@x.com")).toBeNull();
+  });
+
+  it("sem nome no perfil, fica só a saudação", async () => {
+    vi.setSystemTime(new Date(2026, 10, 6, 8));
+    render(<Dashboard session={sessao} />);
+    await screen.findByText(/Nenhum lançamento/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent?.trim()).toBe("Bom dia");
+  });
+});

@@ -227,9 +227,6 @@ input, select {
   .page-root {
     padding: 18px 14px 48px !important;
   }
-  .app-title {
-    font-size: 19px !important;
-  }
   .panel-mobile {
     padding: 16px !important;
   }
@@ -348,35 +345,190 @@ input, select {
   font-size: 13.5px !important;
 }
 
+/* Topo da tela.
+   Saudação grande com o ícone do período, os três controles soltos à
+   direita, o nome do app com a data embaixo e o carrossel de meses. */
+.topo {
+  margin-bottom: 18px;
+}
+.topo-linha {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.topo-saudacao {
+  flex: 1;
+  min-width: 0;
+  /* Encolhe com a tela antes de quebrar linha: "Boa tarde, Lorenzo" e o
+     ícone cabem numa linha ao lado dos três botões de 360px para cima. Nome
+     mais comprido, ou celular menor, quebra — e o ícone desce junto com o
+     nome (.topo-saudacao-fim). */
+  font-size: clamp(19px, 5.5vw, 26px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  padding-top: 4px;
+}
+.topo-saudacao-fim {
+  white-space: nowrap;
+}
+.topo-icone-periodo {
+  display: inline-block;
+  vertical-align: -2px;
+  margin-left: 8px;
+  /* A cor do período (âmbar, destaque, anil) — a mesma do véu do fundo. */
+  color: var(--tom, var(--accent));
+}
+.topo-sub {
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+.topo-app {
+  color: var(--accent);
+  font-weight: 700;
+}
+.cabecalho-acoes {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
 
-/* Mês abreviado só aparece em tela estreita (regra abaixo). */
-.mp-mes-curto {
+/* Os controles do topo são só o ícone, sem moldura: são três atalhos, não o
+   assunto da tela. O fundo aparece no toque/hover, e o olho fica na cor de
+   destaque enquanto os valores estão escondidos — para ninguém achar que o
+   app "perdeu" os números. */
+.botao-cabecalho {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.botao-cabecalho:hover,
+.botao-cabecalho:focus-visible {
+  background: var(--surface);
+  color: var(--text);
+}
+.botao-cabecalho[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+/* Carrossel de meses (MonthPicker).
+   Três colunas: os vizinhos da esquerda encostados no mês do meio, o mês do
+   meio, os vizinhos da direita. As laterais cortam o que não cabe e a
+   máscara apaga as bordas — o mês do meio fica sempre centralizado, qualquer
+   que seja o comprimento dos nomes. O esmaecimento tem largura fixa, e não
+   proporcional: num celular de 320px uma faixa de 22% apagava justamente os
+   vizinhos imediatos. */
+.mp-carrossel {
+  position: relative;
+  margin-top: 14px;
+}
+.mp-trilho {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  height: 44px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, black 30px, black calc(100% - 30px), transparent);
+  mask-image: linear-gradient(90deg, transparent, black 30px, black calc(100% - 30px), transparent);
+}
+.mp-lado {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  min-width: 0;
+}
+.mp-esq {
+  justify-content: flex-end;
+}
+.mp-dir {
+  justify-content: flex-start;
+}
+.mp-vizinho {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 8px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  font-size: 15px;
+  color: var(--text-soft);
+  transition: color 0.15s ease;
+}
+.mp-vizinho.mp-longe {
+  font-size: 14px;
+  color: var(--text-faint);
+}
+.mp-vizinho:hover {
+  color: var(--text);
+}
+.mp-vizinho-ano {
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.mp-atual {
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  white-space: nowrap;
+  font-family: "Sora", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.mp-atual-ano {
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-faint);
+  letter-spacing: 0;
+}
+.mp-pontos {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+.mp-pontos span {
+  width: 5px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border);
+}
+.mp-pontos .mp-ponto-atual {
+  width: 16px;
+  background: var(--accent);
+}
+
+/* Celular pequeno: o mês do meio encolhe um pouco e os vizinhos aparecem
+   abreviados ("Out", "Dez"), para continuarem legíveis. */
+.mp-nome-curto {
   display: none;
 }
-
-/* Cabeçalho em tela estreita.
-   Seletor de mês + download + olho + engrenagem não cabem lado a lado
-   abaixo de 390px: a 320px a engrenagem saía da tela, e a 360–375px
-   (Android comum, iPhone SE, iPhone mini) o mês quebrava em duas linhas —
-   "Fevereiro", o nome mais longo, é o pior caso. O mês vira abreviado e os
-   botões encolhem um pouco. De 390px para cima nada muda. */
-@media (max-width: 389px) {
-  .mp-mes-longo {
+@media (max-width: 360px) {
+  .mp-atual {
+    font-size: 17px;
+    padding: 6px 6px;
+  }
+  .mp-nome-longo {
     display: none;
   }
-  .mp-mes-curto {
+  .mp-nome-curto {
     display: inline;
-  }
-  .month-picker button[aria-haspopup] {
-    min-width: 0 !important;
-    padding: 4px 6px !important;
-  }
-  .cabecalho-acoes {
-    gap: 6px !important;
-  }
-  .botao-cabecalho {
-    width: 36px !important;
-    height: 36px !important;
   }
 }
 
+/* No desktop o carrossel não precisa da largura toda: uma faixa de meses
+   de ponta a ponta numa tela de 1000px ficaria vazia no meio do nada. */
+@media (min-width: 641px) {
+  .mp-carrossel {
+    max-width: 480px;
+  }
+}

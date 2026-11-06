@@ -3,7 +3,7 @@ import {
   Plus, Trash2, Pencil, Settings,
   Eye, EyeOff,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
-  Repeat, Home, CopyPlus, Download,
+  Repeat, Home, CopyPlus, Download, Sun, Sunrise, Moon,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
@@ -53,7 +53,8 @@ import ModalPreferencias from "./ModalPreferencias";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 import { useAgora } from "../hooks/useAgora";
-import { periodoDoDia } from "../lib/saudacao";
+import { dataPorExtenso, periodoDoDia, primeiroNome, saudacao } from "../lib/saudacao";
+import type { Periodo as PeriodoDoDia } from "../lib/saudacao";
 import { podeAnimar, vibrar } from "../lib/movimento";
 
 // O recharts é metade do pacote e não aparece na aba Contas — sai do
@@ -703,6 +704,7 @@ export default function Dashboard({
   );
 
   const email = session.user.email ?? "";
+  const nome = primeiroNome(session.user.user_metadata);
 
   // Usada pelas duas navegações — a barra inferior no celular e o seletor do
   // header no desktop. Trocar de aba com um modal aberto deixaria o modal
@@ -766,7 +768,8 @@ export default function Dashboard({
   // O tom do topo acompanha a hora do dia (global.css, data-periodo). Fica
   // no <html> porque o véu é pintado no fundo da página inteira; sai quando
   // o Dashboard sai, para o login continuar liso.
-  const periodo = periodoDoDia(useAgora());
+  const agora = useAgora();
+  const periodo = periodoDoDia(agora);
   useEffect(() => {
     document.documentElement.dataset.periodo = periodo;
     return () => {
@@ -810,100 +813,103 @@ export default function Dashboard({
       onTouchStart={swipeHandlers.onTouchStart}
       onTouchEnd={swipeHandlers.onTouchEnd}
     >
-      <header style={styles.header}>
-        <div style={styles.brand}>
-          <img src="/icon-192.png" alt="" style={styles.logo} />
-          <div style={{ minWidth: 0 }}>
-            <h1 style={styles.title} className="app-title">Minhas Finanças</h1>
-            <p style={styles.user}>{email}</p>
+      {/* O topo: saudação pela hora do dia, o nome do app com a data de
+          hoje, os três controles soltos à direita e o carrossel de meses.
+          Sem logo: o ícone tinha cor fixa e destoava de qualquer cor de
+          destaque escolhida. O e-mail mora nas preferências. */}
+      <header className="topo">
+        <div className="topo-linha">
+          <h1 className="topo-saudacao">
+            <Saudacao texto={saudacao(periodo, nome)} periodo={periodo} />
+          </h1>
+          <div className="cabecalho-acoes">
+            {/* No desktop a barra inferior não existe, e ela era o único caminho
+                para Contas a Pagar — a aba ficava inalcançável em tela grande. */}
+            {CONTAS_A_PAGAR_HABILITADO && (
+            <div style={styles.navDesktop} className="desktop-nav">
+              <button
+                type="button"
+                onClick={() => navegarPara("inicio")}
+                aria-current={
+                  abaAtiva === "inicio" && !verRecorrencias ? "page" : undefined
+                }
+                style={{
+                  ...styles.navDesktopBtn,
+                  ...(abaAtiva === "inicio" && !verRecorrencias
+                    ? styles.navDesktopBtnAtivo
+                    : {}),
+                }}
+              >
+                <Home size={15} /> Início
+              </button>
+              <button
+                type="button"
+                onClick={() => navegarPara("contas")}
+                aria-current={abaAtiva === "contas" ? "page" : undefined}
+                style={{
+                  ...styles.navDesktopBtn,
+                  ...(abaAtiva === "contas" ? styles.navDesktopBtnAtivo : {}),
+                }}
+              >
+                <Receipt size={15} /> Contas
+              </button>
+            </div>
+            )}
+            <button
+              type="button"
+              className="botao-cabecalho"
+              onClick={() => setModalExportar(true)}
+              aria-label="Exportar CSV"
+              title="Exportar em CSV"
+            >
+              <Download size={18} />
+            </button>
+            {/* Atalho do "esconder valores", como os apps de banco fazem:
+                esconder é para antes de alguém ver, e três toques pela
+                engrenagem eram tempo demais. Fica colado na engrenagem, no
+                mesmo grupo de controles. É a mesma preferência do interruptor
+                lá dentro: mexer num mexe no outro. O Sair mora dentro das
+                preferências. */}
+            <button
+              type="button"
+              className="botao-cabecalho"
+              onClick={() => {
+                vibrar();
+                mudar({ ocultarValores: !ocultos });
+              }}
+              aria-label={ocultos ? "Mostrar valores" : "Esconder valores"}
+              aria-pressed={ocultos}
+              title={ocultos ? "Mostrar valores" : "Esconder valores"}
+            >
+              {ocultos ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+            <button
+              type="button"
+              className="botao-cabecalho"
+              onClick={() => setModalPreferencias(true)}
+              aria-label="Preferências"
+              title="Preferências"
+            >
+              <Settings size={18} />
+            </button>
           </div>
         </div>
-        <div style={styles.headerRight} className="cabecalho-acoes">
-          {/* No desktop a barra inferior não existe, e ela era o único caminho
-              para Contas a Pagar — a aba ficava inalcançável em tela grande. */}
-          {CONTAS_A_PAGAR_HABILITADO && (
-          <div style={styles.navDesktop} className="desktop-nav">
-            <button
-              type="button"
-              onClick={() => navegarPara("inicio")}
-              aria-current={
-                abaAtiva === "inicio" && !verRecorrencias ? "page" : undefined
-              }
-              style={{
-                ...styles.navDesktopBtn,
-                ...(abaAtiva === "inicio" && !verRecorrencias
-                  ? styles.navDesktopBtnAtivo
-                  : {}),
-              }}
-            >
-              <Home size={15} /> Início
-            </button>
-            <button
-              type="button"
-              onClick={() => navegarPara("contas")}
-              aria-current={abaAtiva === "contas" ? "page" : undefined}
-              style={{
-                ...styles.navDesktopBtn,
-                ...(abaAtiva === "contas" ? styles.navDesktopBtnAtivo : {}),
-              }}
-            >
-              <Receipt size={15} /> Contas
-            </button>
-          </div>
-          )}
+        <p className="topo-sub">
+          <span className="topo-app">Minhas Finanças</span> · {dataPorExtenso(agora)}
+        </p>
 
-          {/* Contas a Pagar também é por mês: sem o seletor aqui, a aba ficava
-              presa no mês escolhido em Início e o histórico era inalcançável. */}
-          {!verRecorrencias && (
-            <MonthPicker
-              mes={mes}
-              ano={ano}
-              onChange={(m, a) => {
-                setMes(m);
-                setAno(a);
-              }}
-            />
-          )}
-          <button
-            style={styles.sair}
-            className="botao-cabecalho"
-            onClick={() => setModalExportar(true)}
-            aria-label="Exportar CSV"
-            title="Exportar em CSV"
-          >
-            <Download size={17} />
-          </button>
-          {/* O Sair mora dentro das preferências agora: era o ícone que
-              menos se usa ocupando o lugar que a personalização precisava. */}
-          {/* Atalho do "esconder valores", como os apps de banco fazem:
-              esconder é para antes de alguém ver, e três toques pela
-              engrenagem eram tempo demais. Fica colado na engrenagem, no
-              mesmo grupo de controles — solto na linha do título parecia
-              não pertencer ao resto. É a mesma preferência do interruptor
-              lá dentro: mexer num mexe no outro. */}
-          <button
-            style={styles.sair}
-            className="botao-cabecalho"
-            onClick={() => {
-              vibrar();
-              mudar({ ocultarValores: !ocultos });
+        {/* Contas a Pagar também é por mês: sem o seletor aqui, a aba ficava
+            presa no mês escolhido em Início e o histórico era inalcançável. */}
+        {!verRecorrencias && (
+          <MonthPicker
+            mes={mes}
+            ano={ano}
+            onChange={(m, a) => {
+              setMes(m);
+              setAno(a);
             }}
-            aria-label={ocultos ? "Mostrar valores" : "Esconder valores"}
-            aria-pressed={ocultos}
-            title={ocultos ? "Mostrar valores" : "Esconder valores"}
-          >
-            {ocultos ? <EyeOff size={17} /> : <Eye size={17} />}
-          </button>
-          <button
-            style={styles.sair}
-            className="botao-cabecalho"
-            onClick={() => setModalPreferencias(true)}
-            aria-label="Preferências"
-            title="Preferências"
-          >
-            <Settings size={17} />
-          </button>
-        </div>
+          />
+        )}
       </header>
 
       {verRecorrencias ? (
@@ -1481,42 +1487,25 @@ function RecorrenciasResumo({
   );
 }
 
+// "Boa tarde, Lorenzo ☀". O ícone do período fica colado na última palavra:
+// se a saudação quebrar em duas linhas num celular estreito, o sol desce
+// junto com o nome em vez de ficar sozinho numa linha.
+function Saudacao({ texto, periodo }: { texto: string; periodo: PeriodoDoDia }) {
+  const Icone = periodo === "manha" ? Sunrise : periodo === "tarde" ? Sun : Moon;
+  const corte = texto.lastIndexOf(" ");
+  return (
+    <>
+      {texto.slice(0, corte + 1)}
+      <span className="topo-saudacao-fim">
+        {texto.slice(corte + 1)}
+        <Icone className="topo-icone-periodo" size={20} aria-hidden="true" />
+      </span>
+    </>
+  );
+}
+
 const styles: Record<string, React.CSSProperties> = {
   page: { maxWidth: 1060, margin: "0 auto", padding: "28px 20px 60px" },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 26,
-    flexWrap: "wrap",
-    gap: 14,
-  },
-  brand: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    // Deixa a marca encolher (e o e-mail ganhar reticências) em vez de
-    // empurrar a página quando o endereço é comprido e a tela é pequena.
-    minWidth: 0,
-  },
-  logo: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    display: "block",
-    flexShrink: 0,
-  },
-  title: { fontSize: 22, fontWeight: 700 },
-  // E-mail não quebra linha (não tem espaço). Sem o corte, um endereço
-  // comprido mais o olho ao lado passavam da tela em celular pequeno.
-  user: {
-    fontSize: 12.5,
-    color: "var(--text-faint)",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  headerRight: { display: "flex", alignItems: "center", gap: 10 },
   navDesktop: {
     gap: 3,
     background: "var(--bg)",
@@ -1541,17 +1530,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: "var(--surface)",
     color: "var(--accent)",
     boxShadow: "var(--shadow)",
-  },
-  sair: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    border: "1px solid var(--border)",
-    background: "var(--surface)",
-    color: "var(--text-soft)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
   },
   cards: {
     // Renda e Gastos lado a lado, e o card do saldo na linha inteira embaixo
