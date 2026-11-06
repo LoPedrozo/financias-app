@@ -1544,11 +1544,15 @@ const styles: Record<string, React.CSSProperties> = {
   },
   grid: {
     display: "grid",
-    // O min() deixa a coluna encolher abaixo de 310px quando a tela não tem
-    // isso de sobra. Com 310 fixo, em celular de 320px (iPhone SE antigo,
-    // Android pequeno) os dois painéis de gráfico passavam da borda e a
-    // página inteira ganhava rolagem para o lado.
-    gridTemplateColumns: "repeat(auto-fit, minmax(min(310px, 100%), 1fr))",
+    // O min() deixa a coluna encolher quando a tela não tem a largura
+    // mínima de sobra. Sem ele, em celular de 320px (iPhone SE antigo,
+    // Android pequeno) os dois painéis passavam da borda e a página inteira
+    // ganhava rolagem para o lado.
+    // 380px de mínimo, e não 310: com 310, no tablet os dois painéis ficavam
+    // lado a lado tão estreitos que "Gastos por categoria" quebrava em duas
+    // linhas ao lado do Saídas/Entradas. Agora eles só se dividem a partir de
+    // ~780px; abaixo disso, um embaixo do outro.
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))",
     gap: 16,
     marginBottom: 16,
   },
@@ -1566,6 +1570,9 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     marginBottom: 14,
     gap: 10,
+    // Num celular de 320px título e Saídas/Entradas não cabem lado a lado:
+    // o seletor desce para a linha de baixo em vez de o título se partir.
+    flexWrap: "wrap",
   },
   panelTitleInline: { fontSize: 16, fontWeight: 600 },
   toggle: {
