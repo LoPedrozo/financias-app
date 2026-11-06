@@ -23,6 +23,11 @@
   /* Brilho do topo da tela de login. É cor de fundo, então acompanha o tema:
      fixo em #fdfbf6 virava um clarão cinza no meio do escuro. */
   --brilho-topo: #fdfbf6;
+  /* Tom do período no topo (ver data-periodo mais abaixo). No claro o véu é
+     mais fraco: sobre branco, 16% de âmbar já vira mancha. */
+  --tom-manha: #e9a649;
+  --tom-noite: #6c7bd9;
+  --tom-forca: 11%;
   color-scheme: light;
 }
 
@@ -60,6 +65,9 @@
   --tooltip-text: #14161a;
   --barra-rolagem: #39404d;
   --brilho-topo: #1f242c;
+  --tom-manha: #e3a04d;
+  --tom-noite: #7c8cff;
+  --tom-forca: 18%;
   /* Faz o navegador desenhar o calendário do campo de data e a lista do
      select em escuro. Sem isto, tocar na data abre um painel branco no meio
      da tela escura. */
@@ -86,10 +94,44 @@
 :root[data-tema="escuro"][data-destaque="rosa"] { --accent: #d886b4; --accent-soft: #33202b; }
 :root[data-tema="escuro"][data-destaque="grafite"] { --accent: #8a93a3; --accent-soft: #262a32; }
 
-/* O card do saldo ocupa a linha inteira dos cards em qualquer largura —
-   no celular e no desktop. Ver o comentário de `cards` no Dashboard. */
-.cards > .card-destaque {
+/* O resumo do mês (Renda | Gastos) e o card do saldo ocupam a linha inteira
+   dos cards em qualquer largura — no celular e no desktop. Ver o comentário
+   de `cards` no Dashboard. */
+.cards > .card-destaque,
+.cards > .resumo-mes {
   grid-column: 1 / -1;
+}
+
+/* Valor de cada metade do resumo.
+   O tamanho acompanha a largura da metade (unidade cqi) e o comprimento do
+   valor (--caracteres, posto pelo ResumoMes): na Sora, cada caractere de
+   "R$ 128.345,67" ocupa no máximo 0,6 "em", então a fonte é a largura
+   dividida por 0,6 × caracteres, com teto de 22px. Num celular de 320px um
+   valor de seis dígitos fica perto de 15px e cabe inteiro; os comuns ficam
+   em 18px; no desktop param nos 22px. A primeira linha é a reserva para
+   navegador sem container query (iOS < 16). */
+.resumo-valor {
+  font-size: 17px;
+  font-size: min(22px, calc(100cqi / (0.6 * var(--caracteres, 11))));
+}
+
+/* Tom do período no topo da tela.
+   Um véu de cor que nasce no canto de cima e some antes do primeiro card:
+   âmbar de manhã, a cor de destaque à tarde, anil à noite. É o que muda junto
+   com a saudação, e fica no fundo da página para não brigar com o cartão do
+   saldo. Quem liga é o Dashboard (data-periodo no <html>); no login não há.
+   Sem color-mix (navegador antigo) a declaração é ignorada e o fundo fica
+   liso, como antes. */
+:root[data-periodo="manha"] { --tom: var(--tom-manha); }
+:root[data-periodo="tarde"] { --tom: var(--accent); }
+:root[data-periodo="noite"] { --tom: var(--tom-noite); }
+:root[data-periodo] body {
+  background-image: radial-gradient(
+    140% 360px at 0% 0%,
+    color-mix(in srgb, var(--tom) var(--tom-forca), transparent),
+    transparent 75%
+  );
+  background-repeat: no-repeat;
 }
 
 * {
@@ -188,9 +230,6 @@ input, select {
   .app-title {
     font-size: 19px !important;
   }
-  .card-valor {
-    font-size: 18px !important;
-  }
   .panel-mobile {
     padding: 16px !important;
   }
@@ -228,20 +267,10 @@ input, select {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
     gap: 10px !important;
   }
-  .cards > .card:not(.card-destaque) {
-    padding: 13px 13px !important;
-    gap: 10px !important;
-  }
-  .cards > .card:not(.card-destaque) .card-icone {
-    width: 32px !important;
-    height: 32px !important;
-    border-radius: 9px !important;
-  }
-  .cards > .card:not(.card-destaque) .card-rotulo {
-    font-size: 12px !important;
-  }
-  .cards > .card:not(.card-destaque) .card-valor {
-    font-size: 16px !important;
+  /* Metades do resumo um pouco mais justas: a largura que sobra vai para o
+     valor. */
+  .resumo-metade {
+    padding: 12px 13px 14px !important;
   }
   .month-picker-popover {
     min-width: 220px !important;
@@ -319,18 +348,6 @@ input, select {
   font-size: 13.5px !important;
 }
 
-/* Celular bem estreito (iPhone SE antigo, Android pequeno).
-   Nos dois cards lado a lado não cabe ícone e valor de cinco dígitos ao mesmo
-   tempo. O ícone é o que cede: o rótulo "Renda" / "Gastos" já diz o que é, e
-   o número é o motivo de o card existir. Acima de 360px nada muda. */
-@media (max-width: 360px) {
-  .cards > .card:not(.card-destaque) .card-icone {
-    display: none !important;
-  }
-  .cards > .card:not(.card-destaque) .card-valor {
-    font-size: 15px !important;
-  }
-}
 
 /* Mês abreviado só aparece em tela estreita (regra abaixo). */
 .mp-mes-curto {

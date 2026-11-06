@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus, Trash2, Pencil, TrendingUp, TrendingDown, Settings,
+  Plus, Trash2, Pencil, Settings,
   Eye, EyeOff,
   Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
   Repeat, Home, CopyPlus, Download,
@@ -29,7 +29,7 @@ import {
   somarPorTipo,
 } from "../lib/calculos";
 import type { Competencia } from "../lib/calculos";
-import Card from "./Card";
+import ResumoMes from "./ResumoMes";
 import CardSaldo from "./CardSaldo";
 import MonthPicker from "./MonthPicker";
 import { useSwipe } from "../hooks/useSwipe";
@@ -52,6 +52,9 @@ import ModalExportar from "./ModalExportar";
 import ModalPreferencias from "./ModalPreferencias";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
+import { useAgora } from "../hooks/useAgora";
+import { periodoDoDia } from "../lib/saudacao";
+import { podeAnimar, vibrar } from "../lib/movimento";
 
 // O recharts é metade do pacote e não aparece na aba Contas — sai do
 // carregamento inicial e chega quando o Início realmente precisa desenhar.
@@ -760,6 +763,45 @@ export default function Dashboard({
     threshold: 50,
   });
 
+  // O tom do topo acompanha a hora do dia (global.css, data-periodo). Fica
+  // no <html> porque o véu é pintado no fundo da página inteira; sai quando
+  // o Dashboard sai, para o login continuar liso.
+  const periodo = periodoDoDia(useAgora());
+  useEffect(() => {
+    document.documentElement.dataset.periodo = periodo;
+    return () => {
+      delete document.documentElement.dataset.periodo;
+    };
+  }, [periodo]);
+
+  // Trocar de mês agora se vê: o conteúdo entra deslizando do lado de onde
+  // o mês veio — avançar traz da direita, voltar traz da esquerda, o mesmo
+  // sentido do dedo. E dá um toque de vibração (só Android obedece).
+  //
+  // Anima os blocos já montados com a Web Animations API, sem remontar nada:
+  // trocar a `key` refaria gráficos e lista do zero a cada mês.
+  const mesAnterior = useRef(ano * 12 + mes);
+  useEffect(() => {
+    const atual = ano * 12 + mes;
+    const de = mesAnterior.current;
+    mesAnterior.current = atual;
+    if (atual === de) return;
+    vibrar();
+    const raiz = swipeHandlers.ref.current;
+    if (!raiz || !podeAnimar()) return;
+    const deslocamento = atual > de ? 28 : -28;
+    raiz.querySelectorAll<HTMLElement>(".anima-mes").forEach((el) => {
+      if (typeof el.animate !== "function") return;
+      el.animate(
+        [
+          { transform: `translateX(${deslocamento}px)`, opacity: 0.35 },
+          { transform: "translateX(0)", opacity: 1 },
+        ],
+        { duration: 260, easing: "cubic-bezier(.2,.7,.2,1)" }
+      );
+    });
+  }, [mes, ano, swipeHandlers.ref]);
+
   return (
     <div
       ref={swipeHandlers.ref}
@@ -842,7 +884,10 @@ export default function Dashboard({
           <button
             style={styles.sair}
             className="botao-cabecalho"
-            onClick={() => mudar({ ocultarValores: !ocultos })}
+            onClick={() => {
+              vibrar();
+              mudar({ ocultarValores: !ocultos });
+            }}
             aria-label={ocultos ? "Mostrar valores" : "Esconder valores"}
             aria-pressed={ocultos}
             title={ocultos ? "Mostrar valores" : "Esconder valores"}
@@ -880,19 +925,8 @@ export default function Dashboard({
 
       {falhaAoAtualizar && <AvisoDesatualizado onTentarDeNovo={atualizarTudo} />}
 
-      <div style={styles.cards} className="cards">
-        <Card
-          label="Renda"
-          valor={renda}
-          icon={<TrendingUp size={18} />}
-          cor="var(--green)"
-        />
-        <Card
-          label="Gastos"
-          valor={gastos}
-          icon={<TrendingDown size={18} />}
-          cor="var(--red)"
-        />
+      <div style={styles.cards} className="cards anima-mes">
+        <ResumoMes renda={renda} gastos={gastos} />
         <CardSaldo
           valor={saldoAcumulado}
           pendente={pendentes}
@@ -905,7 +939,7 @@ export default function Dashboard({
         />
       </div>
 
-      <div style={styles.grid} className="graficos-no-fim">
+      <div style={styles.grid} className="graficos-no-fim anima-mes">
         <div style={styles.panel} className="panel-mobile">
           <div style={styles.panelHead}>
             <h2 style={styles.panelTitleInline}>
@@ -969,7 +1003,7 @@ export default function Dashboard({
         </div>
       </div>
 
-      <div style={styles.panel} className="panel-mobile">
+      <div style={styles.panel} className="panel-mobile anima-mes">
         <div style={styles.listHead}>
           <h2 style={styles.panelTitle}>Lançamentos de {MESES[mes]}</h2>
           <div style={styles.listHeadAcoes}>
