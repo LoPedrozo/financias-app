@@ -33,13 +33,6 @@ vi.mock("../lib/recorrencias", () => ({
   gerarLancamentosRecorrentes: vi.fn(async () => []),
 }));
 
-// Os gráficos arrastam o recharts inteiro e não têm nada a ver com o que se
-// testa aqui.
-vi.mock("./Graficos", () => ({
-  GraficoCategorias: () => null,
-  GraficoAnual: () => null,
-}));
-
 const sessao = {
   user: { id: "u1", email: "eu@exemplo.com" },
 } as unknown as Session;

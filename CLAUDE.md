@@ -92,6 +92,11 @@ Já discutidas e fechadas. Não desfaça sem perguntar.
   continuam olhando o mês inteiro (há teste).
 - **Foco no iPhone**: o Lorenzo não usa Android; recurso que só funciona no
   Android não entra.
+- **Resumo e "Por categoria" contam como os cards de Renda/Gastos** (só o que
+  já aconteceu) e comparam o mês atual com o **mesmo período** do anterior
+  (dia 6 contra 1 a 6 do mês passado); mês que já passou, inteiro contra
+  inteiro. Contas em centavos, em `src/lib/resumoMes.ts`, com sorteio contra
+  gabarito nos testes.
 
 ## Roteiro combinado
 
@@ -111,11 +116,9 @@ escolha (como foi feito com o topo).
 3. **Formulário de novo lançamento.** Escolhida a opção A: valor grande no
    topo, atalhos de data (Hoje / Ontem / Outra), descrição, categorias em
    grade com ícone, salvar fixo no rodapé.
-4. **Gráficos.** Nenhuma das primeiras opções agradou. Agradou a comparação
-   com o mês anterior em frases ("guardou R$ X a mais", "gastou R$ Y a
-   menos"). Novas propostas mostradas, aguardando escolha: resumo do mês em
-   frases; este mês × anterior por categoria; saldo ao longo do mês; entradas
-   × saídas em 6 meses; calendário de gastos; ritmo do mês.
+4. ~~**Gráficos.**~~ Feita: a pizza e o "Quanto sobrou no ano" deram lugar a
+   "Por categoria" (lista com barra, % e diferença para o mês anterior) e
+   "Resumo do mês" (sobra, comparação em frases e sobra dos últimos 6 meses).
 5. **Temas.** Aprovados todos: Vidro (Liquid Glass fosco, independente de
    claro/escuro, blur só em cards/painéis/barras, com teste de contraste);
    Preto total (OLED); mais cores de destaque (laranja, azul-petróleo —
@@ -130,8 +133,6 @@ Discutidas e adiadas. Só implemente se for pedido.
 
 - Orçamento por categoria (teto mensal com barra de progresso).
 - Busca e filtro de lançamentos.
-- Comparação com o mês anterior nos cards (protótipo mostrado, aguardando
-  escolha).
 - Aviso, no saldo projetado, do que já está lançado para os meses seguintes.
 - Preferências sincronizadas na conta (hoje ficam no aparelho).
 - Ícone do app na cor de destaque escolhida.

@@ -23,7 +23,6 @@ vi.mock("../lib/recorrencias", () => ({
   listarRecorrencias: vi.fn(async () => []),
   gerarLancamentosRecorrentes: vi.fn(async () => []),
 }));
-vi.mock("./Graficos", () => ({ GraficoCategorias: () => null, GraficoAnual: () => null }));
 
 afterEach(() => vi.useRealTimers());
 

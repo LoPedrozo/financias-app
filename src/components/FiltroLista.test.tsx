@@ -19,7 +19,6 @@ vi.mock("../lib/recorrencias", () => ({
   listarRecorrencias: vi.fn(async () => []),
   gerarLancamentosRecorrentes: vi.fn(async () => []),
 }));
-vi.mock("./Graficos", () => ({ GraficoCategorias: () => null, GraficoAnual: () => null }));
 
 const sessao = { user: { id: "u1", email: "eu@x.com" } } as unknown as Session;
 const l = (id: string, tipo: "entrada" | "saida", valor: number, data: string): Lancamento => ({

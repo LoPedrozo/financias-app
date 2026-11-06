@@ -30,15 +30,3 @@ export function lerValor(bruto: string): number | null {
   if (!Number.isFinite(valor) || valor <= 0) return null;
   return Math.round(valor * 100) / 100;
 }
-
-// Régua do gráfico do ano: "9 mil", "-4,5 mil", "1,2 mi". Os números crus
-// ("9000", "-4500") eram difíceis de ler de relance e roubavam largura do
-// gráfico. Uma casa decimal no máximo: é régua, não extrato.
-export function formatarEixo(v: number): string {
-  const abs = Math.abs(v);
-  const curto = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
-  if (abs >= 1_000_000) return `${curto(v / 1_000_000)} mi`;
-  if (abs >= 1_000) return `${curto(v / 1_000)} mil`;
-  // "|| 0" troca o -0 (de -0,3 arredondado) por 0: "-0" na régua parece erro.
-  return curto(Math.round(v) || 0);
-}
