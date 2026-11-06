@@ -135,18 +135,22 @@ export interface Categoria {
   cor: string;
 }
 
+// As cores seguem o sentido do app: entrada é verde, saída é vermelho. Cada
+// categoria tem o seu tom dentro da paleta — vermelhos de rosado a
+// terracota nas saídas, verdes nas entradas — e "Outros" é cinza nas duas.
+// Há teste que trava as faixas de matiz.
 export const CATEGORIAS_SAIDA: Categoria[] = [
-  { nome: "Alimentação", cor: "#d4937a" },
-  { nome: "Transporte", cor: "#6a8caf" },
-  { nome: "Lazer", cor: "#7faf94" },
-  { nome: "Educação", cor: "#c9a86a" },
-  { nome: "Assinaturas", cor: "#a87bbf" },
-  { nome: "Saúde", cor: "#cf7b6a" },
-  { nome: "Tecnologia", cor: "#5d8aa8" },
-  { nome: "Beleza", cor: "#d98aa8" },
-  { nome: "Casa", cor: "#9b9b7a" },
-  { nome: "Cartão de Crédito / Contas", cor: "#b56576" },
-  { nome: "Vestuário", cor: "#8a6fa3" },
+  { nome: "Alimentação", cor: "#d0806c" },
+  { nome: "Transporte", cor: "#bb5c58" },
+  { nome: "Lazer", cor: "#cc7b8b" },
+  { nome: "Educação", cor: "#b56e4a" },
+  { nome: "Assinaturas", cor: "#ac5d7a" },
+  { nome: "Saúde", cor: "#d16c61" },
+  { nome: "Tecnologia", cor: "#9b655f" },
+  { nome: "Beleza", cor: "#d98ca3" },
+  { nome: "Casa", cor: "#bc9076" },
+  { nome: "Cartão de Crédito / Contas", cor: "#b65464" },
+  { nome: "Vestuário", cor: "#c2958e" },
   { nome: "Outros", cor: "#9aa3b0" },
 ];
 

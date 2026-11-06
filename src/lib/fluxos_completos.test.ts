@@ -49,7 +49,7 @@ describe("Fluxo 1 — Lançamentos normais e cálculos", () => {
 
     const categorias = porCategoria(lista, 7, 2026, "saida", hoje);
     expect(categorias.linhas.map((c) => [c.nome, c.valor, c.cor])).toEqual([
-      ["Alimentação", 35, "#d4937a"],
+      ["Alimentação", 35, "#d0806c"],
     ]);
 
     expect(resumoDoMes(lista, 7, 2026, hoje).totais).toEqual({ entrou: 500, saiu: 35, sobra: 465 });

@@ -50,6 +50,12 @@ rm .env.local
 - Todo valor em dinheiro da tela principal passa por `useDinheiro()`
   (`src/hooks/usePreferencias.tsx`), nunca `brl()` direto — senão vaza com
   "esconder valores" ligado.
+- No `style` inline, nunca misturar o atalho `border` com `borderColor` (nem
+  `font` com `fontSize`): ao desmarcar um item, o React tira a cor e a borda
+  fica na cor do texto — um contorno branco no escuro. Use `borderWidth`,
+  `borderStyle` e `borderColor` separados.
+- Campo de texto com fonte de 16px ou mais: abaixo disso o iPhone dá zoom
+  na página ao tocar nele.
 - Cores só por tokens CSS em `src/styles/global.css`. O tema escuro é
   `:root[data-tema="escuro"]` e precisa redefinir todo token de cor do claro
   (há teste). O script no `index.html` aplica tema/cor/lista antes do React e
@@ -113,9 +119,10 @@ escolha (como foi feito com o topo).
    total do dia, agendados no topo com a data na linha, ícone da categoria
    em círculo, deslizar para Editar/Apagar no celular (lápis e lixeira à
    vista no computador) e apagar com Desfazer.
-3. **Formulário de novo lançamento.** Escolhida a opção A: valor grande no
+3. ~~**Formulário de novo lançamento.**~~ Feita (opção A): valor grande no
    topo, atalhos de data (Hoje / Ontem / Outra), descrição, categorias em
-   grade com ícone, salvar fixo no rodapé.
+   grade com ícone, salvar fixo no rodapé — no iPhone, logo acima do teclado
+   (`useAreaVisivel`).
 4. ~~**Gráficos.**~~ Feita: a pizza e o "Quanto sobrou no ano" deram lugar a
    "Por categoria" (lista com barra, % e diferença para o mês anterior) e
    "Resumo do mês" (sobra, comparação em frases e sobra dos últimos 6 meses).
