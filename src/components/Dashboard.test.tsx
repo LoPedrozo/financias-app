@@ -43,10 +43,10 @@ async function abrirFormulario() {
 }
 
 async function preencher(valor: string, descricao: string) {
-  await userEvent.type(screen.getByLabelText("Valor (R$)"), valor);
+  await userEvent.type(screen.getByLabelText("Valor"), valor);
   await userEvent.type(screen.getByLabelText("Descrição"), descricao);
   await userEvent.click(
-    screen.getByRole("button", { name: "Salvar lançamento" })
+    screen.getByRole("button", { name: "Salvar entrada" })
   );
 }
 
@@ -91,7 +91,7 @@ describe("Dashboard", () => {
     expect(
       screen.getByText("Novo lançamento", { selector: "h3" })
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Valor (R$)")).toHaveValue("200");
+    expect(screen.getByLabelText("Valor")).toHaveValue("200");
     expect(screen.getByLabelText("Descrição")).toHaveValue("mesada pai");
   });
 

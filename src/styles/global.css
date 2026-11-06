@@ -342,6 +342,94 @@ input, select {
   }
 }
 
+/* Formulário de lançamento (ModalNovo).
+   A folha é uma coluna: o corpo rola e o rodapé, com o Salvar, fica sempre
+   no fim dela, à vista. O overlay não usa inset: 0 — o top e a altura vêm da
+   área visível da tela (useAreaVisivel). Com o teclado aberto no iPhone, a
+   folha termina logo acima dele, e o Salvar não fica escondido atrás. */
+.form-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+  background: rgba(16, 24, 40, 0.35);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.form-folha {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 440px;
+  max-height: 100%;
+  overflow: hidden;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(16, 24, 40, 0.18);
+  animation: fadeUp 0.25s ease;
+}
+.form-corpo {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 22px 8px;
+}
+.form-rodape {
+  flex-shrink: 0;
+  padding: 12px 22px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.form-valor::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+/* O campo de data do "Outra" é transparente: quem chega nele pelo teclado
+   precisa ver onde está. */
+.form-chip-outra:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 640px) {
+  .form-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .form-folha {
+    max-width: none;
+    max-height: calc(100% - 16px);
+    border-radius: 22px 22px 0 0;
+    animation: subirFolha 0.22s ease;
+  }
+  .form-corpo {
+    padding: 16px 18px 8px;
+  }
+  .form-rodape {
+    padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  }
+  /* Com o teclado aberto, a folga da barra de gestos fica atrás dele. */
+  .form-overlay[data-teclado] .form-rodape {
+    padding-bottom: 12px;
+  }
+}
+/* Em 320px os três atalhos de data não cabem com o dia ao lado: fica só a
+   palavra (Hoje, Ontem). */
+@media (max-width: 360px) {
+  .chip-data {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .form-folha {
+    animation: none;
+  }
+}
+
 /* Lista compacta.
    As linhas da lista são estilizadas inline (ListaLancamentos), então só
    !important alcança — o mesmo recurso que os ajustes de celular acima já
