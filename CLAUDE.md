@@ -74,9 +74,10 @@ Já discutidas e fechadas. Não desfaça sem perguntar.
   controles do cabeçalho.
 - **O topo não tem logo**: o ícone tem cor fixa e destoava da cor de
   destaque. No lugar, a saudação pela hora do dia ("Boa tarde, Lorenzo" com
-  sol/lua), "Minhas Finanças · data de hoje", os três controles soltos (sem
-  moldura) e o mês em carrossel com os vizinhos dos lados. O e-mail fica nas
-  preferências.
+  sol/lua), "Minhas Finanças · Sexta, 6 nov 2026", os três controles soltos
+  (sem moldura) e o mês em carrossel só com abreviações (OUT NOV DEZ). O ano
+  fica na data do topo; no carrossel só aparece quando o mês da tela é de
+  outro ano. O e-mail fica nas preferências.
 - **Renda e Gastos ficam num card só**, dividido ao meio, acima do cartão do
   saldo.
 - **Animação é enfeite**: números que rolam terminam sempre no valor exato

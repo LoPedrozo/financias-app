@@ -53,7 +53,7 @@ import ModalPreferencias from "./ModalPreferencias";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
 import { useAgora } from "../hooks/useAgora";
-import { dataPorExtenso, periodoDoDia, primeiroNome, saudacao } from "../lib/saudacao";
+import { dataCurta, periodoDoDia, primeiroNome, saudacao } from "../lib/saudacao";
 import type { Periodo as PeriodoDoDia } from "../lib/saudacao";
 import { podeAnimar, vibrar } from "../lib/movimento";
 
@@ -895,7 +895,7 @@ export default function Dashboard({
           </div>
         </div>
         <p className="topo-sub">
-          <span className="topo-app">Minhas Finanças</span> · {dataPorExtenso(agora)}
+          <span className="topo-app">Minhas Finanças</span> · {dataCurta(agora)}
         </p>
 
         {/* Contas a Pagar também é por mês: sem o seletor aqui, a aba ficava

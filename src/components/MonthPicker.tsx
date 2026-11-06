@@ -10,6 +10,11 @@ import { MESES } from "../types";
 // Tocar num vizinho vai até ele; tocar no do meio abre a grade com os doze
 // meses e o ano, para saltos longos.
 //
+// Só abreviações, em caixa alta (OUT NOV DEZ), como os rótulos do resumo do
+// mês. O ano não fica aqui: está na data do topo. A exceção é quando o mês da
+// tela é de outro ano — aí o ano aparece no lugar do pontinho do meio, senão
+// "JAN" de 2027 seria indistinguível de "JAN" deste ano.
+//
 // Os vizinhos imediatos se chamam "Mês anterior" e "Próximo mês" para leitor
 // de tela (e para os testes, que navegam por eles); o nome do mês aparece no
 // title.
@@ -26,8 +31,12 @@ function deslocar(mes: number, ano: number, passos: number) {
   return { mes: ((total % 12) + 12) % 12, ano: Math.floor(total / 12) };
 }
 
+// "Nov": a caixa alta vem do CSS — leitor de tela lê "Nov", não soletra.
+const abrev = (m: number) => MESES[m].slice(0, 3);
+
 export default function MonthPicker({ mes, ano, onChange }: Props) {
   const [aberto, setAberto] = useState(false);
+  const anoDeHoje = new Date().getFullYear();
   // Ano "navegável" dentro da grade — pode divergir do ano selecionado
   // enquanto o usuário escolhe um mês.
   const [anoPicker, setAnoPicker] = useState(ano);
@@ -60,8 +69,6 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
     setAberto(false);
   }
 
-  // Vizinho com o nome do mês e, quando vira o ano (dezembro → janeiro), o
-  // ano junto — senão "Janeiro" ao lado de "Dezembro 2026" pareceria 2026.
   function vizinho(passos: number) {
     const alvo = deslocar(mes, ano, passos);
     const imediato = Math.abs(passos) === 1;
@@ -76,13 +83,7 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
         title={nome}
         tabIndex={imediato ? 0 : -1}
       >
-        {/* As duas formas vão no HTML e o CSS mostra uma: num celular de
-            320px "Dezembro" inteiro não cabe ao lado do mês do meio. */}
-        <span className="mp-nome-longo">{MESES[alvo.mes]}</span>
-        <span className="mp-nome-curto">{MESES[alvo.mes].slice(0, 3)}</span>
-        {/* Só nos vizinhos imediatos: o distante fica cortado pela borda, e
-            sobrava só o "2026" solto, sem o nome do mês. */}
-        {imediato && alvo.ano !== ano && <span className="mp-vizinho-ano"> {alvo.ano}</span>}
+        {abrev(alvo.mes)}
       </button>
     );
   }
@@ -99,15 +100,20 @@ export default function MonthPicker({ mes, ano, onChange }: Props) {
           aria-expanded={aberto}
           aria-label={`Escolher outro mês (agora: ${MESES[mes]} de ${ano})`}
         >
-          {MESES[mes]} <span className="mp-atual-ano">{ano}</span>
+          {abrev(mes)}
         </button>
         <div className="mp-lado mp-dir">{[1, 2].map(vizinho)}</div>
       </div>
 
-      {/* Os pontinhos dizem "isto desliza", como nos carrosséis de foto. */}
+      {/* Os pontinhos dizem "isto desliza", como nos carrosséis de foto. O
+          do meio vira o ano quando o mês da tela não é deste ano. */}
       <div className="mp-pontos" aria-hidden="true">
         <span />
-        <span className="mp-ponto-atual" />
+        {ano === anoDeHoje ? (
+          <span className="mp-ponto-atual" />
+        ) : (
+          <b className="mp-ano">{ano}</b>
+        )}
         <span />
       </div>
 

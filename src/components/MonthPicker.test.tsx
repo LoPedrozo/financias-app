@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import MonthPicker from "./MonthPicker";
+
+afterEach(() => vi.useRealTimers());
 
 const montar = (mes: number, ano: number) => {
   const onChange = vi.fn();
@@ -10,26 +12,26 @@ const montar = (mes: number, ano: number) => {
 };
 
 describe("carrossel de meses", () => {
-  it("mostra o mês da tela no meio e dois vizinhos de cada lado", () => {
+  it("mostra o mês da tela no meio e dois vizinhos de cada lado, abreviados", () => {
+    vi.setSystemTime(new Date(2026, 10, 6));
     montar(10, 2026);
-    expect(screen.getByRole("button", { name: /agora: Novembro de 2026/ })).toHaveTextContent("Novembro 2026");
-    expect(screen.getByRole("button", { name: "Mês anterior" })).toHaveTextContent("Outubro");
-    expect(screen.getByRole("button", { name: "Próximo mês" })).toHaveTextContent("Dezembro");
-    expect(screen.getByRole("button", { name: "Setembro de 2026" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Janeiro de 2027" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /agora: Novembro de 2026/ })).toHaveTextContent(/^Nov$/);
+    expect(screen.getByRole("button", { name: "Mês anterior" })).toHaveTextContent(/^Out$/);
+    expect(screen.getByRole("button", { name: "Próximo mês" })).toHaveTextContent(/^Dez$/);
+    expect(screen.getByRole("button", { name: "Setembro de 2026" })).toHaveTextContent(/^Set$/);
+    expect(screen.getByRole("button", { name: "Janeiro de 2027" })).toHaveTextContent(/^Jan$/);
   });
 
-  // Sem o ano, "Janeiro" ao lado de "Dezembro 2026" pareceria janeiro de 2026.
-  it("na virada do ano, o vizinho mostra o ano dele", () => {
-    montar(11, 2026);
-    // O botão leva o nome inteiro e o abreviado (o CSS mostra um por largura).
-    const proximo = screen.getByRole("button", { name: "Próximo mês" });
-    expect(proximo.querySelector(".mp-nome-longo")).toHaveTextContent("Janeiro");
-    expect(proximo.querySelector(".mp-nome-curto")).toHaveTextContent("Jan");
-    expect(proximo.querySelector(".mp-vizinho-ano")).toHaveTextContent("2027");
-    const anterior = screen.getByRole("button", { name: "Mês anterior" });
-    expect(anterior.querySelector(".mp-nome-longo")).toHaveTextContent("Novembro");
-    expect(anterior.querySelector(".mp-vizinho-ano")).toBeNull();
+  // O ano mora na data do topo. No carrossel ele só aparece quando o mês da
+  // tela é de outro ano — senão "Jan" de 2027 pareceria janeiro deste ano.
+  it("o ano só aparece fora do ano corrente", () => {
+    vi.setSystemTime(new Date(2026, 10, 6));
+    const { container, rerender } = render(<MonthPicker mes={11} ano={2026} onChange={vi.fn()} />);
+    expect(container).not.toHaveTextContent("2026");
+    rerender(<MonthPicker mes={0} ano={2027} onChange={vi.fn()} />);
+    expect(container.querySelector(".mp-ano")).toHaveTextContent("2027");
+    rerender(<MonthPicker mes={11} ano={2025} onChange={vi.fn()} />);
+    expect(container.querySelector(".mp-ano")).toHaveTextContent("2025");
   });
 
   it("tocar num vizinho vai até ele, atravessando o ano", () => {

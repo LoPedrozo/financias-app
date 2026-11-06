@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dataPorExtenso, periodoDoDia, primeiroNome, saudacao } from "./saudacao";
+import { dataCurta, periodoDoDia, primeiroNome, saudacao } from "./saudacao";
 
 const as = (h: number, min = 0) => new Date(2026, 10, 6, h, min);
 
@@ -29,11 +29,11 @@ describe("saudacao", () => {
   });
 });
 
-describe("dataPorExtenso", () => {
-  it("escreve dia da semana, dia e mês em português", () => {
-    expect(dataPorExtenso(new Date(2026, 10, 6))).toBe("Sexta, 6 de novembro");
-    expect(dataPorExtenso(new Date(2026, 1, 1))).toBe("Domingo, 1 de fevereiro");
-    expect(dataPorExtenso(new Date(2026, 2, 14))).toBe("Sábado, 14 de março");
+describe("dataCurta", () => {
+  it("dia da semana, dia, mês abreviado e ano", () => {
+    expect(dataCurta(new Date(2026, 10, 6))).toBe("Sexta, 6 nov 2026");
+    expect(dataCurta(new Date(2026, 1, 1))).toBe("Domingo, 1 fev 2026");
+    expect(dataCurta(new Date(2027, 2, 14))).toBe("Domingo, 14 mar 2027");
   });
 });
 

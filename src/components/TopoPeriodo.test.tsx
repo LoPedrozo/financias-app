@@ -69,7 +69,7 @@ describe("saudação do topo", () => {
     await screen.findByText(/Nenhum lançamento/);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Boa tarde, Lorenzo");
     expect(screen.getByText("Minhas Finanças").parentElement).toHaveTextContent(
-      "Minhas Finanças · Sexta, 6 de novembro"
+      "Minhas Finanças · Sexta, 6 nov 2026"
     );
     // O e-mail saiu do topo (continua nas preferências).
     expect(screen.queryByText("eu@x.com")).toBeNull();

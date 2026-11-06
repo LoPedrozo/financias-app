@@ -30,12 +30,13 @@ export function saudacao(periodo: Periodo, nome: string | null): string {
 // fazia a linha quebrar num celular de 320px.
 const DIAS_DA_SEMANA = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
-// "Sexta, 6 de novembro". Montada à mão, e não com toLocaleDateString: o
-// formato do navegador varia de aparelho para aparelho (vírgula, "de",
-// maiúscula), e o topo precisa caber igual em todos.
-export function dataPorExtenso(agora: Date): string {
-  const mes = MESES[agora.getMonth()].toLowerCase();
-  return `${DIAS_DA_SEMANA[agora.getDay()]}, ${agora.getDate()} de ${mes}`;
+// "Sexta, 6 nov 2026". O ano mora aqui, e não no carrossel de meses: lá os
+// meses ficam só abreviados (OUT NOV DEZ). Montada à mão, e não com
+// toLocaleDateString: o formato do navegador varia de aparelho para aparelho
+// (vírgula, "de", ponto na abreviação), e o topo precisa caber igual em todos.
+export function dataCurta(agora: Date): string {
+  const mes = MESES[agora.getMonth()].slice(0, 3).toLowerCase();
+  return `${DIAS_DA_SEMANA[agora.getDay()]}, ${agora.getDate()} ${mes} ${agora.getFullYear()}`;
 }
 
 // O primeiro nome vem do perfil do Google, que o Supabase guarda em
