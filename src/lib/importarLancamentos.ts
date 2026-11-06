@@ -219,14 +219,6 @@ export function interpretarLancamentos(
   return { itens, totalInformado, ignoradas };
 }
 
-/** Atalho para o caso de uma linha só — o lançamento rápido. */
-export function interpretarLinha(
-  linha: string,
-  dataPadrao: string
-): LinhaLida | null {
-  return interpretarLancamentos(linha, dataPadrao).itens[0] ?? null;
-}
-
 // A competência sai da data, e não do mês que a tela está mostrando: colar
 // "12/10 internet 120" enquanto se olha setembro tem que gravar em outubro.
 export function paraLancamento(linha: LinhaLida): NovoLancamento {

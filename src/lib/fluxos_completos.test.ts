@@ -1,7 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  agruparPorCategoria,
-  calcularBalancoAnual,
   calcularPendentes,
   calcularSaldoAcumulado,
   calcularSaldoProjetado,
@@ -10,7 +8,7 @@ import {
   somarPorTipo,
 } from "./calculos";
 import { podeGerarNaCompetencia } from "./recorrencias";
-import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, MESES } from "../types";
+import { porCategoria, resumoDoMes } from "./resumoMes";
 import type { Lancamento } from "../types";
 
 describe("Fluxo 1 — Lançamentos normais e cálculos", () => {
@@ -49,13 +47,12 @@ describe("Fluxo 1 — Lançamentos normais e cálculos", () => {
     expect(somarPorTipo(doMes, "saida")).toBe(35);
     expect(calcularSaldoAcumulado(lista, 7, 2026)).toBe(465);
 
-    const pizzaSaidas = agruparPorCategoria(doMes, "saida", CATEGORIAS_SAIDA);
-    expect(pizzaSaidas).toEqual([
-      { name: "Alimentação", value: 35, cor: "#d4937a" },
+    const categorias = porCategoria(lista, 7, 2026, "saida", hoje);
+    expect(categorias.linhas.map((c) => [c.nome, c.valor, c.cor])).toEqual([
+      ["Alimentação", 35, "#d4937a"],
     ]);
 
-    const balanco = calcularBalancoAnual(lista, 2026, MESES);
-    expect(balanco[7]).toEqual({ mes: "Ago", sobra: 465 });
+    expect(resumoDoMes(lista, 7, 2026, hoje).totais).toEqual({ entrou: 500, saiu: 35, sobra: 465 });
 
     // Edição para 40
     l2.valor = 40;
@@ -111,8 +108,9 @@ describe("Fluxo 2 — Lançamentos futuros", () => {
 
     expect(calcularSaldoProjetado(lista, 7, 2026)).toBe(2800);
 
-    expect(agruparPorCategoria(doMes, "saida", CATEGORIAS_SAIDA)).toEqual([]);
-    expect(agruparPorCategoria(doMes, "entrada", CATEGORIAS_ENTRADA)).toEqual([]);
+    const hoje = hojeLocal();
+    expect(porCategoria(lista, 7, 2026, "saida", hoje).linhas).toEqual([]);
+    expect(porCategoria(lista, 7, 2026, "entrada", hoje).linhas).toEqual([]);
   });
 });
 

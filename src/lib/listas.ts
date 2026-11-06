@@ -417,11 +417,6 @@ export async function criarLista(
   return data as ListaContas;
 }
 
-export async function listarListas(): Promise<ListaContas[]> {
-  const listas = await listasAcessiveis();
-  return listas.sort((a, b) => compararCompetencia(b, a));
-}
-
 async function obterLista(listaId: string): Promise<ListaContas> {
   const { data, error } = await supabase
     .from("listas_contas")

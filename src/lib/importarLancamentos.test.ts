@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   interpretarLancamentos,
-  interpretarLinha,
   paraLancamento,
 } from "./importarLancamentos";
 
 const HOJE = "2026-09-08";
+// Uma linha só: o que o app faz quando se escreve um lançamento no campo.
+const interpretarLinha = (linha: string, dataPadrao: string) =>
+  interpretarLancamentos(linha, dataPadrao).itens[0] ?? null;
 
 describe("interpretarLinha", () => {
   it("lê valor no fim e adivinha a categoria pela descrição", () => {
