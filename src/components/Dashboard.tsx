@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus, Trash2, Pencil, Settings,
+  Plus, Settings,
   Eye, EyeOff,
-  Receipt, PieChart as PieIcon, AlertTriangle, RotateCw, Clock,
+  Receipt, PieChart as PieIcon, AlertTriangle, RotateCw,
   Repeat, Home, CopyPlus, Download, Sun, Sunrise, Moon,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
@@ -12,8 +12,7 @@ import {
   atualizarLancamento, removerLancamento, removerLancamentosEmLote,
 } from "../lib/lancamentos";
 import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
-import type { Lancamento, NovoLancamento, Recorrencia } from "../types";
-import { lerValor } from "../lib/format";
+import type { Lancamento, NovoLancamento, Recorrencia, Tipo } from "../types";
 import { useDinheiro, usePreferencias } from "../hooks/usePreferencias";
 import {
   agruparPorCategoria,
@@ -30,13 +29,13 @@ import {
 } from "../lib/calculos";
 import type { Competencia } from "../lib/calculos";
 import ResumoMes from "./ResumoMes";
+import ListaLancamentos from "./ListaLancamentos";
 import CardSaldo from "./CardSaldo";
 import MonthPicker from "./MonthPicker";
 import { useSwipe } from "../hooks/useSwipe";
 import ModalNovo from "./ModalNovo";
 import ModalAdicionar from "./ModalAdicionar";
 import ModalRepetirMes from "./ModalRepetirMes";
-import ConfirmModal from "./ConfirmModal";
 import Toast, { type ToastAcao, type ToastDados } from "./Toast";
 import EmptyState from "./EmptyState";
 import { SkeletonLista } from "./Skeleton";
@@ -56,6 +55,7 @@ import { useAgora } from "../hooks/useAgora";
 import { dataCurta, periodoDoDia, primeiroNome, saudacao } from "../lib/saudacao";
 import type { Periodo as PeriodoDoDia } from "../lib/saudacao";
 import { podeAnimar, vibrar } from "../lib/movimento";
+import { useRemocaoComDesfazer } from "../hooks/useRemocaoComDesfazer";
 
 // O recharts é metade do pacote e não aparece na aba Contas — sai do
 // carregamento inicial e chega quando o Início realmente precisa desenhar.
@@ -138,11 +138,15 @@ export default function Dashboard({
   const { preferencias, mudar } = usePreferencias();
   const ocultos = preferencias.ocultarValores;
   const [editando, setEditando] = useState<Lancamento | null>(null);
-  const [confirmarId, setConfirmarId] = useState<string | null>(null);
+  // Tocar em Renda ou Gastos filtra a lista (só a lista: cards, saldo e
+  // gráficos continuam olhando o mês inteiro). Fica ligado ao trocar de mês —
+  // quem está comparando entradas quer seguir vendo entradas —, e o aviso no
+  // título da lista não deixa esquecer que está filtrado.
+  const [filtroTipo, setFiltroTipo] = useState<Tipo | null>(null);
+  const listaRef = useRef<HTMLDivElement | null>(null);
   const [tipoGrafico, setTipoGrafico] = useState<"saida" | "entrada">("saida");
   const [toast, setToast] = useState<ToastDados | null>(null);
   const [erroCarregar, setErroCarregar] = useState(false);
-  const [tooltipFuturoId, setTooltipFuturoId] = useState<string | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<"inicio" | "contas">("inicio");
   const [verRecorrencias, setVerRecorrencias] = useState(false);
   const [recorrencias, setRecorrencias] = useState<Recorrencia[]>([]);
@@ -154,111 +158,6 @@ export default function Dashboard({
     quantidade: 0,
   });
   const [falhaAoAtualizar, setFalhaAoAtualizar] = useState(false);
-  // Edição do valor direto na lista: o caso do mês é a fatura que veio
-  // diferente do previsto, e abrir o formulário inteiro para trocar um
-  // número era o que fazia deixar para depois.
-  const [editandoValor, setEditandoValor] = useState<string | null>(null);
-  const [valorDigitado, setValorDigitado] = useState("");
-  // No teclado numérico do iPhone não existe Enter, então quem confirma é a
-  // saída do campo. Cancelar precisa avisar o blur para ele não gravar o que
-  // o usuário acabou de descartar.
-  const cancelandoValor = useRef(false);
-  const longPressTimer = useRef<number | null>(null);
-  const tooltipAutoHide = useRef<number | null>(null);
-  const hoverDelayTimer = useRef<number | null>(null);
-
-  function limparHoverDelay() {
-    if (hoverDelayTimer.current !== null) {
-      window.clearTimeout(hoverDelayTimer.current);
-      hoverDelayTimer.current = null;
-    }
-  }
-
-  function limparLongPress() {
-    if (longPressTimer.current !== null) {
-      window.clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }
-
-  function abrirTooltipFuturo(id: string) {
-    setTooltipFuturoId(id);
-    if (tooltipAutoHide.current !== null) {
-      window.clearTimeout(tooltipAutoHide.current);
-    }
-    tooltipAutoHide.current = window.setTimeout(() => {
-      setTooltipFuturoId(null);
-      tooltipAutoHide.current = null;
-    }, 2000);
-  }
-
-  const fecharTooltipFuturo = useCallback(() => {
-    setTooltipFuturoId(null);
-    if (tooltipAutoHide.current !== null) {
-      window.clearTimeout(tooltipAutoHide.current);
-      tooltipAutoHide.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!tooltipFuturoId) return;
-
-    // O listener entra num setTimeout(0) de propósito. No iOS o toque que
-    // abriu o tooltip ainda está propagando quando o efeito roda, e sem essa
-    // folga ele mesmo dispara o fechamento — a tela reabria em seguida e o
-    // usuário precisava de dois toques para sair.
-    let registrado = false;
-    const aoDestravar = window.setTimeout(() => {
-      registrado = true;
-      window.addEventListener("touchstart", fecharTooltipFuturo, {
-        passive: true,
-      });
-      window.addEventListener("mousedown", fecharTooltipFuturo);
-      // Rolar a lista com o tooltip aberto deixava o balão flutuando longe do
-      // item a que pertence.
-      window.addEventListener("scroll", fecharTooltipFuturo, {
-        passive: true,
-        capture: true,
-      });
-    }, 0);
-
-    return () => {
-      window.clearTimeout(aoDestravar);
-      if (!registrado) return;
-      window.removeEventListener("touchstart", fecharTooltipFuturo);
-      window.removeEventListener("mousedown", fecharTooltipFuturo);
-      window.removeEventListener("scroll", fecharTooltipFuturo, {
-        capture: true,
-      });
-    };
-  }, [tooltipFuturoId, fecharTooltipFuturo]);
-
-  // Trocar de mês ou abrir qualquer modal tira o item de baixo do balão.
-  useEffect(() => {
-    fecharTooltipFuturo();
-  }, [
-    mes,
-    ano,
-    modalAdicionar,
-    modalRepetir,
-    modalExportar,
-    modalPreferencias,
-    editando,
-    confirmarId,
-    formulario,
-    fecharTooltipFuturo,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      limparLongPress();
-      limparHoverDelay();
-      if (tooltipAutoHide.current !== null) {
-        window.clearTimeout(tooltipAutoHide.current);
-      }
-    };
-  }, []);
-
   const mostrarToast = useCallback(
     (tipo: ToastDados["tipo"], mensagem: string, acao?: ToastAcao) => {
       setToast({ id: Date.now(), tipo, mensagem, acao });
@@ -266,17 +165,38 @@ export default function Dashboard({
     []
   );
 
+  // Apagar com Desfazer: o lançamento sai da tela na hora e só é apagado no
+  // servidor quando o aviso com o Desfazer some (ver o hook).
+  const remocao = useRemocaoComDesfazer<Lancamento>({
+    remover: removerLancamento,
+    aoTirar: (l) => setLancamentos((atual) => atual.filter((x) => x.id !== l.id)),
+    aoDevolver: (l) =>
+      setLancamentos((atual) => (atual.some((x) => x.id === l.id) ? atual : [l, ...atual])),
+    aoFalhar: (l, e) => {
+      console.error(e);
+      setLancamentos((atual) => (atual.some((x) => x.id === l.id) ? atual : [l, ...atual]));
+      mostrarToast("erro", "Não foi possível excluir. Verifique sua conexão.");
+    },
+  });
+  const idEsperandoRemocao = remocao.idEsperando;
+
   const carregar = useCallback(() => {
     setCarregando(true);
     setErroCarregar(false);
     listarLancamentos()
-      .then(setLancamentos)
+      // O que está na janela do Desfazer ainda existe no servidor; recarregar
+      // nesse meio-tempo (uma recorrência gerada, um "tentar de novo") não
+      // pode trazê-lo de volta à tela.
+      .then((lista) => {
+        const esperando = idEsperandoRemocao();
+        setLancamentos(esperando ? lista.filter((l) => l.id !== esperando) : lista);
+      })
       .catch((e) => {
         console.error(e);
         setErroCarregar(true);
       })
       .finally(() => setCarregando(false));
-  }, []);
+  }, [idEsperandoRemocao]);
 
   const sincronizarCompetencia = useCallback(
     (alvo: Competencia) => {
@@ -530,24 +450,11 @@ export default function Dashboard({
     mostrarToast("sucesso", aviso);
   }
 
-  function abrirEdicaoValor(l: Lancamento) {
-    setEditandoValor(l.id);
-    cancelandoValor.current = false;
-    setValorDigitado(l.valor.toFixed(2).replace(".", ","));
-  }
-
-  async function salvarValorEditado(original: Lancamento) {
-    setEditandoValor(null);
-    if (cancelandoValor.current) {
-      cancelandoValor.current = false;
-      return;
-    }
-
-    const novoValor = lerValor(valorDigitado);
-    // Valor inválido ou igual ao que já estava não vira ida ao servidor: o
-    // toque no número para conferir e sair é mais comum que a correção.
-    if (novoValor === null || novoValor === original.valor) return;
-
+  // Correção rápida do valor, direto na lista: o caso do mês é a fatura que
+  // veio diferente do previsto, e abrir o formulário inteiro para trocar um
+  // número era o que fazia deixar para depois. A lista só chama aqui com um
+  // valor válido e diferente do atual.
+  async function corrigirValor(original: Lancamento, novoValor: number) {
     setLancamentos((atual) =>
       atual.map((l) =>
         l.id === original.id ? { ...l, valor: novoValor } : l
@@ -607,22 +514,18 @@ export default function Dashboard({
     }
   }
 
-  async function confirmarRemocao() {
-    if (!confirmarId) return;
-    const id = confirmarId;
-    setConfirmarId(null);
-    const anterior = lancamentos;
-    const alvo = anterior.find((l) => l.id === id);
-    if (!alvo) return;
-    setLancamentos((atual) => atual.filter((l) => l.id !== id));
-    try {
-      await removerLancamento(alvo);
-      mostrarToast("sucesso", "Lançamento excluído.");
-    } catch (e) {
-      console.error(e);
-      setLancamentos(anterior);
-      mostrarToast("erro", "Não foi possível excluir. Verifique sua conexão.");
-    }
+  // Sem "tem certeza?": apaga e oferece o Desfazer. A pergunta antes de cada
+  // exclusão cansava, e não salvava ninguém de nada — quem toca na lixeira
+  // quer apagar; quem errou o toque precisa é de um jeito de voltar.
+  function excluir(l: Lancamento) {
+    remocao.apagar(l);
+    mostrarToast("sucesso", `"${l.descricao || "Lançamento"}" excluído.`, {
+      rotulo: "Desfazer",
+      onAcao: () => {
+        if (remocao.desfazer(l.id)) mostrarToast("sucesso", "Lançamento de volta.");
+        else mostrarToast("erro", "Não deu tempo: ele já tinha sido excluído.");
+      },
+    });
   }
 
   function dataOrdenacao(l: Lancamento): string {
@@ -653,6 +556,11 @@ export default function Dashboard({
 
   // Um mês só de recorrências não tem o que repetir: elas se geram sozinhas.
   const podeRepetir = doMesAnterior.some((l) => !l.recorrencia_id);
+
+  const listaVisivel = useMemo(
+    () => (filtroTipo ? doMes.filter((l) => l.tipo === filtroTipo) : doMes),
+    [doMes, filtroTipo]
+  );
 
   const renda = somarPorTipo(doMes, "entrada");
   const gastos = somarPorTipo(doMes, "saida");
@@ -735,7 +643,6 @@ export default function Dashboard({
     setModalExportar(false);
     setModalPreferencias(false);
     setEditando(null);
-    setConfirmarId(null);
     setFormulario(null);
     setVerRecorrencias(false);
     setAbaAtiva(aba);
@@ -932,7 +839,22 @@ export default function Dashboard({
       {falhaAoAtualizar && <AvisoDesatualizado onTentarDeNovo={atualizarTudo} />}
 
       <div style={styles.cards} className="cards anima-mes">
-        <ResumoMes renda={renda} gastos={gastos} />
+        <ResumoMes
+          renda={renda}
+          gastos={gastos}
+          filtro={filtroTipo}
+          onFiltrar={(tipo) => {
+            vibrar();
+            const novo = filtroTipo === tipo ? null : tipo;
+            setFiltroTipo(novo);
+            // Ligando o filtro, leva até a lista: no celular ela fica abaixo
+            // do cartão do saldo, e o toque pareceria não ter feito nada.
+            const lista = listaRef.current;
+            if (novo && lista && typeof lista.scrollIntoView === "function") {
+              lista.scrollIntoView({ behavior: podeAnimar() ? "smooth" : "auto", block: "start" });
+            }
+          }}
+        />
         <CardSaldo
           valor={saldoAcumulado}
           pendente={pendentes}
@@ -1009,9 +931,25 @@ export default function Dashboard({
         </div>
       </div>
 
-      <div style={styles.panel} className="panel-mobile anima-mes">
+      <div ref={listaRef} style={{ ...styles.panel, scrollMarginTop: 12 }} className="panel-mobile anima-mes">
         <div style={styles.listHead}>
-          <h2 style={styles.panelTitle}>Lançamentos de {MESES[mes]}</h2>
+          <div style={{ minWidth: 0 }}>
+            <h2 style={{ ...styles.panelTitle, marginBottom: filtroTipo ? 6 : 0 }}>
+              Lançamentos de {MESES[mes]}
+            </h2>
+            {filtroTipo && (
+              <button
+                type="button"
+                onClick={() => setFiltroTipo(null)}
+                style={{
+                  ...styles.filtroAviso,
+                  color: filtroTipo === "entrada" ? "var(--green)" : "var(--red)",
+                }}
+              >
+                Só {filtroTipo === "entrada" ? "entradas" : "saídas"} · <u>Mostrar todos</u>
+              </button>
+            )}
+          </div>
           <div style={styles.listHeadAcoes}>
             {podeRepetir && (
               <button
@@ -1048,6 +986,16 @@ export default function Dashboard({
               <RotateCw size={14} /> Tentar novamente
             </button>
           </div>
+        ) : doMes.length > 0 && listaVisivel.length === 0 ? (
+          <EmptyState
+            icon={<Receipt size={24} />}
+            titulo={`Nenhuma ${filtroTipo === "entrada" ? "entrada" : "saída"} em ${MESES[mes]}.`}
+            acao={
+              <button style={styles.repetirDestaque} onClick={() => setFiltroTipo(null)}>
+                Mostrar todos
+              </button>
+            }
+          />
         ) : doMes.length === 0 ? (
           <EmptyState
             icon={<Receipt size={24} />}
@@ -1071,199 +1019,13 @@ export default function Dashboard({
             }
           />
         ) : (
-          <div style={styles.list} className="lista-lancamentos">
-            {doMes.map((l, idx) => {
-              const lista =
-                l.tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
-              const cat = lista.find((c) => c.nome === l.categoria);
-              // Precisa ser hex: logo abaixo vira `cor + "1f"` para montar o
-              // fundo da etiqueta, e `var(--green)1f` não é cor nenhuma — a
-              // etiqueta ficava sem fundo para entrada de categoria
-              // desconhecida. Cinza serve aos dois tipos, e é o mesmo tom do
-              // "Outros", que é onde cai o que não se reconhece.
-              const cor = cat?.cor ?? "#9aa3b0";
-              const dia = Number(dataOrdenacao(l).slice(8, 10));
-              const futuro = !!l.data && l.data > hojeLocal();
-              const dataFmt = futuro
-                ? `${l.data!.slice(8, 10)}/${l.data!.slice(5, 7)}`
-                : "";
-              const titleFuturo = futuro
-                ? `Será contabilizado em ${dataFmt} · ${dinheiro(l.valor)}`
-                : undefined;
-              const corBorda =
-                l.tipo === "entrada" ? "var(--green)" : "var(--red)";
-              const itemStyle: React.CSSProperties = futuro
-                ? {
-                    ...styles.item,
-                    background: "var(--bg)",
-                    boxShadow: "none",
-                    position: "relative",
-                  }
-                : {
-                    ...styles.item,
-                    background: "var(--surface)",
-                    boxShadow: "var(--shadow)",
-                    borderLeft: `3px solid ${corBorda}`,
-                    position: "relative",
-                  };
-              return (
-                <div
-                  key={l.id}
-                  style={itemStyle}
-                  className="item-lancamento"
-                  title={futuro ? undefined : titleFuturo}
-                  onTouchStart={
-                    futuro
-                      ? () => {
-                          limparLongPress();
-                          longPressTimer.current = window.setTimeout(() => {
-                            abrirTooltipFuturo(l.id);
-                            longPressTimer.current = null;
-                          }, 500);
-                        }
-                      : undefined
-                  }
-                  onTouchEnd={futuro ? limparLongPress : undefined}
-                  onTouchMove={futuro ? limparLongPress : undefined}
-                  onTouchCancel={futuro ? limparLongPress : undefined}
-                  onMouseEnter={
-                    futuro
-                      ? () => {
-                          limparHoverDelay();
-                          hoverDelayTimer.current = window.setTimeout(() => {
-                            setTooltipFuturoId(l.id);
-                            hoverDelayTimer.current = null;
-                          }, 700);
-                        }
-                      : undefined
-                  }
-                  onMouseLeave={
-                    futuro
-                      ? () => {
-                          limparHoverDelay();
-                          setTooltipFuturoId(null);
-                        }
-                      : undefined
-                  }
-                >
-                  {futuro && tooltipFuturoId === l.id && (
-                    <div
-                      style={
-                        idx === 0
-                          ? styles.tooltipFuturoAbaixo
-                          : styles.tooltipFuturo
-                      }
-                    >
-                      Será contabilizado em {dataFmt} · {dinheiro(l.valor)}
-                      <span
-                        style={
-                          idx === 0
-                            ? styles.tooltipSetaCima
-                            : styles.tooltipSetaBaixo
-                        }
-                      />
-                    </div>
-                  )}
-                  <div style={styles.itemTopo}>
-                    {futuro ? (
-                      <span
-                        style={{
-                          ...styles.dia,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        <Clock size={13} color="var(--text-faint)" />
-                        {dia}
-                      </span>
-                    ) : (
-                      <span style={styles.dia}>{dia}</span>
-                    )}
-                    <span
-                      className="tag-categoria"
-                      style={{
-                        ...styles.tag,
-                        background: cor + "1f",
-                        color: cor,
-                      }}
-                    >
-                      {l.categoria}
-                    </span>
-                    {editandoValor === l.id ? (
-                      <input
-                        value={valorDigitado}
-                        inputMode="decimal"
-                        autoFocus
-                        aria-label={`Valor de ${l.descricao}`}
-                        onFocus={(e) => e.currentTarget.select()}
-                        onChange={(e) =>
-                          setValorDigitado(
-                            e.target.value.replace(/[^0-9.,]/g, "")
-                          )
-                        }
-                        onBlur={() => salvarValorEditado(l)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") e.currentTarget.blur();
-                          if (e.key === "Escape") {
-                            cancelandoValor.current = true;
-                            e.currentTarget.blur();
-                          }
-                        }}
-                        style={{
-                          ...styles.valorInput,
-                          color:
-                            l.tipo === "entrada"
-                              ? "var(--green)"
-                              : "var(--red)",
-                        }}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => abrirEdicaoValor(l)}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        title="Tocar para corrigir o valor"
-                        className="valor-lancamento"
-                        style={{
-                          ...styles.valor,
-                          color:
-                            l.tipo === "entrada"
-                              ? "var(--green)"
-                              : "var(--red)",
-                        }}
-                      >
-                        {l.tipo === "entrada" ? "+" : "−"} {dinheiro(l.valor)}
-                      </button>
-                    )}
-                  </div>
-                  <div style={styles.itemBase}>
-                    <span style={styles.desc} className="descricao-lancamento">
-                      {l.descricao || "—"}
-                    </span>
-                    <div style={styles.acoes}>
-                      <button
-                        style={styles.acao}
-                        onClick={() => setEditando(l)}
-                        aria-label="Editar lançamento"
-                        title="Editar"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        style={styles.acao}
-                        onClick={() => setConfirmarId(l.id)}
-                        aria-label="Excluir lançamento"
-                        title="Excluir"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <ListaLancamentos
+            lancamentos={listaVisivel}
+            hoje={hojeLocal()}
+            onEditar={setEditando}
+            onExcluir={excluir}
+            onCorrigirValor={corrigirValor}
+          />
         )}
       </div>
 
@@ -1365,17 +1127,6 @@ export default function Dashboard({
       )}
 
       {toast && <Toast toast={toast} onFechar={() => setToast(null)} />}
-
-      {confirmarId && (
-        <ConfirmModal
-          titulo="Excluir lançamento"
-          mensagem="Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita."
-          textoConfirmar="Excluir"
-          textoCancelar="Cancelar"
-          onConfirmar={confirmarRemocao}
-          onCancelar={() => setConfirmarId(null)}
-        />
-      )}
 
       <BottomNav
         abaAtiva={abaAtiva}
@@ -1613,6 +1364,15 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     marginBottom: 14,
   },
+  filtroAviso: {
+    background: "none",
+    border: "none",
+    padding: 0,
+    font: "inherit",
+    fontSize: 12.5,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
   listHeadAcoes: {
     display: "flex",
     alignItems: "center",
@@ -1655,28 +1415,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     fontSize: 14,
   },
-  list: { display: "flex", flexDirection: "column", gap: 8 },
-  item: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    background: "var(--bg)",
-    padding: "12px 14px",
-    borderRadius: 12,
-    minWidth: 0,
-  },
-  itemTopo: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    minWidth: 0,
-  },
-  itemBase: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    minWidth: 0,
-  },
   erroBox: {
     display: "flex",
     flexDirection: "column",
@@ -1712,132 +1450,6 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: 13,
     fontWeight: 600,
     marginTop: 4,
-  },
-  acoes: {
-    display: "flex",
-    alignItems: "center",
-    gap: 2,
-    marginLeft: "auto",
-    flexShrink: 0,
-  },
-  dia: {
-    fontFamily: "'Sora', sans-serif",
-    fontSize: 13,
-    fontWeight: 600,
-    color: "var(--text-faint)",
-    minWidth: 22,
-    textAlign: "center",
-  },
-  tag: {
-    fontSize: 12,
-    fontWeight: 600,
-    padding: "4px 10px",
-    borderRadius: 7,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    minWidth: 0,
-  },
-  desc: {
-    fontSize: 14,
-    color: "var(--text)",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    flex: 1,
-    minWidth: 0,
-  },
-  // O valor virou botão: tocar nele abre a correção sem passar pelo
-  // formulário. O tracejado embaixo é a única pista de que ele é
-  // tocável — um botão de verdade ali roubaria a atenção do número.
-  valor: {
-    fontFamily: "'Sora', sans-serif",
-    fontSize: 15,
-    fontWeight: 600,
-    whiteSpace: "nowrap",
-    marginLeft: "auto",
-    flexShrink: 0,
-    background: "none",
-    border: "none",
-    borderBottom: "1px dashed var(--border)",
-    padding: "2px 0",
-  },
-  valorInput: {
-    fontFamily: "'Sora', sans-serif",
-    // 16px para o Safari do iPhone não dar zoom ao focar o campo.
-    fontSize: 16,
-    fontWeight: 700,
-    marginLeft: "auto",
-    flexShrink: 0,
-    width: 104,
-    textAlign: "right",
-    background: "var(--bg)",
-    border: "1px solid var(--accent)",
-    borderRadius: 8,
-    padding: "3px 8px",
-    outline: "none",
-  },
-  acao: {
-    background: "none",
-    border: "none",
-    color: "var(--text-faint)",
-    display: "flex",
-    padding: 4,
-    cursor: "pointer",
-  },
-  tooltipFuturo: {
-    position: "absolute",
-    bottom: "calc(100% + 6px)",
-    left: 8,
-    background: "var(--tooltip-bg)",
-    color: "var(--tooltip-text)",
-    fontSize: 12,
-    fontWeight: 500,
-    borderRadius: 8,
-    padding: "6px 10px",
-    whiteSpace: "nowrap",
-    boxShadow: "0 6px 18px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)",
-    zIndex: 200,
-    pointerEvents: "none",
-    opacity: 1,
-    lineHeight: 1.35,
-  },
-  tooltipFuturoAbaixo: {
-    position: "absolute",
-    top: "calc(100% + 6px)",
-    left: 8,
-    background: "var(--tooltip-bg)",
-    color: "var(--tooltip-text)",
-    fontSize: 12,
-    fontWeight: 500,
-    borderRadius: 8,
-    padding: "6px 10px",
-    whiteSpace: "nowrap",
-    boxShadow: "0 6px 18px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)",
-    zIndex: 200,
-    pointerEvents: "none",
-    opacity: 1,
-    lineHeight: 1.35,
-  },
-  tooltipSetaBaixo: {
-    position: "absolute",
-    top: "100%",
-    left: 18,
-    width: 0,
-    height: 0,
-    borderLeft: "6px solid transparent",
-    borderRight: "6px solid transparent",
-    borderTop: "6px solid var(--tooltip-bg)",
-  },
-  tooltipSetaCima: {
-    position: "absolute",
-    bottom: "100%",
-    left: 18,
-    width: 0,
-    height: 0,
-    borderLeft: "6px solid transparent",
-    borderRight: "6px solid transparent",
-    borderBottom: "6px solid var(--tooltip-bg)",
   },
   recorrenciasHead: {
     display: "flex",

@@ -84,6 +84,14 @@ Já discutidas e fechadas. Não desfaça sem perguntar.
   saldo.
 - **Animação é enfeite**: números que rolam terminam sempre no valor exato
   (há teste), e "reduzir movimento" do sistema desliga tudo.
+- **Excluir não pergunta "tem certeza?"**: o lançamento some e aparece
+  "Desfazer" por 7s. A exclusão no servidor só vai quando a janela fecha (ou
+  na hora, se o app for para o segundo plano) — desfazer devolve o mesmo
+  lançamento, sem recriar.
+- **Tocar em Renda ou Gastos filtra só a lista.** Cards, saldo e gráficos
+  continuam olhando o mês inteiro (há teste).
+- **Foco no iPhone**: o Lorenzo não usa Android; recurso que só funciona no
+  Android não entra.
 
 ## Roteiro combinado
 
@@ -96,24 +104,25 @@ escolha (como foi feito com o topo).
    "9 mil"; contorno branco nas fatias da pizza no escuro; balão que gruda
    na tela depois do toque no celular; título "Gastos por categoria"
    quebrando linha no tablet.
-2. **Lista de lançamentos.** Agrupada por dia ("Hoje", "Ontem", "Qua, 4
-   nov") com total do dia; ícone da categoria num círculo colorido no lugar
-   da etiqueta; lançamento futuro marcado como "agendado"; deslizar para
-   editar/apagar no lugar do lápis e da lixeira, com "Desfazer" no lugar do
-   "tem certeza?".
-3. **Formulário de novo lançamento.** Valor grande no topo, estilo
-   calculadora; categorias em botões com ícone; data em atalhos (Hoje /
-   Ontem / Escolher); botão de salvar sempre visível no rodapé.
-4. **Gráficos modernizados.** Total no meio da pizza e fatia tocada em
-   destaque; legenda em lista com barrinha e %; no gráfico do ano, o mês da
-   tela em destaque e os outros esmaecidos; títulos e cantos dos painéis no
-   estilo do topo (rótulo pequeno em caixa alta).
-5. **Temas.** Vidro (Liquid Glass fosco, independente de claro/escuro, blur
-   só em cards/painéis/barras, com teste de contraste); Preto total (OLED);
-   mais cores de destaque (laranja, azul-petróleo — nunca verde/vermelho).
-6. **Qualidade de vida.** Tocar em Renda ou Gastos filtra a lista; "lançar
-   de novo" num toque; puxar para baixo para atualizar; atalhos ao segurar o
-   ícone do app ("Nova saída" / "Nova entrada", só Android).
+2. ~~**Lista de lançamentos.**~~ Feita (opção A): agrupada por dia com o
+   total do dia, agendados no topo com a data na linha, ícone da categoria
+   em círculo, deslizar para Editar/Apagar no celular (lápis e lixeira à
+   vista no computador) e apagar com Desfazer.
+3. **Formulário de novo lançamento.** Escolhida a opção A: valor grande no
+   topo, atalhos de data (Hoje / Ontem / Outra), descrição, categorias em
+   grade com ícone, salvar fixo no rodapé.
+4. **Gráficos.** Nenhuma das primeiras opções agradou. Agradou a comparação
+   com o mês anterior em frases ("guardou R$ X a mais", "gastou R$ Y a
+   menos"). Novas propostas mostradas, aguardando escolha: resumo do mês em
+   frases; este mês × anterior por categoria; saldo ao longo do mês; entradas
+   × saídas em 6 meses; calendário de gastos; ritmo do mês.
+5. **Temas.** Aprovados todos: Vidro (Liquid Glass fosco, independente de
+   claro/escuro, blur só em cards/painéis/barras, com teste de contraste);
+   Preto total (OLED); mais cores de destaque (laranja, azul-petróleo —
+   nunca verde/vermelho).
+6. **Qualidade de vida.** Feito: tocar em Renda ou Gastos filtra a lista. A
+   explicar antes de decidir: "lançar de novo" num toque; puxar para baixo
+   para atualizar. Descartado: atalhos do ícone (só Android).
 
 ## Ideias guardadas
 
@@ -121,7 +130,8 @@ Discutidas e adiadas. Só implemente se for pedido.
 
 - Orçamento por categoria (teto mensal com barra de progresso).
 - Busca e filtro de lançamentos.
-- Comparação com o mês anterior nos cards.
+- Comparação com o mês anterior nos cards (protótipo mostrado, aguardando
+  escolha).
 - Aviso, no saldo projetado, do que já está lançado para os meses seguintes.
 - Preferências sincronizadas na conta (hoje ficam no aparelho).
 - Ícone do app na cor de destaque escolhida.

@@ -21,11 +21,14 @@ interface Props {
   onFechar: () => void;
 }
 
+// Com ação, o toast precisa durar o tempo de ler e decidir; três segundos
+// some antes do polegar chegar. Exportado porque o Desfazer da exclusão
+// espera exatamente esse tempo antes de apagar de verdade.
+export const DURACAO_TOAST_COM_ACAO_MS = 7000;
+
 export default function Toast({ toast, onFechar }: Props) {
-  // Com ação, o toast precisa durar o tempo de ler e decidir; três segundos
-  // some antes do polegar chegar.
   useEffect(() => {
-    const t = setTimeout(onFechar, toast.acao ? 7000 : 3000);
+    const t = setTimeout(onFechar, toast.acao ? DURACAO_TOAST_COM_ACAO_MS : 3000);
     return () => clearTimeout(t);
   }, [toast.id, toast.acao, onFechar]);
 
@@ -80,9 +83,11 @@ export default function Toast({ toast, onFechar }: Props) {
       {toast.acao && (
         <button
           type="button"
+          // Fecha antes de agir: a ação pode mostrar um aviso novo ("Lançamento
+          // de volta."), e fechar depois apagaria justamente esse aviso.
           onClick={() => {
-            toast.acao?.onAcao();
             onFechar();
+            toast.acao?.onAcao();
           }}
           style={{
             background: "none",

@@ -347,30 +347,37 @@ input, select {
 }
 
 /* Lista compacta.
-   As linhas da lista são estilizadas inline no Dashboard, então só !important
-   alcança — o mesmo recurso que os ajustes de celular acima já usam. Mexe só
-   em espaçamento e tamanho: nenhuma informação some da linha.
+   As linhas da lista são estilizadas inline (ListaLancamentos), então só
+   !important alcança — o mesmo recurso que os ajustes de celular acima já
+   usam. Mexe só em espaçamento e tamanho: nenhuma informação some da linha.
 
-   Os ícones de editar e excluir ficam do tamanho normal de propósito. Eles já
-   estão no limite do que um dedo acerta, e errar o toque ali é apagar um
-   lançamento sem querer — economia de espaço não vale isso. */
+   Os botões de editar e apagar ficam do tamanho normal de propósito. Errar o
+   toque ali é apagar um lançamento sem querer — economia de espaço não vale
+   isso. */
 :root[data-lista="compacta"] .lista-lancamentos {
-  gap: 4px !important;
+  gap: 0 !important;
 }
-:root[data-lista="compacta"] .item-lancamento {
-  padding: 6px 12px !important;
-  gap: 1px !important;
+:root[data-lista="compacta"] .item-lancamento .linha-conteudo {
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  gap: 10px !important;
+}
+:root[data-lista="compacta"] .item-lancamento .icone-categoria {
+  width: 30px !important;
+  height: 30px !important;
+}
+:root[data-lista="compacta"] .item-lancamento .icone-categoria svg {
+  width: 15px;
+  height: 15px;
 }
 :root[data-lista="compacta"] .item-lancamento .tag-categoria {
-  padding: 2px 8px !important;
-  font-size: 11px !important;
+  font-size: 11.5px !important;
 }
 :root[data-lista="compacta"] .item-lancamento .valor-lancamento {
   font-size: 14px !important;
-  padding: 0 !important;
 }
 :root[data-lista="compacta"] .item-lancamento .descricao-lancamento {
-  font-size: 13.5px !important;
+  font-size: 14px !important;
 }
 
 /* Topo da tela.
