@@ -4,10 +4,21 @@ import {
 } from "recharts";
 import type { BarraMes, FatiaCategoria } from "../lib/calculos";
 import { useDinheiro, usePreferencias } from "../hooks/usePreferencias";
+import { podeAnimar } from "../lib/movimento";
 
 // Os dois gráficos vivem aqui só para o recharts sair do pacote principal —
 // ele responde por metade do bundle e nem é usado na aba Contas. O Dashboard
 // carrega este arquivo sob demanda com React.lazy.
+
+// As barras e as fatias crescem no mesmo ritmo da barra do cartão do saldo
+// (1,2s), começando na hora — o padrão do recharts era rápido demais nas
+// barras (0,4s) e esperava 0,4s para começar a pizza. Com "reduzir
+// movimento" ligado, aparecem prontos.
+const ANIMACAO = {
+  animationBegin: 0,
+  animationDuration: 1200,
+  animationEasing: "ease-out" as const,
+};
 
 const tooltipStyle: React.CSSProperties = {
   background: "var(--surface)",
@@ -31,6 +42,8 @@ export function GraficoCategorias({ dados }: { dados: FatiaCategoria[] }) {
           innerRadius={52}
           outerRadius={85}
           paddingAngle={3}
+          isAnimationActive={podeAnimar()}
+          {...ANIMACAO}
         >
           {dados.map((e) => (
             <Cell key={e.name} fill={e.cor} />
@@ -76,7 +89,12 @@ export function GraficoAnual({ dados }: { dados: BarraMes[] }) {
           contentStyle={tooltipStyle}
           cursor={{ fill: "rgba(0,0,0,0.03)" }}
         />
-        <Bar dataKey="sobra" radius={[5, 5, 0, 0]}>
+        <Bar
+          dataKey="sobra"
+          radius={[5, 5, 0, 0]}
+          isAnimationActive={podeAnimar()}
+          {...ANIMACAO}
+        >
           {dados.map((e) => (
             <Cell
               key={e.mes}

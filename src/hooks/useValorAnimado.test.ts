@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useValorAnimado } from "./useValorAnimado";
+import { DURACAO_CONTAGEM_MS, useValorAnimado } from "./useValorAnimado";
+
+const ATE_O_FIM = DURACAO_CONTAGEM_MS + 200;
 
 // O número do topo pode passar por valores intermediários, mas tem que
 // terminar no valor exato — é o mesmo número que decide se dá para pagar uma
@@ -39,7 +41,10 @@ describe("useValorAnimado", () => {
     act(() => vi.advanceTimersByTime(200));
     expect(result.current).toBeGreaterThan(7200.37);
     expect(result.current).toBeLessThan(8550);
+    // Devagar o bastante para o olho acompanhar: aos 0,6s ainda está rolando.
     act(() => vi.advanceTimersByTime(400));
+    expect(result.current).not.toBe(7200.37);
+    act(() => vi.advanceTimersByTime(ATE_O_FIM));
     expect(result.current).toBe(7200.37);
   });
 
@@ -50,7 +55,7 @@ describe("useValorAnimado", () => {
     rerender({ v: 900 });
     act(() => vi.advanceTimersByTime(150));
     rerender({ v: -42.1 });
-    act(() => vi.advanceTimersByTime(1000));
+    act(() => vi.advanceTimersByTime(ATE_O_FIM));
     expect(result.current).toBe(-42.1);
   });
 
@@ -61,7 +66,7 @@ describe("useValorAnimado", () => {
     // Simula a aba em segundo plano: nenhum quadro é desenhado.
     const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 0);
     rerender({ v: 2419.73 });
-    act(() => vi.advanceTimersByTime(700));
+    act(() => vi.advanceTimersByTime(ATE_O_FIM));
     expect(result.current).toBe(2419.73);
     raf.mockRestore();
   });
