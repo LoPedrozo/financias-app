@@ -1,8 +1,8 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus, Settings,
   Eye, EyeOff,
-  Receipt, PieChart as PieIcon, AlertTriangle, RotateCw,
+  Receipt, AlertTriangle, RotateCw,
   Repeat, Home, CopyPlus, Download, Sun, Sunrise, Moon,
 } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
@@ -11,12 +11,10 @@ import {
   listarLancamentos, criarLancamento, criarLancamentosEmLote,
   atualizarLancamento, removerLancamento, removerLancamentosEmLote,
 } from "../lib/lancamentos";
-import { CATEGORIAS_SAIDA, CATEGORIAS_ENTRADA, MESES } from "../types";
+import { MESES } from "../types";
 import type { Lancamento, NovoLancamento, Recorrencia, Tipo } from "../types";
 import { useDinheiro, usePreferencias } from "../hooks/usePreferencias";
 import {
-  agruparPorCategoria,
-  calcularBalancoAnual,
   calcularPendentes,
   calcularSaldoAcumulado,
   calcularSaldoProjetado,
@@ -56,28 +54,9 @@ import { dataCurta, periodoDoDia, primeiroNome, saudacao } from "../lib/saudacao
 import type { Periodo as PeriodoDoDia } from "../lib/saudacao";
 import { podeAnimar, vibrar } from "../lib/movimento";
 import { useRemocaoComDesfazer } from "../hooks/useRemocaoComDesfazer";
-
-// O recharts é metade do pacote e não aparece na aba Contas — sai do
-// carregamento inicial e chega quando o Início realmente precisa desenhar.
-const GraficoCategorias = lazy(() =>
-  import("./Graficos").then((m) => ({ default: m.GraficoCategorias }))
-);
-const GraficoAnual = lazy(() =>
-  import("./Graficos").then((m) => ({ default: m.GraficoAnual }))
-);
-
-function EsqueletoGrafico({ altura }: { altura: number }) {
-  return (
-    <div
-      className="skeleton-pulse"
-      style={{
-        height: altura,
-        borderRadius: 12,
-        background: "var(--bg)",
-      }}
-    />
-  );
-}
+import { porCategoria as calcularPorCategoria, resumoDoMes } from "../lib/resumoMes";
+import CardCategorias from "./CardCategorias";
+import CardResumoMes from "./CardResumoMes";
 
 function dataInicialNovoLancamento(mes: number, ano: number): string {
   const hoje = new Date();
@@ -134,7 +113,6 @@ export default function Dashboard({
   const [modalRepetir, setModalRepetir] = useState(false);
   const [modalExportar, setModalExportar] = useState(false);
   const [modalPreferencias, setModalPreferencias] = useState(false);
-  const dinheiro = useDinheiro();
   const { preferencias, mudar } = usePreferencias();
   const ocultos = preferencias.ocultarValores;
   const [editando, setEditando] = useState<Lancamento | null>(null);
@@ -596,19 +574,17 @@ export default function Dashboard({
     [lancamentos, mes, ano, contasEmAberto]
   );
 
-  const porCategoria = useMemo(
-    () =>
-      agruparPorCategoria(
-        doMes,
-        tipoGrafico,
-        tipoGrafico === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA
-      ),
-    [doMes, tipoGrafico]
+  // Os dois cards no lugar dos gráficos. As contas (lib/resumoMes.ts) usam a
+  // mesma regra dos cards de Renda e Gastos — só conta o que já aconteceu — e
+  // comparam o mês atual com o MESMO PERÍODO do anterior.
+  const hojeIso = hojeLocal();
+  const resumo = useMemo(
+    () => resumoDoMes(lancamentos, mes, ano, hojeIso),
+    [lancamentos, mes, ano, hojeIso]
   );
-
-  const anual = useMemo(
-    () => calcularBalancoAnual(lancamentos, ano, MESES),
-    [lancamentos, ano]
+  const categorias = useMemo(
+    () => calcularPorCategoria(lancamentos, mes, ano, tipoGrafico, hojeIso),
+    [lancamentos, mes, ano, tipoGrafico, hojeIso]
   );
 
   const email = session.user.email ?? "";
@@ -869,65 +845,17 @@ export default function Dashboard({
 
       <div style={styles.grid} className="graficos-no-fim anima-mes">
         <div style={styles.panel} className="panel-mobile">
-          <div style={styles.panelHead}>
-            <h2 style={styles.panelTitleInline}>
-              {tipoGrafico === "entrada" ? "Entradas por categoria" : "Gastos por categoria"}
-            </h2>
-            <div style={styles.toggle}>
-              <button
-                style={{
-                  ...styles.toggleBtn,
-                  ...(tipoGrafico === "saida" ? styles.toggleBtnAtivo : {}),
-                }}
-                onClick={() => setTipoGrafico("saida")}
-              >
-                Saídas
-              </button>
-              <button
-                style={{
-                  ...styles.toggleBtn,
-                  ...(tipoGrafico === "entrada" ? styles.toggleBtnAtivo : {}),
-                }}
-                onClick={() => setTipoGrafico("entrada")}
-              >
-                Entradas
-              </button>
-            </div>
-          </div>
-          {porCategoria.length === 0 ? (
-            <div style={{ minHeight: 260, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <EmptyState
-                compacto
-                icon={<PieIcon size={22} />}
-                titulo={
-                  tipoGrafico === "entrada"
-                    ? "Sem entradas lançadas neste mês."
-                    : "Sem gastos lançados neste mês."
-                }
-              />
-            </div>
-          ) : (
-            <>
-              <Suspense fallback={<EsqueletoGrafico altura={220} />}>
-                <GraficoCategorias dados={porCategoria} />
-              </Suspense>
-              <div style={styles.legend}>
-                {porCategoria.map((c) => (
-                  <span key={c.name} style={styles.legendItem}>
-                    <span style={{ ...styles.dot, background: c.cor }} />
-                    {c.name} · {dinheiro(c.value)}
-                  </span>
-                ))}
-              </div>
-            </>
-          )}
+          <CardCategorias
+            dados={categorias}
+            tipo={tipoGrafico}
+            onTipo={setTipoGrafico}
+            mes={mes}
+            situacao={resumo.situacao}
+            ateDia={resumo.ateDia}
+          />
         </div>
-
         <div style={styles.panel} className="panel-mobile">
-          <h2 style={styles.panelTitle}>Quanto sobrou no ano</h2>
-          <Suspense fallback={<EsqueletoGrafico altura={290} />}>
-            <GraficoAnual dados={anual} />
-          </Suspense>
+          <CardResumoMes resumo={resumo} mes={mes} />
         </div>
       </div>
 
@@ -1315,49 +1243,7 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "var(--shadow)",
   },
   panelTitle: { fontSize: 16, fontWeight: 600, marginBottom: 14 },
-  panelHead: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-    gap: 10,
-    // Num celular de 320px título e Saídas/Entradas não cabem lado a lado:
-    // o seletor desce para a linha de baixo em vez de o título se partir.
-    flexWrap: "wrap",
-  },
   panelTitleInline: { fontSize: 16, fontWeight: 600 },
-  toggle: {
-    display: "flex",
-    gap: 3,
-    background: "var(--bg)",
-    padding: 3,
-    borderRadius: 9,
-  },
-  toggleBtn: {
-    padding: "4px 10px",
-    border: "none",
-    borderRadius: 7,
-    background: "transparent",
-    color: "var(--text-faint)",
-    fontWeight: 600,
-    fontSize: 12,
-    cursor: "pointer",
-  },
-  toggleBtnAtivo: {
-    background: "var(--surface)",
-    color: "var(--text)",
-    boxShadow: "var(--shadow)",
-  },
-  legend: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "8px 16px",
-    marginTop: 8,
-    fontSize: 12.5,
-    color: "var(--text-soft)",
-  },
-  legendItem: { display: "flex", alignItems: "center", gap: 6 },
-  dot: { width: 9, height: 9, borderRadius: "50%" },
   listHead: {
     display: "flex",
     justifyContent: "space-between",
