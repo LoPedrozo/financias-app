@@ -5,14 +5,11 @@ import {
   calcularSaldoAcumulado,
   calcularPendentes,
   calcularSaldoProjetado,
-  agruparPorCategoria,
-  calcularBalancoAnual,
   compararCompetencia,
   competenciaAtual,
   hojeLocal,
 } from "./calculos";
-import type { Categoria, Lancamento, Tipo } from "../types";
-import { MESES } from "../types";
+import type { Lancamento, Tipo } from "../types";
 
 function l(
   partes: Partial<Lancamento> & {
@@ -32,17 +29,6 @@ function l(
     ...partes,
   };
 }
-
-const categoriasSaida: Categoria[] = [
-  { nome: "Alimentação", cor: "#a" },
-  { nome: "Lazer", cor: "#b" },
-  { nome: "Outros", cor: "#c" },
-];
-
-const categoriasEntrada: Categoria[] = [
-  { nome: "Salário", cor: "#d" },
-  { nome: "Freelance", cor: "#e" },
-];
 
 describe("filtrarPorMes", () => {
   it("retorna apenas lançamentos do mês/ano informados", () => {
@@ -182,85 +168,6 @@ describe("competenciaAtual", () => {
   });
 });
 
-describe("agruparPorCategoria", () => {
-  it("soma valores por categoria do tipo informado", () => {
-    const dados = [
-      l({ tipo: "saida", valor: 50, mes: 3, ano: 2026, categoria: "Alimentação" }),
-      l({ tipo: "saida", valor: 30, mes: 3, ano: 2026, categoria: "Alimentação" }),
-      l({ tipo: "saida", valor: 20, mes: 3, ano: 2026, categoria: "Lazer" }),
-      l({ tipo: "entrada", valor: 999, mes: 3, ano: 2026, categoria: "Outros" }),
-    ];
-    const r = agruparPorCategoria(dados, "saida", categoriasSaida);
-    expect(r).toHaveLength(2);
-    expect(r.find((c) => c.name === "Alimentação")?.value).toBe(80);
-    expect(r.find((c) => c.name === "Lazer")?.value).toBe(20);
-  });
-
-  it("omite categorias sem lançamentos", () => {
-    const dados = [
-      l({ tipo: "saida", valor: 10, mes: 0, ano: 2026, categoria: "Lazer" }),
-    ];
-    const r = agruparPorCategoria(dados, "saida", categoriasSaida);
-    expect(r.map((c) => c.name)).toEqual(["Lazer"]);
-  });
-
-  it("preserva a cor da categoria correspondente", () => {
-    const dados = [
-      l({ tipo: "entrada", valor: 1, mes: 0, ano: 2026, categoria: "Salário" }),
-    ];
-    const r = agruparPorCategoria(dados, "entrada", categoriasEntrada);
-    expect(r[0]).toEqual({ name: "Salário", value: 1, cor: "#d" });
-  });
-
-  it("retorna lista vazia para entrada vazia", () => {
-    expect(agruparPorCategoria([], "saida", categoriasSaida)).toEqual([]);
-  });
-
-  it("ignora categorias não presentes no array de categorias", () => {
-    const dados = [
-      l({
-        tipo: "saida",
-        valor: 50,
-        mes: 0,
-        ano: 2026,
-        categoria: "CategoriaInexistente",
-      }),
-    ];
-    expect(agruparPorCategoria(dados, "saida", categoriasSaida)).toEqual([]);
-  });
-});
-
-describe("calcularBalancoAnual", () => {
-  it("retorna 12 entradas, uma por mês, com sobra = entradas - saídas", () => {
-    const dados = [
-      l({ tipo: "entrada", valor: 1000, mes: 0, ano: 2026 }),
-      l({ tipo: "saida", valor: 400, mes: 0, ano: 2026 }),
-      l({ tipo: "entrada", valor: 800, mes: 2, ano: 2026 }),
-      l({ tipo: "saida", valor: 900, mes: 2, ano: 2026 }),
-    ];
-    const r = calcularBalancoAnual(dados, 2026, MESES);
-    expect(r).toHaveLength(12);
-    expect(r[0]).toEqual({ mes: "Jan", sobra: 600 });
-    expect(r[1]).toEqual({ mes: "Fev", sobra: 0 });
-    expect(r[2]).toEqual({ mes: "Mar", sobra: -100 });
-  });
-
-  it("ignora lançamentos de outros anos", () => {
-    const dados = [
-      l({ tipo: "entrada", valor: 5000, mes: 0, ano: 2025 }),
-      l({ tipo: "saida", valor: 100, mes: 0, ano: 2026 }),
-    ];
-    const r = calcularBalancoAnual(dados, 2026, MESES);
-    expect(r[0].sobra).toBe(-100);
-  });
-
-  it("retorna todos os meses com sobra 0 para lista vazia", () => {
-    const r = calcularBalancoAnual([], 2026, MESES);
-    expect(r).toHaveLength(12);
-    expect(r.every((m) => m.sobra === 0)).toBe(true);
-  });
-});
-
 describe("filtro de futuros nas demais funções de soma", () => {
   const amanha = (() => {
     const d = new Date();
@@ -286,30 +193,6 @@ describe("filtro de futuros nas demais funções de soma", () => {
     expect(somarPorTipo(dados, "saida")).toBe(50);
   });
 
-  it("agruparPorCategoria ignora lançamentos futuros", () => {
-    const dados = [
-      l({
-        tipo: "saida", valor: 30, mes: mesAtual, ano: anoAtual,
-        data: ontem, categoria: "Alimentação",
-      }),
-      l({
-        tipo: "saida", valor: 9999, mes: mesAtual, ano: anoAtual,
-        data: amanha, categoria: "Alimentação",
-      }),
-    ];
-    const r = agruparPorCategoria(dados, "saida", categoriasSaida);
-    expect(r).toHaveLength(1);
-    expect(r[0].value).toBe(30);
-  });
-
-  it("calcularBalancoAnual ignora lançamentos futuros do mês atual", () => {
-    const dados = [
-      l({ tipo: "entrada", valor: 200, mes: mesAtual, ano: anoAtual, data: ontem }),
-      l({ tipo: "entrada", valor: 9999, mes: mesAtual, ano: anoAtual, data: amanha }),
-    ];
-    const r = calcularBalancoAnual(dados, anoAtual, MESES);
-    expect(r[mesAtual].sobra).toBe(200);
-  });
 });
 
 describe("calcularSaldoAcumulado — lançamentos futuros (com data)", () => {

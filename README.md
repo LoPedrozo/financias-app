@@ -197,18 +197,16 @@ são ignorados, e o saldo projetado volta a considerar só os lançamentos.
 - **Acúmulo entre meses** — conta de agosto que ninguém pagou continua devida em setembro
 
 ### Lançamentos futuros e saldo projetado
-- Lançamentos com **data > hoje** aparecem com ícone de relógio, opacidade reduzida e fundo distinto
-- Só entram em **Renda**, **Gastos**, **Saldo Atual** e nos gráficos quando a data chega
-- Tooltip com `Será contabilizado em DD/MM · R$ X,XX` (hover no desktop, long-press no mobile)
+- Lançamentos com **data > hoje** ficam no topo da lista, em "ainda vão acontecer", com a data na linha e opacidade reduzida
+- Só entram em **Renda**, **Gastos**, **Saldo Atual**, **Por categoria** e **Resumo do mês** quando a data chega
 - O card **Saldo atual** mostra abaixo a linha `≈ Saldo projetado`, e abre a conta por origem: quanto está **a receber**, quanto está **a pagar** e quanto vem das **contas em aberto** das pilhas — sempre dizendo de onde saiu cada número
 - As quatro linhas **fecham como soma** (`projetado = atual + a receber − a pagar`) em qualquer mês visitado. Os pendentes são acumulados até a competência olhada, e não só os do mês: o saldo atual corta por data e os pendentes cortavam por mês, então o que sobrou de setembro sumia do card ao olhar outubro. Uma varredura de 72 combinações trava a igualdade
 
 ### Dashboard
-- **Card Renda** — entradas do mês já contabilizadas
-- **Card Gastos** — saídas do mês já contabilizadas
+- **Card Renda | Gastos** — entradas e saídas do mês já contabilizadas, num card só; tocar numa metade filtra a lista
 - **Card Saldo atual** — acumulado desde o primeiro mês com lançamentos, com as linhas de pendentes e o saldo projetado logo abaixo
-- **Gráfico de pizza** por categoria, com toggle Saídas / Entradas
-- **Gráfico de barras** com o quanto sobrou em cada mês do ano
+- **Por categoria** — as categorias do mês da maior para a menor, com barra, a parte de cada uma e a diferença para o mês anterior; alterna Saídas / Entradas
+- **Resumo do mês** — quanto sobrou, a comparação com o mês anterior em frases (no mês atual, contra o mesmo período) e a sobra dos últimos 6 meses
 - **MonthPicker** — setas `‹ ›` e popover com grade dos 12 meses + seletor de ano
 - **Swipe** horizontal entre meses no touch (desativado com modal aberto, para não trocar de mês sem querer)
 
@@ -234,7 +232,6 @@ são ignorados, e o saldo projetado volta a considerar só os lançamentos.
 ### Front-end
 - **React 18** + **TypeScript 5**
 - **Vite 5** (build e dev server)
-- **Recharts** — carregado sob demanda via `React.lazy`, fora do bundle inicial
 - **lucide-react** (ícones)
 - **CSS nativo** com variáveis (design tokens em `src/styles/global.css`) — sem framework de UI
 - **vite-plugin-pwa** + Workbox
@@ -254,13 +251,15 @@ são ignorados, e o saldo projetado volta a considerar só os lançamentos.
 
 O bundle inicial era de **890 kB** porque o Recharts vinha junto, mesmo para quem abrisse direto na aba de contas e nunca visse um gráfico.
 
-Os dois gráficos foram isolados em `src/components/Graficos.tsx` e passaram a ser carregados com `React.lazy`:
+Primeiro os dois gráficos passaram a ser carregados com `React.lazy`:
 
 | | Antes | Depois |
 |---|---|---|
 | Bundle inicial | 890 kB | **491 kB** |
 | Gzip | 243 kB | **135 kB** |
 | Recharts | sempre | só quando o Dashboard precisa (chunk de 400 kB) |
+
+Depois os gráficos deram lugar aos cards **Por categoria** e **Resumo do mês**, feitos só com HTML e CSS, e o Recharts saiu do projeto.
 
 Além disso, índices em `itens_lista` e `listas_contas` cobrem o caminho percorrido pelas policies de RLS — incluindo um índice **parcial** só das contas em aberto, que é o recorte consultado pelo saldo projetado.
 
@@ -276,12 +275,13 @@ financias-app/
 │   │   ├── AceitarConvite.tsx       # Tela de entrada via link de convite
 │   │   ├── AvisoDesatualizado.tsx   # Faixa de "não consegui atualizar" com retry
 │   │   ├── BottomNav.tsx            # Navegação Início ↔ Contas
-│   │   ├── Card.tsx                 # Card de métrica (Renda, Gastos, Saldo)
+│   │   ├── CardCategorias.tsx       # Por categoria (lista com barra e diferença)
+│   │   ├── CardResumoMes.tsx        # Resumo do mês (sobra, frases, 6 meses)
+│   │   ├── CardSaldo.tsx            # Saldo atual e projetado
 │   │   ├── ConfirmModal.tsx         # Confirmação de ação destrutiva
 │   │   ├── ContasAPagar.tsx         # Tela de contas compartilhadas
-│   │   ├── Dashboard.tsx            # Tela principal — cards, gráficos, lista, swipe
+│   │   ├── Dashboard.tsx            # Tela principal — cards, lista, swipe
 │   │   ├── EmptyState.tsx           # Estado vazio ilustrado
-│   │   ├── Graficos.tsx             # Pizza e barras (chunk sob demanda)
 │   │   ├── Login.tsx                # Login / cadastro / OAuth Google
 │   │   ├── MenuPilha.tsx            # Renomear, arquivar, passar posse, sair
 │   │   ├── ModalAdicionar.tsx       # Escrever ou colar lançamentos (prévia editável)
@@ -295,13 +295,14 @@ financias-app/
 │   │   ├── ModalRepetirMes.tsx      # Trazer o mês anterior para o mês atual
 │   │   ├── MonthPicker.tsx          # Navegador de mês/ano
 │   │   ├── Recorrencias.tsx         # Gerenciar recorrências
+│   │   ├── ResumoMes.tsx            # Card Renda | Gastos
 │   │   ├── Skeleton.tsx             # Placeholder de loading
 │   │   └── Toast.tsx                # Feedback de sucesso / erro
 │   ├── hooks/
 │   │   ├── useAuth.ts               # Sessão Supabase + listener de auth state
 │   │   └── useSwipe.ts              # Swipe horizontal (inerte com modal aberto)
 │   ├── lib/
-│   │   ├── calculos.ts              # Funções puras: somas, agrupamentos, projeção
+│   │   ├── calculos.ts              # Funções puras: somas, saldo, projeção
 │   │   ├── categorias.ts            # Adivinha categoria e tipo pela descrição
 │   │   ├── flags.ts                 # Interruptores de feature (contas a pagar)
 │   │   ├── format.ts                # Formatação BRL e leitura de valor pt-BR
@@ -312,6 +313,7 @@ financias-app/
 │   │   ├── mensagens.ts             # Tradução de erros do Supabase para pt-BR
 │   │   ├── rascunho.ts              # Texto do Adicionar guardado no aparelho
 │   │   ├── recorrencias.ts          # CRUD + geração idempotente
+│   │   ├── resumoMes.ts             # Contas do Por categoria e do Resumo do mês
 │   │   └── supabase.ts              # Cliente singleton
 │   ├── styles/global.css            # Reset + design tokens
 │   ├── types/index.ts               # Tipos, MESES, listas de categorias
@@ -356,7 +358,7 @@ npm run test:run
 | Arquivo | Testes | Cobre |
 |---|---|---|
 | `contas_batem.test.ts` | 82 | a invariante do card varrida em 72 combinações de conjunto × mês visitado, o mês real ponta a ponta, encolhimento de dia no Repetir |
-| `calculos.test.ts` | 43 | somas, saldo acumulado, pendentes, agrupamento por categoria, balanço anual, saldo projetado, `hojeLocal` |
+| `calculos.test.ts` | 33 | somas, saldo acumulado, pendentes, saldo projetado, `hojeLocal` |
 | `importarLancamentos.test.ts` | 21 | gramática da linha, sinal, valor no fim e no começo, datas em três níveis, total como conferência, competência pela data |
 | `importarLista.test.ts` | 12 | parsing pt-BR, linha de total como conferência, linhas ignoradas, detecção de vencimento |
 | `categorias.test.ts` | 8 | normalização, palavra inteira, palavra mais longa, ambiguidade que não desempata |
@@ -414,7 +416,7 @@ Já entregue:
 - ✅ **Contas a pagar compartilhadas** com pilhas, convite por link e tempo real (desativada por enquanto — ver `src/lib/flags.ts`)
 - ✅ **Lançamentos recorrentes** com geração idempotente e exceções persistentes
 - ✅ **Saldo projetado** puxando de lançamentos futuros e de contas em aberto — com as quatro linhas do card fechando como soma em qualquer mês visitado
-- ✅ **Lazy load do Recharts** — 890 kB → 491 kB no carregamento inicial
+- ✅ **Gráficos sem biblioteca** — primeiro o Recharts sob demanda (890 kB → 491 kB no carregamento inicial), depois trocado pelos cards Por categoria e Resumo do mês
 - ✅ **Importar lista colada** do WhatsApp
 - ✅ **Adicionar escrevendo** — uma linha ou a lista inteira, com tipo, data e categoria adivinhados
 - ✅ **Repetir o mês anterior** pulando recorrências e o que já existe

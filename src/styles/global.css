@@ -17,8 +17,6 @@
   --radius: 16px;
   /* O balão do lançamento futuro é o contrário do fundo: escuro no claro,
      claro no escuro. Fixo em #0d0d0d ele sumia dentro do tema escuro. */
-  --tooltip-bg: #0d0d0d;
-  --tooltip-text: #ffffff;
   --barra-rolagem: #d8dce3;
   /* Brilho do topo da tela de login. É cor de fundo, então acompanha o tema:
      fixo em #fdfbf6 virava um clarão cinza no meio do escuro. */
@@ -61,8 +59,6 @@
   /* Sombra suave não existe no escuro: o que separa os planos é a sombra
      densa, bem mais escura que o fundo. */
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 6px 20px rgba(0, 0, 0, 0.35);
-  --tooltip-bg: #e9ecf1;
-  --tooltip-text: #14161a;
   --barra-rolagem: #39404d;
   --brilho-topo: #1f242c;
   --tom-manha: #e3a04d;

@@ -5,7 +5,7 @@ interface Props {
   style?: React.CSSProperties;
 }
 
-export default function Skeleton({ width, height = 14, radius = 8, style }: Props) {
+function Skeleton({ width, height = 14, radius = 8, style }: Props) {
   return (
     <span
       className="skeleton-pulse"
@@ -21,7 +21,7 @@ export default function Skeleton({ width, height = 14, radius = 8, style }: Prop
   );
 }
 
-export function SkeletonItem() {
+function SkeletonItem() {
   return (
     <div
       style={{
