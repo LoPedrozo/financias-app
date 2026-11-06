@@ -244,11 +244,16 @@ input, select {
   .desktop-nav {
     display: none;
   }
-  .page-com-bottom-nav {
-    padding-bottom: 80px !important;
-  }
   .page-root {
     padding: 18px 14px 48px !important;
+  }
+  /* Espaço no fim da página para a barra de baixo (64px, fixa por cima do
+     conteúdo) mais uma folga para a sombra do +. Com dois seletores de
+     propósito: era `.page-com-bottom-nav` sozinho, e o `.page-root` logo
+     depois — mesma força, vence o último — trocava os 80px por 48px. O
+     último card (Recorrências) ficava 16px escondido atrás da barra. */
+  .page-root.page-com-bottom-nav {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important;
   }
   .panel-mobile {
     padding: 16px !important;
