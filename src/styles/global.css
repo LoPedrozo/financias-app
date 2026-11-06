@@ -535,10 +535,61 @@ input, select {
   color: var(--accent);
 }
 
-/* No desktop o carrossel não precisa da largura toda: uma faixa de meses
-   de ponta a ponta numa tela de 1000px ficaria vazia no meio do nada. */
+/* Tablet: o carrossel não precisa da largura toda — uma faixa de meses de
+   ponta a ponta ficaria vazia no meio do nada. Fica centralizado na
+   página, com o mês do meio em cima da divisória Renda | Gastos. Encostado
+   à esquerda, ele não se alinhava com nada e parecia torto. */
 @media (min-width: 641px) {
   .mp-carrossel {
     max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+/* Computador: o topo vira uma linha só — saudação à esquerda, carrossel no
+   centro exato da página, controles à direita. As duas colunas laterais têm
+   a mesma largura (1fr cada), e é isso que põe o mês do meio no centro.
+   Abaixo de 1024px as laterais ficam estreitas demais para a saudação e a
+   data (a 900px, as duas quebravam linha), e vale o layout empilhado de
+   cima, com o carrossel centralizado. */
+@media (min-width: 1024px) {
+  .topo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas:
+      "saudacao carrossel acoes"
+      "sub      carrossel acoes";
+    align-items: center;
+    column-gap: 24px;
+  }
+  .topo-linha {
+    display: contents;
+  }
+  .topo-saudacao {
+    grid-area: saudacao;
+    align-self: end;
+    padding-top: 0;
+    font-size: 24px;
+  }
+  .topo-sub {
+    grid-area: sub;
+    align-self: start;
+  }
+  .cabecalho-acoes {
+    grid-area: acoes;
+    justify-self: end;
+  }
+  .mp-carrossel {
+    grid-area: carrossel;
+    width: 400px;
+    max-width: none;
+    margin: 0;
+  }
+  .mp-atual {
+    font-size: 26px;
+  }
+  .mp-vizinho {
+    font-size: 14.5px;
   }
 }

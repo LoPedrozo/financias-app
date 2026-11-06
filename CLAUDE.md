@@ -77,7 +77,9 @@ Já discutidas e fechadas. Não desfaça sem perguntar.
   sol/lua), "Minhas Finanças · Sexta, 6 nov 2026", os três controles soltos
   (sem moldura) e o mês em carrossel só com abreviações (OUT NOV DEZ). O ano
   fica na data do topo; no carrossel só aparece quando o mês da tela é de
-  outro ano. O e-mail fica nas preferências.
+  outro ano. O e-mail fica nas preferências. No computador (≥1024px) o topo
+  é uma linha só, com o carrossel no centro exato da página, em cima da
+  divisória Renda | Gastos.
 - **Renda e Gastos ficam num card só**, dividido ao meio, acima do cartão do
   saldo.
 - **Animação é enfeite**: números que rolam terminam sempre no valor exato
