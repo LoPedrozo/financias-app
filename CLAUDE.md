@@ -104,16 +104,18 @@ escolha (como foi feito com o topo).
    "9 mil"; contorno branco nas fatias da pizza no escuro; balão que gruda
    na tela depois do toque no celular; título "Gastos por categoria"
    quebrando linha no tablet.
-2. **Lista de lançamentos.** Aprovados: deslizar para editar/apagar e
-   apagar com Desfazer (feito). Em protótipo (escolher o visual): agrupar
-   por dia com total do dia, ícone da categoria em círculo, marca de
-   "agendado".
-3. **Formulário de novo lançamento.** Em protótipo: valor grande estilo
-   calculadora, categorias com ícone, data em atalhos (Hoje / Ontem /
-   Escolher), salvar fixo no rodapé.
-4. **Gráficos modernizados.** Em protótipo: total no meio da pizza e fatia
-   em destaque; legenda em lista com barra e %; mês da tela em destaque no
-   gráfico do ano; títulos dos painéis no estilo do topo.
+2. ~~**Lista de lançamentos.**~~ Feita (opção A): agrupada por dia com o
+   total do dia, agendados no topo com a data na linha, ícone da categoria
+   em círculo, deslizar para Editar/Apagar no celular (lápis e lixeira à
+   vista no computador) e apagar com Desfazer.
+3. **Formulário de novo lançamento.** Escolhida a opção A: valor grande no
+   topo, atalhos de data (Hoje / Ontem / Outra), descrição, categorias em
+   grade com ícone, salvar fixo no rodapé.
+4. **Gráficos.** Nenhuma das primeiras opções agradou. Agradou a comparação
+   com o mês anterior em frases ("guardou R$ X a mais", "gastou R$ Y a
+   menos"). Novas propostas mostradas, aguardando escolha: resumo do mês em
+   frases; este mês × anterior por categoria; saldo ao longo do mês; entradas
+   × saídas em 6 meses; calendário de gastos; ritmo do mês.
 5. **Temas.** Aprovados todos: Vidro (Liquid Glass fosco, independente de
    claro/escuro, blur só em cards/painéis/barras, com teste de contraste);
    Preto total (OLED); mais cores de destaque (laranja, azul-petróleo —

@@ -244,10 +244,13 @@ describe("etiqueta de categoria", () => {
     ]);
 
     render(<Dashboard session={sessao} />);
-    const etiqueta = await screen.findByText("Categoria que não existe mais");
+    await screen.findByText("Categoria que não existe mais");
+    // A cor da categoria mora no círculo do ícone, ao lado da descrição.
+    const linha = screen.getByText("bico antigo").closest(".item-lancamento")!;
+    const circulo = linha.querySelector<HTMLElement>(".icone-categoria")!;
 
-    expect(etiqueta.style.background).not.toContain("var(");
-    expect(etiqueta.style.background).toBeTruthy();
+    expect(circulo.style.background).not.toContain("var(");
+    expect(circulo.style.background).toBeTruthy();
   });
 });
 
