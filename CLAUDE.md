@@ -85,6 +85,36 @@ Já discutidas e fechadas. Não desfaça sem perguntar.
 - **Animação é enfeite**: números que rolam terminam sempre no valor exato
   (há teste), e "reduzir movimento" do sistema desliga tudo.
 
+## Roteiro combinado
+
+Aprovado em partes, nesta ordem. Uma parte por vez, cada uma com o próprio
+PR e preview. Antes de mexer no visual de uma parte, mostrar protótipos para
+escolha (como foi feito com o topo).
+
+1. ~~**Correções dos gráficos.**~~ Feita. Balão do gráfico do ano ilegível no escuro
+   ("sobra" cru, texto escuro sobre fundo escuro); eixo com "9000" em vez de
+   "9 mil"; contorno branco nas fatias da pizza no escuro; balão que gruda
+   na tela depois do toque no celular; título "Gastos por categoria"
+   quebrando linha no tablet.
+2. **Lista de lançamentos.** Agrupada por dia ("Hoje", "Ontem", "Qua, 4
+   nov") com total do dia; ícone da categoria num círculo colorido no lugar
+   da etiqueta; lançamento futuro marcado como "agendado"; deslizar para
+   editar/apagar no lugar do lápis e da lixeira, com "Desfazer" no lugar do
+   "tem certeza?".
+3. **Formulário de novo lançamento.** Valor grande no topo, estilo
+   calculadora; categorias em botões com ícone; data em atalhos (Hoje /
+   Ontem / Escolher); botão de salvar sempre visível no rodapé.
+4. **Gráficos modernizados.** Total no meio da pizza e fatia tocada em
+   destaque; legenda em lista com barrinha e %; no gráfico do ano, o mês da
+   tela em destaque e os outros esmaecidos; títulos e cantos dos painéis no
+   estilo do topo (rótulo pequeno em caixa alta).
+5. **Temas.** Vidro (Liquid Glass fosco, independente de claro/escuro, blur
+   só em cards/painéis/barras, com teste de contraste); Preto total (OLED);
+   mais cores de destaque (laranja, azul-petróleo — nunca verde/vermelho).
+6. **Qualidade de vida.** Tocar em Renda ou Gastos filtra a lista; "lançar
+   de novo" num toque; puxar para baixo para atualizar; atalhos ao segurar o
+   ícone do app ("Nova saída" / "Nova entrada", só Android).
+
 ## Ideias guardadas
 
 Discutidas e adiadas. Só implemente se for pedido.
