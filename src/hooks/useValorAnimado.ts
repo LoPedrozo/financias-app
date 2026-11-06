@@ -12,7 +12,11 @@ import { podeAnimar } from "../lib/movimento";
 // segundo plano, navegador que economiza bateria).
 //
 // No primeiro render não anima: o valor aparece pronto.
-export function useValorAnimado(alvo: number, duracaoMs = 450): number {
+// Um segundo: tempo de o olho acompanhar o número mudando. Com meio segundo
+// a contagem passava antes de ser notada.
+export const DURACAO_CONTAGEM_MS = 1000;
+
+export function useValorAnimado(alvo: number, duracaoMs = DURACAO_CONTAGEM_MS): number {
   const [mostrado, setMostrado] = useState(alvo);
   const naTela = useRef(alvo);
 
@@ -36,8 +40,10 @@ export function useValorAnimado(alvo: number, duracaoMs = 450): number {
         terminar();
         return;
       }
-      // Desacelera no fim: o olho chega ao número junto com a animação.
-      const curva = 1 - (1 - p) ** 3;
+      // Desacelera no fim, mas sem pressa no começo: os dígitos ficam
+      // visivelmente correndo durante quase todo o segundo, e o olho chega
+      // ao número junto com a animação.
+      const curva = 1 - (1 - p) ** 2;
       naTela.current = de + (alvo - de) * curva;
       setMostrado(naTela.current);
       quadro = requestAnimationFrame(passo);

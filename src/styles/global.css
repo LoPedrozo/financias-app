@@ -115,6 +115,29 @@
   font-size: min(22px, calc(100cqi / (0.6 * var(--caracteres, 11))));
 }
 
+/* Barra do cartão do saldo enchendo.
+   Ao abrir, as duas partes nascem do zero — a entrada da esquerda, a saída
+   da direita — e ao trocar de mês deslizam até a proporção nova. Dura um
+   pouco mais que a contagem dos números (1s), para terminar depois deles.
+   Com "reduzir movimento" ligado, aparece pronta. */
+.card-saldo-barra > div {
+  /* Curva suave dos dois lados: com uma desaceleração forte, 70% do caminho
+     acontecia nos primeiros 0,3s e o resto parecia parado. */
+  transition: width 1.2s cubic-bezier(0.45, 0, 0.25, 1);
+  animation: encherBarra 1.2s cubic-bezier(0.45, 0, 0.25, 1);
+}
+@keyframes encherBarra {
+  from {
+    width: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-saldo-barra > div {
+    transition: none;
+    animation: none;
+  }
+}
+
 /* Tom do período no topo da tela.
    Um véu de cor que nasce no canto de cima e some antes do primeiro card:
    âmbar de manhã, a cor de destaque à tarde, anil à noite. É o que muda junto

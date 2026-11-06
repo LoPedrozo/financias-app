@@ -84,7 +84,10 @@ export default function CardSaldo({
 
       {temPendentes ? (
         <>
-          <div aria-hidden="true" style={estilos.trilho}>
+          {/* A barra enche devagar, junto com a contagem dos números: a
+              entrada cresce da esquerda e a saída da direita até se
+              encontrarem (global.css, .card-saldo-barra). */}
+          <div aria-hidden="true" className="card-saldo-barra" style={estilos.trilho}>
             <div style={{ ...estilos.parteEntra, width: `${parteEntra}%` }} />
             <div style={{ ...estilos.parteSai, width: `${100 - parteEntra}%` }} />
           </div>
@@ -187,7 +190,8 @@ const estilos: Record<string, React.CSSProperties> = {
     background: "rgba(0,0,0,.25)",
   },
   parteEntra: { background: "rgba(255,255,255,.95)" },
-  parteSai: { background: "rgba(0,0,0,.35)" },
+  // margin-left: auto prende a saída na borda direita enquanto ela enche.
+  parteSai: { background: "rgba(0,0,0,.35)", marginLeft: "auto" },
   legenda: {
     position: "relative",
     display: "flex",

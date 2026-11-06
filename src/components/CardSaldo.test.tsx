@@ -193,7 +193,7 @@ describe("CardSaldo com os números rolando", () => {
     expect(atual()).not.toHaveTextContent("-R$ 12,34");
     expect(fim()).not.toHaveTextContent("R$ 2.419,73");
 
-    act(() => vi.advanceTimersByTime(600));
+    act(() => vi.advanceTimersByTime(1300));
     expect(atual()).toHaveTextContent("-R$ 12,34");
     expect(fim()).toHaveTextContent("R$ 2.419,73");
   });
