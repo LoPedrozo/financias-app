@@ -275,6 +275,40 @@ input, select {
   border-radius: 4px;
 }
 
+/* Puxar para atualizar (usePuxarParaAtualizar): o conteúdo desce com o dedo
+   e o indicador aparece no espaço que se abre em cima, sem cobrir a
+   saudação — como no iOS. Só os blocos de conteúdo descem: a barra de
+   baixo, os avisos (role=status), os modais e o próprio indicador ficam
+   onde estão. E só durante o gesto: transform faz do bloco a referência de
+   tudo que é fixo dentro dele, e fora do gesto nada pode mudar. */
+.page-root[data-puxando] > :not(.bottom-nav):not([data-modal]):not([role="status"]):not(.indicador-atualizar) {
+  transform: translateY(var(--puxado, 0px));
+}
+.page-root[data-puxando="atualizando"] > :not(.bottom-nav):not([data-modal]):not([role="status"]):not(.indicador-atualizar),
+.page-root[data-puxando="voltando"] > :not(.bottom-nav):not([data-modal]):not([role="status"]):not(.indicador-atualizar) {
+  transition: transform 0.25s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-root[data-puxando] > * {
+    transition: none !important;
+  }
+}
+
+/* Seta do puxar para atualizar, girando enquanto atualiza. */
+.girando {
+  animation: girar 0.8s linear infinite;
+}
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .girando {
+    animation: none;
+  }
+}
+
 @keyframes skeletonPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }

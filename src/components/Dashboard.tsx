@@ -54,6 +54,9 @@ import { dataCurta, periodoDoDia, primeiroNome, saudacao } from "../lib/saudacao
 import type { Periodo as PeriodoDoDia } from "../lib/saudacao";
 import { podeAnimar, vibrar } from "../lib/movimento";
 import { useRemocaoComDesfazer } from "../hooks/useRemocaoComDesfazer";
+import { useToque } from "../hooks/useToque";
+import { usePuxarParaAtualizar } from "../hooks/usePuxarParaAtualizar";
+import IndicadorAtualizar from "./IndicadorAtualizar";
 import { porCategoria as calcularPorCategoria, resumoDoMes } from "../lib/resumoMes";
 import CardCategorias from "./CardCategorias";
 import CardResumoMes from "./CardResumoMes";
@@ -158,23 +161,37 @@ export default function Dashboard({
   });
   const idEsperandoRemocao = remocao.idEsperando;
 
-  const carregar = useCallback(() => {
-    setCarregando(true);
-    setErroCarregar(false);
-    listarLancamentos()
-      // O que está na janela do Desfazer ainda existe no servidor; recarregar
-      // nesse meio-tempo (uma recorrência gerada, um "tentar de novo") não
-      // pode trazê-lo de volta à tela.
-      .then((lista) => {
-        const esperando = idEsperandoRemocao();
-        setLancamentos(esperando ? lista.filter((l) => l.id !== esperando) : lista);
-      })
-      .catch((e) => {
-        console.error(e);
-        setErroCarregar(true);
-      })
-      .finally(() => setCarregando(false));
-  }, [idEsperandoRemocao]);
+  // Silencioso é a atualização de fundo (voltar ao app, puxar a tela, o
+  // "tentar de novo" da faixa): com a lista já na tela, ela fica à vista em
+  // vez de virar blocos de carregamento, e uma falha vira a faixa "Não
+  // consegui atualizar" — não a tela de erro no lugar dos seus dados.
+  const carregar = useCallback(
+    (opcoes: { silencioso?: boolean } = {}): Promise<boolean> => {
+      if (!opcoes.silencioso) {
+        setCarregando(true);
+        setErroCarregar(false);
+      }
+      return listarLancamentos()
+        // O que está na janela do Desfazer ainda existe no servidor; recarregar
+        // nesse meio-tempo (uma recorrência gerada, um "tentar de novo") não
+        // pode trazê-lo de volta à tela.
+        .then((lista) => {
+          const esperando = idEsperandoRemocao();
+          setLancamentos(esperando ? lista.filter((l) => l.id !== esperando) : lista);
+          setErroCarregar(false);
+          return true;
+        })
+        .catch((e) => {
+          console.error(e);
+          if (!opcoes.silencioso) setErroCarregar(true);
+          return false;
+        })
+        .finally(() => {
+          if (!opcoes.silencioso) setCarregando(false);
+        });
+    },
+    [idEsperandoRemocao]
+  );
 
   const sincronizarCompetencia = useCallback(
     (alvo: Competencia) => {
@@ -222,18 +239,20 @@ export default function Dashboard({
       .finally(() => setCarregandoRecorrencias(false));
   }, []);
 
-  const carregarContasEmAberto = useCallback(() => {
+  const carregarContasEmAberto = useCallback((): Promise<boolean> => {
     // Feature desligada: nada de consultar pilhas e itens. `contasEmAberto`
     // fica zerado e o saldo projetado volta a olhar só os lançamentos.
-    if (!CONTAS_A_PAGAR_HABILITADO) return;
-    pendentesDeContas(mes, ano)
+    if (!CONTAS_A_PAGAR_HABILITADO) return Promise.resolve(true);
+    return pendentesDeContas(mes, ano)
       .then((r) => {
         setContasEmAberto(r);
         setFalhaAoAtualizar(false);
+        return true;
       })
       .catch((e) => {
         console.error(e);
         setFalhaAoAtualizar(true);
+        return false;
       });
   }, [mes, ano]);
 
@@ -241,16 +260,26 @@ export default function Dashboard({
     carregarContasEmAberto();
   }, [carregarContasEmAberto]);
 
-  const atualizarTudo = useCallback(() => {
-    carregar();
-    carregarContasEmAberto();
-    listarRecorrencias()
-      .then(setRecorrencias)
+  // A faixa de "Não consegui atualizar" reflete a rodada inteira: some quando
+  // tudo voltou, fica se qualquer parte falhou.
+  const atualizarTudo = useCallback(async () => {
+    const recorrenciasOk = listarRecorrencias()
+      .then((r) => {
+        setRecorrencias(r);
+        return true;
+      })
       .catch((e) => {
         console.error(e);
-        setFalhaAoAtualizar(true);
+        return false;
       });
+    const partes = await Promise.all([carregar({ silencioso: true }), carregarContasEmAberto(), recorrenciasOk]);
+    setFalhaAoAtualizar(partes.some((ok) => !ok));
   }, [carregar, carregarContasEmAberto]);
+
+  // Puxar a tela para baixo, no topo, faz a mesma atualização — para quem
+  // lançou pelo computador e quer ver no celular sem sair do app.
+  const toque = useToque();
+  const puxar = usePuxarParaAtualizar(atualizarTudo, toque);
 
   // Com o celular bloqueado o WebSocket cai, e os eventos perdidos nesse
   // intervalo não são reenviados — a tela voltaria com número velho. Ao
@@ -691,11 +720,14 @@ export default function Dashboard({
   return (
     <div
       ref={swipeHandlers.ref}
-      style={styles.page}
+      // Durante o puxar para atualizar, o conteúdo desce com o dedo (global.css).
+      data-puxando={puxar.estado === "parado" ? undefined : puxar.estado}
+      style={{ ...styles.page, ["--puxado" as string]: `${puxar.distancia}px` }}
       className="page-root page-com-bottom-nav"
       onTouchStart={swipeHandlers.onTouchStart}
       onTouchEnd={swipeHandlers.onTouchEnd}
     >
+      {toque && <IndicadorAtualizar distancia={puxar.distancia} estado={puxar.estado} />}
       {/* O topo: saudação pela hora do dia, o nome do app com a data de
           hoje, os três controles soltos à direita e o carrossel de meses.
           Sem logo: o ícone tinha cor fixa e destoava de qualquer cor de
@@ -910,7 +942,7 @@ export default function Dashboard({
             <p style={styles.erroTitulo}>
               Não foi possível carregar seus lançamentos.
             </p>
-            <button style={styles.retry} onClick={carregar}>
+            <button style={styles.retry} onClick={() => carregar()}>
               <RotateCw size={14} /> Tentar novamente
             </button>
           </div>
