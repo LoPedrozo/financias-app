@@ -143,9 +143,13 @@ escolha (como foi feito com o topo).
 5. ~~**Temas.**~~ Feita, num PR só: cores de destaque laranja e
    azul-petróleo; Preto total (OLED); Vidro (vidro fosco sobre manchas de
    cor, independente de claro/escuro).
-6. **Qualidade de vida.** Feito: tocar em Renda ou Gastos filtra a lista. A
-   explicar antes de decidir: "lançar de novo" num toque; puxar para baixo
-   para atualizar. Descartado: atalhos do ícone (só Android).
+6. ~~**Qualidade de vida.**~~ Feita: tocar em Renda ou Gastos filtra a
+   lista; puxar a tela para baixo, no topo, atualiza (só toque, sem modal
+   aberto; o conteúdo desce e o indicador aparece no espaço de cima). A
+   atualização de fundo — voltar ao app, puxar, "tentar de novo" da faixa —
+   é silenciosa: mantém a lista à vista e falha vira a faixa "Não consegui
+   atualizar", não a tela de erro. Descartados: "lançar de novo" num toque
+   (o Lorenzo não quis) e atalhos do ícone (só Android).
 
 ## Ideias guardadas
 
