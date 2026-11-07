@@ -104,4 +104,27 @@ describe("cores de destaque", () => {
       }
     }
   });
+
+  // Verde é entrada e vermelho é saída: um botão de lançar verde passaria a
+  // dizer "entrada" sem querer. As faixas são as mesmas das categorias
+  // (types/coresCategorias.test.ts) — o laranja fica logo depois da última
+  // terracota das saídas.
+  it("nenhuma cor de destaque cai no verde das entradas nem no vermelho das saídas", () => {
+    const matiz = (hex: string) => {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+      const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+      if (d === 0) return null;
+      const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      return (h * 60 + 360) % 360;
+    };
+    for (const d of DESTAQUES) {
+      for (const variante of ["claro", "escuro"] as const) {
+        const h = matiz(d[variante]);
+        if (h === null) continue;
+        const onde = `${d.nome} no ${variante} (matiz ${Math.round(h)})`;
+        expect(h >= 85 && h <= 170, `${onde} é verde`).toBe(false);
+        expect(h >= 335 || h <= 25, `${onde} é vermelho`).toBe(false);
+      }
+    }
+  });
 });

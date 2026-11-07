@@ -80,12 +80,16 @@
 
    Nenhuma tem contraste com o texto branco pior que o dourado do mesmo tema
    (há teste para isso) — trocar a cor não pode deixar botão ilegível. */
+:root[data-destaque="laranja"] { --accent: #df7620; --accent-soft: #fceee3; }
 :root[data-destaque="azul"] { --accent: #4a7fc1; --accent-soft: #e6eef8; }
+:root[data-destaque="petroleo"] { --accent: #266d82; --accent-soft: #e1eff4; }
 :root[data-destaque="roxo"] { --accent: #8467c4; --accent-soft: #ede8f8; }
 :root[data-destaque="rosa"] { --accent: #c2649a; --accent-soft: #f7e7f0; }
 :root[data-destaque="grafite"] { --accent: #5b6475; --accent-soft: #e9ebef; }
 
+:root[data-tema="escuro"][data-destaque="laranja"] { --accent: #ee9953; --accent-soft: #37271b; }
 :root[data-tema="escuro"][data-destaque="azul"] { --accent: #6f9bd6; --accent-soft: #1c2636; }
+:root[data-tema="escuro"][data-destaque="petroleo"] { --accent: #59a8c0; --accent-soft: #192d33; }
 :root[data-tema="escuro"][data-destaque="roxo"] { --accent: #a28ae0; --accent-soft: #262036; }
 :root[data-tema="escuro"][data-destaque="rosa"] { --accent: #d886b4; --accent-soft: #33202b; }
 :root[data-tema="escuro"][data-destaque="grafite"] { --accent: #8a93a3; --accent-soft: #262a32; }

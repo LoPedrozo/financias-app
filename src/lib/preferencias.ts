@@ -9,7 +9,7 @@
 // ser o motivo de o app não abrir.
 
 export type Tema = "auto" | "claro" | "escuro";
-export type Destaque = "dourado" | "azul" | "roxo" | "rosa" | "grafite";
+export type Destaque = "dourado" | "laranja" | "azul" | "petroleo" | "roxo" | "rosa" | "grafite";
 
 export interface Preferencias {
   tema: Tema;
@@ -41,7 +41,9 @@ export const DESTAQUES: Array<{
   escuro: string;
 }> = [
   { id: "dourado", nome: "Dourado", claro: "#c9a86a", escuro: "#d8bb81" },
+  { id: "laranja", nome: "Laranja", claro: "#df7620", escuro: "#ee9953" },
   { id: "azul", nome: "Azul", claro: "#4a7fc1", escuro: "#6f9bd6" },
+  { id: "petroleo", nome: "Azul-petróleo", claro: "#266d82", escuro: "#59a8c0" },
   { id: "roxo", nome: "Roxo", claro: "#8467c4", escuro: "#a28ae0" },
   { id: "rosa", nome: "Rosa", claro: "#c2649a", escuro: "#d886b4" },
   { id: "grafite", nome: "Grafite", claro: "#5b6475", escuro: "#8a93a3" },

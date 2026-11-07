@@ -132,10 +132,12 @@ escolha (como foi feito com o topo).
 4. ~~**Gráficos.**~~ Feita: a pizza e o "Quanto sobrou no ano" deram lugar a
    "Por categoria" (lista com barra, % e diferença para o mês anterior) e
    "Resumo do mês" (sobra, comparação em frases e sobra dos últimos 6 meses).
-5. **Temas.** Aprovados todos: Vidro (Liquid Glass fosco, independente de
-   claro/escuro, blur só em cards/painéis/barras, com teste de contraste);
-   Preto total (OLED); mais cores de destaque (laranja, azul-petróleo —
-   nunca verde/vermelho).
+5. **Temas.** Aprovados todos, um PR por vez. Feito: cores de destaque
+   laranja e azul-petróleo (há teste: destaque nunca cai no verde das
+   entradas nem no vermelho das saídas). Falta: Preto total (OLED); Vidro
+   (Liquid Glass fosco, independente de claro/escuro, blur só em
+   cards/painéis/barras, com teste de contraste — mostrar protótipos da
+   intensidade antes).
 6. **Qualidade de vida.** Feito: tocar em Renda ou Gastos filtra a lista. A
    explicar antes de decidir: "lançar de novo" num toque; puxar para baixo
    para atualizar. Descartado: atalhos do ícone (só Android).
