@@ -56,6 +56,12 @@ rm .env.local
   `borderStyle` e `borderColor` separados.
 - Campo de texto com fonte de 16px ou mais: abaixo disso o iPhone dá zoom
   na página ao tocar nele.
+- Todo modal usa a casca `Folha` (`src/components/Folha.tsx`: folha que sobe
+  de baixo no celular, título com X, corpo que rola, rodapé fixo acima do
+  teclado) e as peças de `src/components/campos.tsx` (rótulo, campo, valor
+  grande, atalhos de data, grade de categorias, botões). Não recriar overlay
+  nem estilos de campo dentro do modal. Os do Contas a pagar (desligado)
+  ficaram no estilo antigo.
 - Cores só por tokens CSS em `src/styles/global.css`. O tema escuro é
   `:root[data-tema="escuro"]` e precisa redefinir todo token de cor do claro
   (há teste). O script no `index.html` aplica tema/cor/lista antes do React e

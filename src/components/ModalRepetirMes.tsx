@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
-import { CopyCheck, Repeat, X } from "lucide-react";
-import { CATEGORIAS_ENTRADA, CATEGORIAS_SAIDA, MESES } from "../types";
+import { CopyCheck, Repeat } from "lucide-react";
+import { MESES } from "../types";
 import type { Lancamento, NovoLancamento } from "../types";
 import { mesmoDiaNoMes } from "../lib/calculos";
 import { chaveDaConta, conjuntoDeContas } from "../lib/duplicatas";
 import { brl, lerValor } from "../lib/format";
+import Folha from "./Folha";
+import IconeCategoria from "./IconeCategoria";
+import { BORDA, BotaoPrincipal } from "./campos";
 
 // A lista do mês passado colada no mês novo, que é o que se fazia à mão no
 // WhatsApp: quase tudo se repete, muda só o valor de um ou outro.
@@ -30,11 +33,6 @@ interface Props {
 
 function dataDe(l: Lancamento): string {
   return l.data ?? l.created_at.slice(0, 10);
-}
-
-function corDaCategoria(l: Lancamento): string {
-  const lista = l.tipo === "entrada" ? CATEGORIAS_ENTRADA : CATEGORIAS_SAIDA;
-  return lista.find((c) => c.nome === l.categoria)?.cor ?? "#9aa3b0";
 }
 
 function paraTexto(valor: number): string {
@@ -122,215 +120,140 @@ export default function ModalRepetirMes({
     }
   }
 
+  const desligado = escolhidos.length === 0 || algumInvalido || salvando;
+
   return (
-    <div
-      style={styles.overlay}
-      className="overlay-sheet"
-      data-modal
-      onClick={onFechar}
-    >
-      <div
-        style={styles.modal}
-        className="modal-mobile modal-sheet"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={styles.head}>
-          <h3 style={styles.titulo}>
-            Repetir {mesOrigemNome} em {MESES[mes]}
-          </h3>
-          <button style={styles.fechar} onClick={onFechar} aria-label="Fechar">
-            <X size={18} />
-          </button>
-        </div>
-
-        <p style={styles.explicacao}>
-          Desmarque o que não se repete e ajuste os valores que mudaram. As
-          datas vão para o mesmo dia de {MESES[mes]}.
-        </p>
-
-        {candidatos.length === 0 ? (
-          <p style={styles.vazio}>
-            {mesOrigemNome} não tem lançamentos para repetir.
-          </p>
-        ) : (
-          <>
-            <div style={styles.lista}>
-              {candidatos.map((l) => {
-                const marcado = selecionados.has(l.id);
-                const texto = valores[l.id] ?? "";
-                const invalido = marcado && lerValor(texto) === null;
-                const cor =
-                  l.tipo === "entrada" ? "var(--green)" : "var(--red)";
-                return (
-                  <div
-                    key={l.id}
-                    style={{ ...styles.linha, opacity: marcado ? 1 : 0.5 }}
-                  >
-                    <label style={styles.alvo}>
-                      <input
-                        type="checkbox"
-                        checked={marcado}
-                        onChange={() => alternar(l.id)}
-                        style={styles.checkbox}
-                      />
-                      <span style={styles.textos}>
-                        <span style={styles.descricao}>{l.descricao}</span>
-                        <span style={styles.meta}>
-                          <span
-                            style={{
-                              ...styles.pontoCategoria,
-                              background: corDaCategoria(l),
-                            }}
-                          />
-                          {l.categoria} · dia {dataDe(l).slice(8, 10)}
-                        </span>
-                      </span>
-                    </label>
-                    <span style={{ ...styles.sinal, color: cor }}>
-                      {l.tipo === "entrada" ? "+" : "−"}
-                    </span>
-                    <input
-                      value={texto}
-                      inputMode="decimal"
-                      disabled={!marcado}
-                      onChange={(e) =>
-                        setValores((atual) => ({
-                          ...atual,
-                          [l.id]: e.target.value.replace(/[^0-9.,]/g, ""),
-                        }))
-                      }
-                      style={{
-                        ...styles.valor,
-                        borderColor: invalido
-                          ? "var(--red)"
-                          : "var(--border)",
-                        color: cor,
-                      }}
-                      aria-label={`Valor de ${l.descricao}`}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            {(geradas.length > 0 || jaExistem.size > 0) && (
-              <div style={styles.notas}>
-                {geradas.length > 0 && (
-                  <p style={styles.nota}>
-                    <Repeat size={13} style={{ flexShrink: 0 }} />
-                    <span>
-                      {geradas.length}{" "}
-                      {geradas.length === 1
-                        ? "lançamento de recorrência ficou"
-                        : "lançamentos de recorrência ficaram"}{" "}
-                      de fora — {geradas.length === 1 ? "ele se gera" : "eles se geram"}{" "}
-                      sozinho{geradas.length === 1 ? "" : "s"}.
-                    </span>
-                  </p>
-                )}
-                {jaExistem.size > 0 && (
-                  <p style={styles.nota}>
-                    <CopyCheck size={13} style={{ flexShrink: 0 }} />
-                    <span>
-                      {jaExistem.size}{" "}
-                      {jaExistem.size === 1 ? "já existe" : "já existem"} em{" "}
-                      {MESES[mes]} e {jaExistem.size === 1 ? "veio" : "vieram"}{" "}
-                      desmarcado{jaExistem.size === 1 ? "" : "s"}.
-                    </span>
-                  </p>
-                )}
-              </div>
-            )}
-
+    <Folha
+      titulo={`Repetir ${mesOrigemNome} em ${MESES[mes]}`}
+      onFechar={onFechar}
+      largura={460}
+      rodape={
+        <>
+          {candidatos.length > 0 && (
             <div style={styles.resumo}>
               <span style={styles.resumoRotulo}>
                 {escolhidos.length} de {candidatos.length}
               </span>
-              <span
-                style={{
-                  ...styles.resumoValor,
-                  color: saldo >= 0 ? "var(--green)" : "var(--red)",
-                }}
-              >
+              <span style={{ ...styles.resumoValor, color: saldo >= 0 ? "var(--green)" : "var(--red)" }}>
                 {saldo >= 0 ? "+" : "−"} {brl(Math.abs(saldo))}
               </span>
             </div>
-          </>
-        )}
+          )}
+          <BotaoPrincipal onClick={submit} desligado={desligado}>
+            {salvando
+              ? "Trazendo..."
+              : algumInvalido
+                ? "Confira os valores em vermelho"
+                : escolhidos.length === 0
+                  ? "Escolha o que repetir"
+                  : `Trazer ${escolhidos.length} para ${MESES[mes]}`}
+          </BotaoPrincipal>
+        </>
+      }
+    >
+      <p style={styles.explicacao}>
+        Desmarque o que não se repete e ajuste os valores que mudaram. As
+        datas vão para o mesmo dia de {MESES[mes]}.
+      </p>
 
-        <button
-          type="button"
-          style={{
-            ...styles.salvar,
-            opacity:
-              escolhidos.length === 0 || algumInvalido || salvando ? 0.5 : 1,
-            cursor:
-              escolhidos.length === 0 || algumInvalido || salvando
-                ? "not-allowed"
-                : "pointer",
-          }}
-          onClick={submit}
-          disabled={escolhidos.length === 0 || algumInvalido || salvando}
-        >
-          {salvando
-            ? "Trazendo..."
-            : algumInvalido
-              ? "Confira os valores em vermelho"
-              : escolhidos.length === 0
-                ? "Escolha o que repetir"
-                : `Trazer ${escolhidos.length} para ${MESES[mes]}`}
-        </button>
-      </div>
-    </div>
+      {candidatos.length === 0 ? (
+        <p style={styles.vazio}>
+          {mesOrigemNome} não tem lançamentos para repetir.
+        </p>
+      ) : (
+        <>
+          <div style={styles.lista}>
+            {candidatos.map((l) => {
+              const marcado = selecionados.has(l.id);
+              const texto = valores[l.id] ?? "";
+              const invalido = marcado && lerValor(texto) === null;
+              const cor = l.tipo === "entrada" ? "var(--green)" : "var(--red)";
+              return (
+                <div key={l.id} style={{ ...styles.linha, opacity: marcado ? 1 : 0.5 }}>
+                  <label style={styles.alvo}>
+                    <input
+                      type="checkbox"
+                      checked={marcado}
+                      onChange={() => alternar(l.id)}
+                      style={styles.checkbox}
+                    />
+                    <IconeCategoria tipo={l.tipo} categoria={l.categoria} tamanho={32} />
+                    <span style={styles.textos}>
+                      <span style={styles.descricao}>{l.descricao}</span>
+                      <span style={styles.meta}>
+                        {l.categoria} · dia {dataDe(l).slice(8, 10)}
+                      </span>
+                    </span>
+                  </label>
+                  <span style={{ ...styles.sinal, color: cor }}>
+                    {l.tipo === "entrada" ? "+" : "−"}
+                  </span>
+                  <input
+                    value={texto}
+                    inputMode="decimal"
+                    disabled={!marcado}
+                    onChange={(e) =>
+                      setValores((atual) => ({
+                        ...atual,
+                        [l.id]: e.target.value.replace(/[^0-9.,]/g, ""),
+                      }))
+                    }
+                    style={{
+                      ...styles.valor,
+                      borderColor: invalido ? "var(--red)" : "transparent",
+                      color: cor,
+                    }}
+                    aria-invalid={invalido}
+                    aria-label={`Valor de ${l.descricao}`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          {(geradas.length > 0 || jaExistem.size > 0) && (
+            <div style={styles.notas}>
+              {geradas.length > 0 && (
+                <p style={styles.nota}>
+                  <Repeat size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>
+                    {geradas.length}{" "}
+                    {geradas.length === 1
+                      ? "lançamento de recorrência ficou"
+                      : "lançamentos de recorrência ficaram"}{" "}
+                    de fora — {geradas.length === 1 ? "ele se gera" : "eles se geram"}{" "}
+                    sozinho{geradas.length === 1 ? "" : "s"}.
+                  </span>
+                </p>
+              )}
+              {jaExistem.size > 0 && (
+                <p style={styles.nota}>
+                  <CopyCheck size={13} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <span>
+                    {jaExistem.size}{" "}
+                    {jaExistem.size === 1 ? "já existe" : "já existem"} em{" "}
+                    {MESES[mes]} e {jaExistem.size === 1 ? "veio" : "vieram"}{" "}
+                    desmarcado{jaExistem.size === 1 ? "" : "s"}.
+                  </span>
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </Folha>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(16, 24, 40, 0.35)",
-    backdropFilter: "blur(3px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    zIndex: 56,
-  },
-  modal: {
-    background: "var(--surface)",
-    borderRadius: 20,
-    padding: 26,
-    width: "100%",
-    maxWidth: 460,
-    maxHeight: "88vh",
-    overflowY: "auto",
-    boxShadow: "0 20px 60px rgba(16,24,40,0.18)",
-    animation: "fadeUp 0.25s ease",
-  },
-  head: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 10,
-  },
-  titulo: { fontSize: 18, fontWeight: 700 },
-  fechar: {
-    background: "none",
-    border: "none",
-    color: "var(--text-faint)",
-    display: "flex",
-    flexShrink: 0,
-  },
   explicacao: {
-    fontSize: 13,
+    fontSize: 13.5,
     color: "var(--text-soft)",
     lineHeight: 1.5,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   vazio: {
-    fontSize: 13.5,
+    fontSize: 14,
     color: "var(--text-faint)",
     padding: "18px 0",
     textAlign: "center",
@@ -338,13 +261,12 @@ const styles: Record<string, React.CSSProperties> = {
   lista: {
     display: "flex",
     flexDirection: "column",
-    gap: 4,
   },
   linha: {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    padding: "8px 0",
+    padding: "10px 0",
     borderBottom: "1px solid var(--border)",
     minWidth: 0,
   },
@@ -357,9 +279,10 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   checkbox: {
-    width: 19,
-    height: 19,
+    width: 20,
+    height: 20,
     flexShrink: 0,
+    margin: 0,
     accentColor: "var(--accent)",
   },
   textos: {
@@ -369,28 +292,19 @@ const styles: Record<string, React.CSSProperties> = {
     minWidth: 0,
   },
   descricao: {
-    fontSize: 13.5,
+    fontSize: 14,
     color: "var(--text)",
-    fontWeight: 500,
+    fontWeight: 600,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   meta: {
-    display: "flex",
-    alignItems: "center",
-    gap: 5,
-    fontSize: 11.5,
+    fontSize: 12,
     color: "var(--text-faint)",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-  },
-  pontoCategoria: {
-    width: 7,
-    height: 7,
-    borderRadius: "50%",
-    flexShrink: 0,
   },
   sinal: {
     fontSize: 15,
@@ -398,15 +312,18 @@ const styles: Record<string, React.CSSProperties> = {
     flexShrink: 0,
   },
   valor: {
-    width: 84,
+    width: 96,
+    height: 40,
     flexShrink: 0,
     background: "var(--bg)",
-    border: "1px solid var(--border)",
-    borderRadius: 9,
-    padding: "8px 8px",
-    fontSize: 14,
-    fontWeight: 600,
+    ...BORDA,
+    borderRadius: 10,
+    padding: "0 10px",
+    // 16px: abaixo disso o iPhone dá zoom na página ao tocar no campo.
+    fontSize: 16,
+    fontWeight: 700,
     fontFamily: "'Sora', sans-serif",
+    fontVariantNumeric: "tabular-nums",
     textAlign: "right",
     outline: "none",
   },
@@ -414,13 +331,13 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 6,
-    marginTop: 12,
+    margin: "12px 0 4px",
   },
   nota: {
     display: "flex",
     alignItems: "flex-start",
     gap: 7,
-    fontSize: 12,
+    fontSize: 12.5,
     color: "var(--text-faint)",
     lineHeight: 1.45,
   },
@@ -428,25 +345,13 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
-    marginTop: 14,
-    paddingTop: 10,
-    borderTop: "1px solid var(--border)",
+    margin: "0 2px 10px",
   },
   resumoRotulo: { fontSize: 13, color: "var(--text-soft)", fontWeight: 600 },
   resumoValor: {
     fontFamily: "'Sora', sans-serif",
     fontSize: 20,
     fontWeight: 700,
-  },
-  salvar: {
-    width: "100%",
-    background: "var(--accent)",
-    color: "#fff",
-    border: "none",
-    padding: 14,
-    borderRadius: 12,
-    fontWeight: 600,
-    fontSize: 15,
-    marginTop: 18,
+    fontVariantNumeric: "tabular-nums",
   },
 };

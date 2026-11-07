@@ -94,6 +94,20 @@ describe("ModalRecorrencia", () => {
     expect(onSalvar).toHaveBeenLastCalledWith(expect.objectContaining({ descricao: "Netflix" }), []);
   });
 
+  // Com o Salvar fixo no rodapé, um aviso no fim da folha podia nunca ser
+  // visto: ele aparece logo abaixo da descrição, antes das categorias.
+  it("o aviso de conta já lançada fica antes das categorias", async () => {
+    const manual: Lancamento = {
+      id: "m1", user_id: "u", tipo: "saida", valor: 49.9, descricao: "Netflix", categoria: "Assinaturas",
+      mes: 10, ano: 2026, data: "2026-11-03", created_at: "2026-11-03T10:00:00Z",
+    };
+    abrir({ mesAlvo: { mes: 10, ano: 2026, nome: "Novembro", lancamentos: [manual] } });
+    await userEvent.type(screen.getByLabelText("Descrição"), "Netflix");
+    const aviso = screen.getByText(/lançado à mão/);
+    const categorias = screen.getByText("Categoria");
+    expect(aviso.compareDocumentPosition(categorias) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("editando: vem preenchida, mantém o ativo e salva como alteração", async () => {
     const rec: Recorrencia = {
       id: "r1", user_id: "u", tipo: "saida", valor: 120, descricao: "Internet", categoria: "Casa",
