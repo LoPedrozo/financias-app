@@ -1,4 +1,4 @@
-import { Check, EyeOff, LogOut, Rows3 } from "lucide-react";
+import { Check, EyeOff, Layers, LogOut, Moon, Rows3 } from "lucide-react";
 import type { ReactNode } from "react";
 import { usePreferencias } from "../hooks/usePreferencias";
 import { DESTAQUES, temaEfetivo } from "../lib/preferencias";
@@ -121,6 +121,24 @@ export default function ModalPreferencias({ email, onSair, onFechar }: Props) {
             </button>
           );
         })}
+      </div>
+
+      <p style={estiloRotulo}>Estilo</p>
+      <div style={estilos.grupo}>
+        <Interruptor
+          ligado={preferencias.preto}
+          onMudar={(v) => mudar({ preto: v })}
+          titulo="Preto total"
+          descricao="No tema escuro, fundo preto de verdade: a tela do iPhone apaga esses pontos e gasta menos bateria."
+          icone={<Moon size={17} />}
+        />
+        <Interruptor
+          ligado={preferencias.vidro}
+          onMudar={(v) => mudar({ vidro: v })}
+          titulo="Vidro"
+          descricao="Cards e barras de vidro fosco sobre um fundo na cor de destaque. Vale no claro e no escuro."
+          icone={<Layers size={17} />}
+        />
       </div>
 
       <p style={estiloRotulo}>Uso</p>

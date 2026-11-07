@@ -104,6 +104,14 @@ Já discutidas e fechadas. Não desfaça sem perguntar.
   continuam olhando o mês inteiro (há teste).
 - **Foco no iPhone**: o Lorenzo não usa Android; recurso que só funciona no
   Android não entra.
+- **Preto total e Vidro são interruptores** em Preferências → Estilo, não
+  temas novos. O preto só vale com o tema escuro e fica gravado mesmo no
+  claro, para o "Automático" sair preto à noite. O vidro vale em qualquer
+  tema: cards, painéis e a barra de baixo ficam translúcidos sobre manchas
+  de cor (a cor de destaque/tom do período e o anil); os modais continuam
+  sólidos. A opacidade foi escolhida pelo contraste do texto no pior ponto
+  do fundo (`src/teste/vidro.test.ts`) — mais transparente que isso deixa o
+  cinza ilegível. Cor de destaque nunca é verde nem vermelha (há teste).
 - **Resumo e "Por categoria" contam como os cards de Renda/Gastos** (só o que
   já aconteceu) e comparam o mês atual com o **mesmo período** do anterior
   (dia 6 contra 1 a 6 do mês passado); mês que já passou, inteiro contra
@@ -132,12 +140,9 @@ escolha (como foi feito com o topo).
 4. ~~**Gráficos.**~~ Feita: a pizza e o "Quanto sobrou no ano" deram lugar a
    "Por categoria" (lista com barra, % e diferença para o mês anterior) e
    "Resumo do mês" (sobra, comparação em frases e sobra dos últimos 6 meses).
-5. **Temas.** Aprovados todos, um PR por vez. Feito: cores de destaque
-   laranja e azul-petróleo (há teste: destaque nunca cai no verde das
-   entradas nem no vermelho das saídas). Falta: Preto total (OLED); Vidro
-   (Liquid Glass fosco, independente de claro/escuro, blur só em
-   cards/painéis/barras, com teste de contraste — mostrar protótipos da
-   intensidade antes).
+5. ~~**Temas.**~~ Feita, num PR só: cores de destaque laranja e
+   azul-petróleo; Preto total (OLED); Vidro (vidro fosco sobre manchas de
+   cor, independente de claro/escuro).
 6. **Qualidade de vida.** Feito: tocar em Renda ou Gastos filtra a lista. A
    explicar antes de decidir: "lançar de novo" num toque; puxar para baixo
    para atualizar. Descartado: atalhos do ícone (só Android).

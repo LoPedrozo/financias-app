@@ -32,6 +32,8 @@ describe("lerPreferencias", () => {
       destaque: "roxo" as const,
       ocultarValores: true,
       listaCompacta: true,
+      preto: true,
+      vidro: true,
     };
     salvarPreferencias(minhas, a);
     expect(lerPreferencias(a)).toEqual(minhas);
@@ -51,6 +53,8 @@ describe("lerPreferencias", () => {
         destaque: "verde", // não existe mais: verde é a cor de entrada
         ocultarValores: true,
         listaCompacta: "sim",
+        preto: 1,
+        vidro: true,
       }),
     });
     expect(lerPreferencias(a)).toEqual({
@@ -58,6 +62,8 @@ describe("lerPreferencias", () => {
       destaque: "dourado",
       ocultarValores: true,
       listaCompacta: false,
+      preto: false,
+      vidro: true,
     });
   });
 
@@ -110,5 +116,24 @@ describe("aplicarNoDocumento", () => {
     aplicarNoDocumento(PADRAO, false, raiz);
     expect(raiz.hasAttribute("data-destaque")).toBe(false);
     expect(raiz.hasAttribute("data-lista")).toBe(false);
+  });
+
+  it("preto e vidro: liga e desliga os atributos", () => {
+    const raiz = document.createElement("html");
+    aplicarNoDocumento({ ...PADRAO, tema: "escuro", preto: true, vidro: true }, false, raiz);
+    expect(raiz.hasAttribute("data-preto")).toBe(true);
+    expect(raiz.hasAttribute("data-vidro")).toBe(true);
+    aplicarNoDocumento(PADRAO, false, raiz);
+    expect(raiz.hasAttribute("data-preto")).toBe(false);
+    expect(raiz.hasAttribute("data-vidro")).toBe(false);
+  });
+
+  // O preto fica gravado mesmo no claro: quem decide se vale é o CSS, junto
+  // com o tema efetivo — e o "Automático" à noite já sai preto.
+  it("preto com o automático: grava o atributo e o tema segue o sistema", () => {
+    const raiz = document.createElement("html");
+    aplicarNoDocumento({ ...PADRAO, preto: true }, true, raiz);
+    expect(raiz.getAttribute("data-tema")).toBe("escuro");
+    expect(raiz.hasAttribute("data-preto")).toBe(true);
   });
 });

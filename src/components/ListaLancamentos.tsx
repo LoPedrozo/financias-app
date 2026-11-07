@@ -197,7 +197,13 @@ function Linha({
   );
 
   return (
-    <div className="item-lancamento" style={estilos.item}>
+    <div
+      className="item-lancamento"
+      // Com os botões de baixo à vista, a linha precisa de fundo para
+      // cobri-los — no vidro ela é transparente fora disso (global.css).
+      data-deslizando={toque && (aberta || arrasto !== null) ? "" : undefined}
+      style={estilos.item}
+    >
       {toque && (
         // Invisíveis com a linha fechada: o vermelho e o dourado vazavam
         // como um risco pelo canto arredondado. Opacidade, e não display:none,
