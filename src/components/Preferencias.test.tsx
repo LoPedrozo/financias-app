@@ -59,7 +59,7 @@ describe("preferências", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    ["data-tema", "data-destaque", "data-lista"].forEach((a) =>
+    ["data-tema", "data-destaque", "data-lista", "data-preto", "data-vidro"].forEach((a) =>
       raiz().removeAttribute(a)
     );
     vi.mocked(listarLancamentos).mockResolvedValue([lancamento]);
@@ -109,6 +109,24 @@ describe("preferências", () => {
   });
 
   // O ponto da privacidade: nenhum número da tela principal pode sobrar.
+  it("preto total e vidro ligam os atributos que o CSS usa, e ficam salvos", async () => {
+    montar();
+    const modal = await abrirPreferencias();
+    await userEvent.click(within(modal).getByRole("radio", { name: "Escuro" }));
+    await userEvent.click(within(modal).getByRole("switch", { name: /Preto total/ }));
+    await userEvent.click(within(modal).getByRole("switch", { name: /Vidro/ }));
+    expect(raiz().getAttribute("data-tema")).toBe("escuro");
+    expect(raiz().hasAttribute("data-preto")).toBe(true);
+    expect(raiz().hasAttribute("data-vidro")).toBe(true);
+    const salvo = JSON.parse(localStorage.getItem(CHAVE_PREFERENCIAS)!);
+    expect(salvo.preto).toBe(true);
+    expect(salvo.vidro).toBe(true);
+
+    await userEvent.click(within(modal).getByRole("switch", { name: /Vidro/ }));
+    expect(raiz().hasAttribute("data-vidro")).toBe(false);
+    expect(within(modal).getByRole("switch", { name: /Vidro/ })).toHaveAttribute("aria-checked", "false");
+  });
+
   it("esconder valores some com todos os números da tela, e volta", async () => {
     montar();
     await screen.findByText("salário");

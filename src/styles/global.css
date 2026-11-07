@@ -26,6 +26,12 @@
   --tom-manha: #e9a649;
   --tom-noite: #6c7bd9;
   --tom-forca: 11%;
+  /* Vidro (data-vidro): a superfície translúcida dos cards e a força das
+     manchas de cor do fundo. A opacidade foi escolhida pelo contraste do
+     texto no pior ponto do fundo — há teste (src/teste/vidro.test.ts). */
+  --vidro: rgba(255, 255, 255, 0.75);
+  --vidro-borda: rgba(255, 255, 255, 0.8);
+  --vidro-mancha: 22%;
   color-scheme: light;
 }
 
@@ -64,10 +70,34 @@
   --tom-manha: #e3a04d;
   --tom-noite: #7c8cff;
   --tom-forca: 18%;
+  --vidro: rgba(28, 32, 39, 0.7);
+  --vidro-borda: rgba(255, 255, 255, 0.07);
+  --vidro-mancha: 34%;
   /* Faz o navegador desenhar o calendário do campo de data e a lista do
      select em escuro. Sem isto, tocar na data abre um painel branco no meio
      da tela escura. */
   color-scheme: dark;
+}
+
+/* Preto total (data-preto), só valendo com o tema escuro.
+   Na tela OLED do iPhone, preto de verdade é pixel apagado: gasta menos
+   bateria e o escuro fica mais fundo. O fundo é #000; os cards ficam um
+   degrau acima, só o bastante para se separarem do fundo sem sombra (sombra
+   não aparece sobre preto). O resto do escuro — texto, verde, vermelho,
+   destaque — continua igual. Como o atributo fica gravado mesmo no claro, o
+   "Automático" à noite já sai preto. */
+:root[data-tema="escuro"][data-preto] {
+  --bg: #000000;
+  --surface: #0e1013;
+  --border: #1d2026;
+  /* Sombra transparente, e não "none": o vidro soma um brilho a ela, e uma
+     lista com "none" no meio invalida a declaração inteira. */
+  --shadow: 0 0 0 transparent;
+  --barra-rolagem: #2a2e36;
+  --brilho-topo: #08090a;
+  --tom-forca: 12%;
+  --vidro: rgba(14, 16, 19, 0.65);
+  --vidro-mancha: 30%;
 }
 
 /* Cores de destaque.
@@ -80,12 +110,16 @@
 
    Nenhuma tem contraste com o texto branco pior que o dourado do mesmo tema
    (há teste para isso) — trocar a cor não pode deixar botão ilegível. */
+:root[data-destaque="laranja"] { --accent: #df7620; --accent-soft: #fceee3; }
 :root[data-destaque="azul"] { --accent: #4a7fc1; --accent-soft: #e6eef8; }
+:root[data-destaque="petroleo"] { --accent: #266d82; --accent-soft: #e1eff4; }
 :root[data-destaque="roxo"] { --accent: #8467c4; --accent-soft: #ede8f8; }
 :root[data-destaque="rosa"] { --accent: #c2649a; --accent-soft: #f7e7f0; }
 :root[data-destaque="grafite"] { --accent: #5b6475; --accent-soft: #e9ebef; }
 
+:root[data-tema="escuro"][data-destaque="laranja"] { --accent: #ee9953; --accent-soft: #37271b; }
 :root[data-tema="escuro"][data-destaque="azul"] { --accent: #6f9bd6; --accent-soft: #1c2636; }
+:root[data-tema="escuro"][data-destaque="petroleo"] { --accent: #59a8c0; --accent-soft: #192d33; }
 :root[data-tema="escuro"][data-destaque="roxo"] { --accent: #a28ae0; --accent-soft: #262036; }
 :root[data-tema="escuro"][data-destaque="rosa"] { --accent: #d886b4; --accent-soft: #33202b; }
 :root[data-tema="escuro"][data-destaque="grafite"] { --accent: #8a93a3; --accent-soft: #262a32; }
@@ -151,6 +185,58 @@
     transparent 75%
   );
   background-repeat: no-repeat;
+}
+
+/* Vidro (data-vidro): cards, painéis e a barra de baixo de vidro fosco sobre
+   um fundo com manchas na cor de destaque. Vale no claro, no escuro e no
+   preto — é um acabamento, não um tema de cores.
+
+   As manchas ficam numa camada fixa atrás de tudo (body::before), para não
+   rolarem com a página. A primeira segue o tom do período (âmbar de manhã,
+   a cor de destaque à tarde, anil à noite) e toma o lugar do véu do topo; a
+   segunda é sempre anil, para o vidro ter mais de uma cor por trás, como no
+   protótipo aprovado. O
+   desfoque fica só em cards, painéis e barras: os modais continuam sólidos,
+   porque formulário pede leitura firme.
+
+   Sem color-mix ou backdrop-filter (iPhone muito antigo), as declarações são
+   ignoradas: o fundo fica liso e os cards, translúcidos sem desfoque —
+   legíveis do mesmo jeito, que é o que o teste de contraste garante. */
+:root[data-vidro][data-periodo] body {
+  background-image: none;
+}
+:root[data-vidro] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 45% at 6% 0%, color-mix(in srgb, var(--tom, var(--accent)) var(--vidro-mancha), transparent), transparent 70%),
+    radial-gradient(60% 40% at 100% 55%, color-mix(in srgb, var(--tom-noite) calc(var(--vidro-mancha) * 0.7), transparent), transparent 70%),
+    radial-gradient(65% 40% at 0% 100%, color-mix(in srgb, var(--accent) calc(var(--vidro-mancha) * 0.5), transparent), transparent 70%);
+}
+/* No claro, o texto secundário desce um tom: sobre vidro em cima de uma
+   mancha escura (azul-petróleo, grafite) ele ficaria abaixo de 4,5:1. */
+:root[data-vidro]:not([data-tema="escuro"]) {
+  --text-soft: #5f6676;
+}
+:root[data-vidro] .panel-mobile,
+:root[data-vidro] .resumo-mes,
+:root[data-vidro] .bottom-nav {
+  background: var(--vidro) !important;
+  border-color: var(--vidro-borda) !important;
+  /* O fio de luz na borda de cima é o que faz parecer vidro — e não mexe no
+     contraste de nada, porque não fica atrás de texto. */
+  box-shadow: inset 0 1px 0 var(--vidro-borda), var(--shadow) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+}
+/* A linha da lista tem fundo para cobrir os botões de Editar/Apagar que
+   ficam embaixo. No vidro ela fica transparente — e só ganha fundo enquanto
+   desliza, que é quando os botões aparecem. */
+:root[data-vidro] .item-lancamento:not([data-deslizando]) .linha-conteudo {
+  background: transparent !important;
 }
 
 * {

@@ -29,12 +29,14 @@ function atributos(raiz: HTMLElement) {
     tema: raiz.getAttribute("data-tema"),
     destaque: raiz.getAttribute("data-destaque"),
     lista: raiz.getAttribute("data-lista"),
+    preto: raiz.getAttribute("data-preto"),
+    vidro: raiz.getAttribute("data-vidro"),
   };
 }
 
 function limpar() {
   const raiz = document.documentElement;
-  ["data-tema", "data-destaque", "data-lista"].forEach((a) =>
+  ["data-tema", "data-destaque", "data-lista", "data-preto", "data-vidro"].forEach((a) =>
     raiz.removeAttribute(a)
   );
   localStorage.clear();
@@ -54,6 +56,11 @@ const casos: Array<[string, Partial<Preferencias> | null, boolean]> = [
   ["destaque roxo", { destaque: "roxo" }, false],
   ["dourado não grava atributo", { destaque: "dourado" }, false],
   ["lista compacta", { listaCompacta: true }, false],
+  ["preto total no escuro", { tema: "escuro", preto: true }, false],
+  ["preto total com o automático (sistema escuro)", { tema: "auto", preto: true }, true],
+  ["preto total gravado com o tema claro", { tema: "claro", preto: true }, false],
+  ["vidro no claro", { vidro: true }, false],
+  ["vidro e preto juntos", { tema: "escuro", vidro: true, preto: true }, false],
   [
     "tudo junto",
     { tema: "escuro", destaque: "azul", listaCompacta: true, ocultarValores: true },

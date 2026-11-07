@@ -1,4 +1,4 @@
-import { Check, EyeOff, LogOut, Rows3 } from "lucide-react";
+import { Check, EyeOff, Layers, LogOut, Moon, Rows3 } from "lucide-react";
 import type { ReactNode } from "react";
 import { usePreferencias } from "../hooks/usePreferencias";
 import { DESTAQUES, temaEfetivo } from "../lib/preferencias";
@@ -93,7 +93,11 @@ export default function ModalPreferencias({ email, onSair, onFechar }: Props) {
       <p style={estiloRotulo} id="rotulo-cor">
         Cor de destaque
       </p>
-      <div style={estilos.amostras} role="radiogroup" aria-labelledby="rotulo-cor">
+      <div
+        style={{ ...estilos.amostras, gridTemplateColumns: `repeat(${DESTAQUES.length}, 1fr)` }}
+        role="radiogroup"
+        aria-labelledby="rotulo-cor"
+      >
         {DESTAQUES.map((d) => {
           const ativo = preferencias.destaque === d.id;
           return (
@@ -117,6 +121,24 @@ export default function ModalPreferencias({ email, onSair, onFechar }: Props) {
             </button>
           );
         })}
+      </div>
+
+      <p style={estiloRotulo}>Estilo</p>
+      <div style={estilos.grupo}>
+        <Interruptor
+          ligado={preferencias.preto}
+          onMudar={(v) => mudar({ preto: v })}
+          titulo="Preto total"
+          descricao="No tema escuro, fundo preto de verdade: a tela do iPhone apaga esses pontos e gasta menos bateria."
+          icone={<Moon size={17} />}
+        />
+        <Interruptor
+          ligado={preferencias.vidro}
+          onMudar={(v) => mudar({ vidro: v })}
+          titulo="Vidro"
+          descricao="Cards e barras de vidro fosco sobre um fundo na cor de destaque. Vale no claro e no escuro."
+          icone={<Layers size={17} />}
+        />
       </div>
 
       <p style={estiloRotulo}>Uso</p>
@@ -151,10 +173,13 @@ export default function ModalPreferencias({ email, onSair, onFechar }: Props) {
 }
 
 const estilos: Record<string, React.CSSProperties> = {
-  amostras: { display: "flex", gap: 14, padding: "4px 2px" },
+  // Uma coluna por cor, todas numa linha: em 320px cada bolinha encolhe
+  // (até sobrar 10px em volta, para o anel da escolhida não encostar na
+  // vizinha); em tela larga fica nos 36px.
+  amostras: { display: "grid", justifyItems: "center", padding: "6px 0" },
   amostra: {
-    width: 36,
-    height: 36,
+    width: "min(36px, 100% - 10px)",
+    aspectRatio: "1",
     borderRadius: "50%",
     border: "none",
     display: "flex",

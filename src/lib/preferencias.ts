@@ -9,13 +9,17 @@
 // ser o motivo de o app não abrir.
 
 export type Tema = "auto" | "claro" | "escuro";
-export type Destaque = "dourado" | "azul" | "roxo" | "rosa" | "grafite";
+export type Destaque = "dourado" | "laranja" | "azul" | "petroleo" | "roxo" | "rosa" | "grafite";
 
 export interface Preferencias {
   tema: Tema;
   destaque: Destaque;
   ocultarValores: boolean;
   listaCompacta: boolean;
+  /** No escuro, fundo preto de verdade (tela OLED apaga esses pontos). */
+  preto: boolean;
+  /** Cards e barras de vidro fosco sobre um fundo na cor de destaque. */
+  vidro: boolean;
 }
 
 export const PADRAO: Preferencias = {
@@ -23,6 +27,8 @@ export const PADRAO: Preferencias = {
   destaque: "dourado",
   ocultarValores: false,
   listaCompacta: false,
+  preto: false,
+  vidro: false,
 };
 
 // O script de index.html lê esta mesma chave antes do React existir. Um teste
@@ -41,7 +47,9 @@ export const DESTAQUES: Array<{
   escuro: string;
 }> = [
   { id: "dourado", nome: "Dourado", claro: "#c9a86a", escuro: "#d8bb81" },
+  { id: "laranja", nome: "Laranja", claro: "#df7620", escuro: "#ee9953" },
   { id: "azul", nome: "Azul", claro: "#4a7fc1", escuro: "#6f9bd6" },
+  { id: "petroleo", nome: "Azul-petróleo", claro: "#266d82", escuro: "#59a8c0" },
   { id: "roxo", nome: "Roxo", claro: "#8467c4", escuro: "#a28ae0" },
   { id: "rosa", nome: "Rosa", claro: "#c2649a", escuro: "#d886b4" },
   { id: "grafite", nome: "Grafite", claro: "#5b6475", escuro: "#8a93a3" },
@@ -88,6 +96,8 @@ export function lerPreferencias(armazem = armazemPadrao()): Preferencias {
       typeof p.listaCompacta === "boolean"
         ? p.listaCompacta
         : PADRAO.listaCompacta,
+    preto: typeof p.preto === "boolean" ? p.preto : PADRAO.preto,
+    vidro: typeof p.vidro === "boolean" ? p.vidro : PADRAO.vidro,
   };
 }
 
@@ -128,6 +138,14 @@ export function aplicarNoDocumento(
 
   if (preferencias.listaCompacta) raiz.setAttribute("data-lista", "compacta");
   else raiz.removeAttribute("data-lista");
+
+  // O preto fica gravado mesmo com o tema claro: o CSS só o aplica quando o
+  // tema efetivo é o escuro, e o "Automático" à noite já sai preto.
+  if (preferencias.preto) raiz.setAttribute("data-preto", "");
+  else raiz.removeAttribute("data-preto");
+
+  if (preferencias.vidro) raiz.setAttribute("data-vidro", "");
+  else raiz.removeAttribute("data-vidro");
 }
 
 export const VALOR_OCULTO = "R$ •••••";
