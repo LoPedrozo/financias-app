@@ -1,8 +1,10 @@
-import { Check, EyeOff, LogOut, Rows3, X } from "lucide-react";
+import { Check, EyeOff, LogOut, Rows3 } from "lucide-react";
 import type { ReactNode } from "react";
 import { usePreferencias } from "../hooks/usePreferencias";
 import { DESTAQUES, temaEfetivo } from "../lib/preferencias";
 import type { Tema } from "../lib/preferencias";
+import Folha from "./Folha";
+import { Segmentado, estiloRotulo } from "./campos";
 
 // Tudo o que é personalização mora aqui, atrás da engrenagem do cabeçalho —
 // e o Sair veio junto, porque o cabeçalho não tinha lugar para mais um ícone
@@ -16,10 +18,10 @@ interface Props {
   onFechar: () => void;
 }
 
-const TEMAS: Array<{ id: Tema; nome: string }> = [
-  { id: "auto", nome: "Automático" },
-  { id: "claro", nome: "Claro" },
-  { id: "escuro", nome: "Escuro" },
+const TEMAS: Array<{ valor: Tema; nome: string }> = [
+  { valor: "auto", nome: "Automático" },
+  { valor: "claro", nome: "Claro" },
+  { valor: "escuro", nome: "Escuro" },
 ];
 
 function sistemaEscuro(): boolean {
@@ -78,189 +80,81 @@ export default function ModalPreferencias({ email, onSair, onFechar }: Props) {
   const variante = temaEfetivo(preferencias.tema, sistemaEscuro());
 
   return (
-    <div style={estilos.overlay} data-modal onClick={onFechar}>
-      <div
-        style={estilos.modal}
-        className="modal-mobile"
-        role="dialog"
-        aria-labelledby="titulo-preferencias"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={estilos.cabeca}>
-          <h3 id="titulo-preferencias" style={estilos.titulo}>
-            Preferências
-          </h3>
-          <button style={estilos.fechar} onClick={onFechar} aria-label="Fechar">
-            <X size={18} />
-          </button>
-        </div>
+    <Folha titulo="Preferências" onFechar={onFechar} largura={420}>
+      <p style={{ ...estiloRotulo, marginTop: 4 }}>Tema</p>
+      <Segmentado
+        rotulo="Tema"
+        papel="radio"
+        opcoes={TEMAS}
+        valor={preferencias.tema}
+        onMudar={(tema) => mudar({ tema })}
+      />
 
-        <h4 style={estilos.secao}>Aparência</h4>
-
-        <span style={estilos.rotulo} id="rotulo-tema">
-          Tema
-        </span>
-        <div style={estilos.segmentado} role="radiogroup" aria-labelledby="rotulo-tema">
-          {TEMAS.map((t) => {
-            const ativo = preferencias.tema === t.id;
-            return (
-              <button
-                key={t.id}
-                role="radio"
-                aria-checked={ativo}
-                onClick={() => mudar({ tema: t.id })}
-                style={{
-                  ...estilos.segmento,
-                  ...(ativo ? estilos.segmentoAtivo : {}),
-                }}
-              >
-                {t.nome}
-              </button>
-            );
-          })}
-        </div>
-
-        <span style={estilos.rotulo} id="rotulo-cor">
-          Cor de destaque
-        </span>
-        <div style={estilos.amostras} role="radiogroup" aria-labelledby="rotulo-cor">
-          {DESTAQUES.map((d) => {
-            const ativo = preferencias.destaque === d.id;
-            return (
-              <button
-                key={d.id}
-                role="radio"
-                aria-checked={ativo}
-                aria-label={d.nome}
-                title={d.nome}
-                onClick={() => mudar({ destaque: d.id })}
-                style={{
-                  ...estilos.amostra,
-                  background: d[variante],
-                  boxShadow: ativo
-                    ? `0 0 0 3px var(--surface), 0 0 0 5px ${d[variante]}`
-                    : "none",
-                }}
-              >
-                {ativo && <Check size={16} color="#fff" strokeWidth={3} />}
-              </button>
-            );
-          })}
-        </div>
-
-        <h4 style={estilos.secao}>Uso</h4>
-        <div style={estilos.grupo}>
-          <Interruptor
-            ligado={preferencias.ocultarValores}
-            onMudar={(v) => mudar({ ocultarValores: v })}
-            titulo="Esconder valores"
-            descricao="Troca os valores por R$ ••••• na tela principal. Bom para abrir o app em público."
-            icone={<EyeOff size={17} />}
-          />
-          <Interruptor
-            ligado={preferencias.listaCompacta}
-            onMudar={(v) => mudar({ listaCompacta: v })}
-            titulo="Lista compacta"
-            descricao="Linhas mais baixas: cabe mais lançamento na tela."
-            icone={<Rows3 size={17} />}
-          />
-        </div>
-
-        <h4 style={estilos.secao}>Conta</h4>
-        <div style={estilos.conta}>
-          <span style={estilos.email}>{email}</span>
-          <button style={estilos.sair} onClick={onSair}>
-            <LogOut size={15} /> Sair
-          </button>
-        </div>
-
-        <p style={estilos.rodape}>As preferências ficam salvas neste aparelho.</p>
+      <p style={estiloRotulo} id="rotulo-cor">
+        Cor de destaque
+      </p>
+      <div style={estilos.amostras} role="radiogroup" aria-labelledby="rotulo-cor">
+        {DESTAQUES.map((d) => {
+          const ativo = preferencias.destaque === d.id;
+          return (
+            <button
+              key={d.id}
+              type="button"
+              role="radio"
+              aria-checked={ativo}
+              aria-label={d.nome}
+              title={d.nome}
+              onClick={() => mudar({ destaque: d.id })}
+              style={{
+                ...estilos.amostra,
+                background: d[variante],
+                boxShadow: ativo
+                  ? `0 0 0 3px var(--surface), 0 0 0 5px ${d[variante]}`
+                  : "none",
+              }}
+            >
+              {ativo && <Check size={16} color="#fff" strokeWidth={3} />}
+            </button>
+          );
+        })}
       </div>
-    </div>
+
+      <p style={estiloRotulo}>Uso</p>
+      <div style={estilos.grupo}>
+        <Interruptor
+          ligado={preferencias.ocultarValores}
+          onMudar={(v) => mudar({ ocultarValores: v })}
+          titulo="Esconder valores"
+          descricao="Troca os valores por R$ ••••• na tela principal. Bom para abrir o app em público."
+          icone={<EyeOff size={17} />}
+        />
+        <Interruptor
+          ligado={preferencias.listaCompacta}
+          onMudar={(v) => mudar({ listaCompacta: v })}
+          titulo="Lista compacta"
+          descricao="Linhas mais baixas: cabe mais lançamento na tela."
+          icone={<Rows3 size={17} />}
+        />
+      </div>
+
+      <p style={estiloRotulo}>Conta</p>
+      <div style={estilos.conta}>
+        <span style={estilos.email}>{email}</span>
+        <button type="button" style={estilos.sair} onClick={onSair}>
+          <LogOut size={15} /> Sair
+        </button>
+      </div>
+
+      <p style={estilos.rodape}>As preferências ficam salvas neste aparelho.</p>
+    </Folha>
   );
 }
 
 const estilos: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(16, 24, 40, 0.35)",
-    backdropFilter: "blur(3px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    zIndex: 60,
-  },
-  modal: {
-    background: "var(--surface)",
-    borderRadius: 20,
-    padding: 24,
-    width: "100%",
-    maxWidth: 400,
-    // Mesmo teto do formulário: em aparelho baixo, rola em vez de passar da
-    // tela com o Sair inalcançável.
-    maxHeight: "calc(100vh - 40px)",
-    overflowY: "auto",
-    boxShadow: "0 20px 60px rgba(16,24,40,0.18)",
-    animation: "fadeUp 0.25s ease",
-  },
-  cabeca: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  titulo: { fontSize: 19, fontWeight: 700 },
-  fechar: {
-    background: "none",
-    border: "none",
-    color: "var(--text-faint)",
-    display: "flex",
-    padding: 4,
-  },
-  secao: {
-    fontSize: 11.5,
-    fontWeight: 700,
-    letterSpacing: "0.06em",
-    textTransform: "uppercase",
-    color: "var(--text-faint)",
-    margin: "18px 0 10px",
-    fontFamily: "inherit",
-  },
-  rotulo: {
-    display: "block",
-    fontSize: 13,
-    color: "var(--text-soft)",
-    marginBottom: 8,
-  },
-  segmentado: {
-    display: "flex",
-    gap: 4,
-    background: "var(--bg)",
-    padding: 4,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  segmento: {
-    flex: 1,
-    padding: "9px 4px",
-    border: "none",
-    borderRadius: 9,
-    background: "transparent",
-    color: "var(--text-soft)",
-    fontWeight: 600,
-    fontSize: 13.5,
-  },
-  segmentoAtivo: {
-    background: "var(--surface)",
-    color: "var(--text)",
-    boxShadow: "var(--shadow)",
-  },
   amostras: { display: "flex", gap: 14, padding: "4px 2px" },
   amostra: {
-    width: 34,
-    height: 34,
+    width: 36,
+    height: 36,
     borderRadius: "50%",
     border: "none",
     display: "flex",
@@ -286,13 +180,14 @@ const estilos: Record<string, React.CSSProperties> = {
     border: "none",
     padding: "12px 14px",
     color: "var(--text)",
+    cursor: "pointer",
   },
   linhaIcone: {
     color: "var(--text-soft)",
     display: "flex",
     flexShrink: 0,
   },
-  linhaTextos: { display: "flex", flexDirection: "column", gap: 2, flex: 1 },
+  linhaTextos: { display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 },
   linhaTitulo: { fontSize: 14.5, fontWeight: 600 },
   linhaDescricao: {
     fontSize: 12.5,
@@ -337,17 +232,19 @@ const estilos: Record<string, React.CSSProperties> = {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
+    height: 38,
     background: "var(--surface)",
-    border: "1px solid var(--border)",
+    border: "none",
     color: "var(--red)",
     borderRadius: 10,
-    padding: "8px 12px",
-    fontSize: 13.5,
+    padding: "0 12px",
+    fontSize: 14,
     fontWeight: 600,
     flexShrink: 0,
+    cursor: "pointer",
   },
   rodape: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: "var(--text-faint)",
     textAlign: "center",
     marginTop: 16,

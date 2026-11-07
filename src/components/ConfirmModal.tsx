@@ -1,4 +1,12 @@
 import { AlertTriangle } from "lucide-react";
+import Folha from "./Folha";
+import { BotaoPrincipal, BotaoSecundario } from "./campos";
+
+// Pergunta antes de uma ação que não tem volta (excluir uma recorrência).
+// Lançamento não passa por aqui: ele se apaga com "Desfazer".
+//
+// Na mesma folha dos outros modais, com os dois botões lado a lado no
+// rodapé — Cancelar e a ação, em vermelho. Por cima de qualquer outra folha.
 
 interface Props {
   titulo: string;
@@ -18,92 +26,56 @@ export default function ConfirmModal({
   onCancelar,
 }: Props) {
   return (
-    <div style={styles.overlay} data-modal onClick={onCancelar}>
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div style={styles.iconWrap}>
-          <AlertTriangle size={22} color="var(--red)" strokeWidth={2.2} />
-        </div>
-        <h3 style={styles.titulo}>{titulo}</h3>
-        <p style={styles.mensagem}>{mensagem}</p>
+    <Folha
+      titulo={titulo}
+      onFechar={onCancelar}
+      largura={380}
+      zIndex={70}
+      rodape={
         <div style={styles.acoes}>
-          <button style={styles.cancelar} onClick={onCancelar}>
-            {textoCancelar}
-          </button>
-          <button style={styles.confirmar} onClick={onConfirmar}>
+          <BotaoSecundario onClick={onCancelar}>{textoCancelar}</BotaoSecundario>
+          <BotaoPrincipal onClick={onConfirmar} perigo>
             {textoConfirmar}
-          </button>
+          </BotaoPrincipal>
         </div>
+      }
+    >
+      <div style={styles.corpo}>
+        <span style={styles.icone} aria-hidden="true">
+          <AlertTriangle size={20} strokeWidth={2.2} />
+        </span>
+        <p style={styles.mensagem}>{mensagem}</p>
       </div>
-    </div>
+    </Folha>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  overlay: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(16, 24, 40, 0.35)",
-    backdropFilter: "blur(3px)",
+  corpo: {
     display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-    zIndex: 60,
+    alignItems: "flex-start",
+    gap: 12,
+    paddingBottom: 6,
   },
-  modal: {
-    background: "var(--surface)",
-    borderRadius: 20,
-    padding: 26,
-    width: "100%",
-    maxWidth: 380,
-    boxShadow: "0 20px 60px rgba(16,24,40,0.18)",
-    animation: "fadeUp 0.25s ease",
-    textAlign: "center",
-  },
-  iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+  icone: {
+    width: 40,
+    height: 40,
+    borderRadius: "50%",
     background: "var(--red-soft)",
+    color: "var(--red)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    margin: "0 auto 14px",
-  },
-  titulo: {
-    fontSize: 18,
-    fontWeight: 700,
-    marginBottom: 8,
-    color: "var(--text)",
+    flexShrink: 0,
   },
   mensagem: {
-    fontSize: 14,
+    fontSize: 14.5,
     color: "var(--text-soft)",
     lineHeight: 1.5,
-    marginBottom: 22,
+    paddingTop: 9,
   },
   acoes: {
     display: "flex",
     gap: 10,
-  },
-  cancelar: {
-    flex: 1,
-    background: "var(--bg)",
-    color: "var(--text)",
-    border: "1px solid var(--border)",
-    padding: 12,
-    borderRadius: 12,
-    fontWeight: 600,
-    fontSize: 14,
-  },
-  confirmar: {
-    flex: 1,
-    background: "var(--red)",
-    color: "#fff",
-    border: "none",
-    padding: 12,
-    borderRadius: 12,
-    fontWeight: 600,
-    fontSize: 14,
   },
 };
