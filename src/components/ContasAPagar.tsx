@@ -712,7 +712,7 @@ export default function ContasAPagar({ mes, ano, session, onNovoLancamento }: Pr
           <button
             style={{
               ...styles.iconeSeletor,
-              color: verArquivadas ? "var(--accent)" : "var(--text-faint)",
+              color: verArquivadas ? "var(--destaque-texto)" : "var(--text-faint)",
             }}
             onClick={() => setVerArquivadas((v) => !v)}
             aria-label={verArquivadas ? "Esconder arquivadas" : "Ver arquivadas"}
@@ -1055,7 +1055,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 6,
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: "9px 16px",
     borderRadius: 11,
@@ -1383,7 +1383,7 @@ const styles: Record<string, React.CSSProperties> = {
     flex: 1,
     background: "var(--accent)",
     border: "none",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     padding: 10,
     borderRadius: 10,
     fontWeight: 600,

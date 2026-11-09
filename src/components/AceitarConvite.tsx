@@ -82,7 +82,7 @@ export default function AceitarConvite({ token, onPronto }: Props) {
         ) : previa ? (
           <>
             <div style={styles.icone}>
-              <Users size={24} color="var(--accent)" />
+              <Users size={24} color="var(--destaque-texto)" />
             </div>
             <h1 style={styles.titulo}>Você foi convidado</h1>
             <p style={styles.texto}>
@@ -146,7 +146,7 @@ const styles: Record<string, React.CSSProperties> = {
   primario: {
     width: "100%",
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: 13,
     borderRadius: 12,

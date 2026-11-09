@@ -83,6 +83,40 @@ describe("vidro: o texto continua legível no pior ponto do fundo", () => {
   }
 });
 
+// O destaque como texto (links, a aba ativa da barra de baixo) também fica
+// em cima do vidro, e o vidro em cima de uma mancha — às vezes da própria
+// cor de destaque. No topo, "Minhas Finanças", o ano do carrossel e o olho
+// ficam direto sobre a mancha mais forte, sem vidro: lá, que são negrito e
+// ícone, o mínimo é 3:1. A mancha é o efeito; o que não pode é sumir.
+describe("vidro: o destaque como texto continua legível", () => {
+  for (const { nome, t, variante } of temas) {
+    it(`${nome}, em cada cor de destaque`, () => {
+      const fundo = hex(t["--bg"]);
+      const vidro = rgba(t["--vidro"]);
+      const forca = Math.min(1, (parseFloat(t["--vidro-mancha"]) / 100) * 1.2);
+      for (const d of DESTAQUES) {
+        const daCor =
+          d.id === "dourado"
+            ? t
+            : { ...t, ...bloco(variante === "claro" ? `:root[data-destaque="${d.id}"]` : `:root[data-tema="escuro"][data-destaque="${d.id}"]`) };
+        const texto = hex(daCor["--destaque-texto"]);
+        const manchas = [
+          ["tom da manhã", t["--tom-manha"]],
+          ["tom da noite", t["--tom-noite"]],
+          ["a própria cor", daCor["--accent"]],
+        ] as const;
+        for (const [mancha, cor] of manchas) {
+          const sob = misturar(hex(cor), fundo, forca);
+          const superficie = misturar(vidro.cor, sob, vidro.alfa);
+          const onde = `${d.nome} no ${nome}, mancha ${mancha}`;
+          expect(contraste(texto, superficie), `no card · ${onde}`).toBeGreaterThanOrEqual(4.5);
+          expect(contraste(texto, sob), `no topo · ${onde}`).toBeGreaterThanOrEqual(3);
+        }
+      }
+    });
+  }
+});
+
 describe("preto total", () => {
   it("o fundo é preto de verdade", () => {
     expect(preto["--bg"].toLowerCase()).toBe("#000000");

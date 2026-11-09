@@ -548,7 +548,7 @@ const estilos: Record<string, CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     borderRadius: 14,
     fontWeight: 700,

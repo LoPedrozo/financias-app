@@ -222,7 +222,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: 8,
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: "13px",
     borderRadius: 12,
@@ -260,7 +260,7 @@ const styles: Record<string, React.CSSProperties> = {
   link: {
     background: "none",
     border: "none",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     fontWeight: 600,
     fontSize: 14,
     padding: 0,

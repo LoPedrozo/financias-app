@@ -425,7 +425,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: "none",
     border: "none",
     padding: 0,
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     fontSize: 12.5,
     fontWeight: 700,
     textDecoration: "underline",

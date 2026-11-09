@@ -143,12 +143,25 @@ describe("ModalNovo", () => {
     await userEvent.type(campo, "10,505");
     await userEvent.type(screen.getByLabelText("Descrição"), "teste");
     await salvar();
-    expect(screen.getByText("Formato inválido. Use ex: 10,50 ou 10.50")).toBeInTheDocument();
+    expect(screen.getByText("Formato inválido. Use ex: 10,50 ou 1.234,50")).toBeInTheDocument();
     await userEvent.clear(campo);
     await userEvent.type(campo, "2000000000");
     await salvar();
     expect(screen.getByText("Valor muito alto. Verifique se digitou corretamente.")).toBeInTheDocument();
     expect(onSalvar).not.toHaveBeenCalled();
+  });
+
+  // O resto do app (lista colada, correção na lista) lê "1.234,56"; o
+  // formulário tinha regra própria e recusava. E levar o valor para o
+  // "Escrever ou colar vários" virava 1,23.
+  it("valor com ponto de milhar: salva 1.234,56 e leva certo para o colar vários", async () => {
+    const { onSalvar, onColarLista } = abrir();
+    await userEvent.type(screen.getByLabelText("Valor"), "1.234,56");
+    await userEvent.type(screen.getByLabelText("Descrição"), "aluguel");
+    await salvar();
+    expect(onSalvar).toHaveBeenCalledWith(expect.objectContaining({ valor: 1234.56 }));
+    await userEvent.click(screen.getByRole("button", { name: /Escrever ou colar vários/ }));
+    expect(onColarLista).toHaveBeenCalledWith(expect.objectContaining({ valor: 1234.56 }), expect.any(String));
   });
 
   it("o valor encolhe quando fica comprido, para caber na tela", async () => {

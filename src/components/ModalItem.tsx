@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { CATEGORIAS_SAIDA } from "../types";
 import type { ItemLista, NovoItemLista } from "../types";
+import { erroDoValor, lerValor } from "../lib/format";
 
 interface Props {
   onFechar: () => void;
@@ -51,18 +52,8 @@ export default function ModalItem({
   // aqui, com explicação, em vez de virar erro genérico depois.
   function validar(): Erros {
     const novos: Erros = {};
-    const valorLimpo = valor.trim();
-    const formatoValido = /^\d+([.,]\d{1,2})?$/.test(valorLimpo);
-    const v = parseFloat(valorLimpo.replace(",", "."));
-    if (!valorLimpo) {
-      novos.valor = "Informe um valor numérico maior que zero.";
-    } else if (!formatoValido) {
-      novos.valor = "Formato inválido. Use ex: 10,50 ou 10.50";
-    } else if (isNaN(v) || v <= 0) {
-      novos.valor = "Informe um valor numérico maior que zero.";
-    } else if (v > 1_000_000_000) {
-      novos.valor = "Valor muito alto. Verifique se digitou corretamente.";
-    }
+    const erroValor = erroDoValor(valor);
+    if (erroValor) novos.valor = erroValor;
     if (descricao.trim().length < 3) {
       novos.descricao = "Descrição obrigatória (mínimo 3 caracteres).";
     }
@@ -83,7 +74,7 @@ export default function ModalItem({
     try {
       await onSalvar({
         descricao: descricao.trim(),
-        valor: parseFloat(valor.replace(",", ".")),
+        valor: lerValor(valor)!,
         categoria,
         vencimento,
       });
@@ -260,7 +251,7 @@ const styles: Record<string, React.CSSProperties> = {
   salvar: {
     width: "100%",
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: 13,
     borderRadius: 12,

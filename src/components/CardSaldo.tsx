@@ -98,7 +98,7 @@ export default function CardSaldo({
               </span>
             )}
             {sai.quantidade > 0 && (
-              <span style={{ ...estilos.item, opacity: 0.9, marginLeft: "auto" }}>
+              <span style={{ ...estilos.item, marginLeft: "auto" }}>
                 <TrendingDown size={13} /> {dinheiro(sai.total)} sai ({sai.quantidade})
               </span>
             )}
@@ -136,12 +136,11 @@ const estilos: Record<string, React.CSSProperties> = {
     overflow: "hidden",
     borderRadius: 20,
     padding: "18px 20px",
-    color: "#fff",
-    // A cor de destaque escurecendo na diagonal. A camada escura por cima
-    // da cor sólida faz o degradê funcionar com qualquer cor escolhida nas
-    // preferências, sem um par de cores fixo para cada uma.
-    background:
-      "linear-gradient(135deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.42) 100%), var(--accent)",
+    // Tinta e degradê vêm da cor de destaque (global.css): sobre as cores
+    // claras a tinta é escura e o degradê clareia; sobre as fundas, branca e
+    // o degradê escurece. Um teste confere a tinta nas duas pontas.
+    color: "var(--sobre-destaque)",
+    background: "var(--saldo-degrade), var(--accent)",
     boxShadow: "0 10px 30px rgba(16,24,40,.22)",
   },
   brilho: {
@@ -162,7 +161,9 @@ const estilos: Record<string, React.CSSProperties> = {
     gap: "8px 16px",
   },
   bloco: { minWidth: 0 },
-  rotulo: { fontSize: 12.5, opacity: 0.9, marginBottom: 2, whiteSpace: "nowrap" },
+  // Os textos pequenos ficam na tinta cheia: semitransparentes, perdiam o
+  // 4,5:1 em quase toda cor. A hierarquia fica no tamanho.
+  rotulo: { fontSize: 12.5, marginBottom: 2, whiteSpace: "nowrap" },
   valor: {
     fontFamily: "'Sora', sans-serif",
     // Encolhe um pouco em tela estreita para os dois valores caberem lado a
@@ -175,7 +176,9 @@ const estilos: Record<string, React.CSSProperties> = {
     fontVariantNumeric: "tabular-nums",
   },
   negativo: {
-    background: "rgba(0,0,0,.34)",
+    // Escura o bastante para o rosado passar de 4,5:1 até sobre as cores
+    // claras do escuro (há teste).
+    background: "rgba(0,0,0,.6)",
     color: "#ffd4d4",
     borderRadius: 8,
     padding: "0 6px",
@@ -207,5 +210,5 @@ const estilos: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
     fontVariantNumeric: "tabular-nums",
   },
-  nota: { position: "relative", fontSize: 12, opacity: 0.85, marginTop: 8 },
+  nota: { position: "relative", fontSize: 12, marginTop: 8 },
 };

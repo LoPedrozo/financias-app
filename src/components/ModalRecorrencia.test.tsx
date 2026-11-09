@@ -124,6 +124,14 @@ describe("ModalRecorrencia", () => {
     );
   });
 
+  it("aceita valor com ponto de milhar, como o resto do app", async () => {
+    const { onSalvar } = abrir();
+    await userEvent.type(valor(), "1.450,00");
+    await userEvent.type(screen.getByLabelText("Descrição"), "Aluguel");
+    await userEvent.click(screen.getByRole("button", { name: "Salvar recorrência" }));
+    expect(onSalvar).toHaveBeenCalledWith(expect.objectContaining({ valor: 1450 }), []);
+  });
+
   it("fecha pelo X", async () => {
     const { onFechar } = abrir();
     await userEvent.click(screen.getByRole("button", { name: "Fechar" }));

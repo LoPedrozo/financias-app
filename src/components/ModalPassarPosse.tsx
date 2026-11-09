@@ -96,7 +96,7 @@ export default function ModalPassarPosse({
                 </span>
                 <span style={styles.email}>{m.email ?? "Participante"}</span>
                 {escolhido === m.user_id && (
-                  <Crown size={15} color="var(--accent)" />
+                  <Crown size={15} color="var(--destaque-texto)" />
                 )}
               </button>
             ))}
@@ -176,7 +176,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: 28,
     borderRadius: "50%",
     background: "var(--surface)",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -199,7 +199,7 @@ const styles: Record<string, React.CSSProperties> = {
   confirmar: {
     width: "100%",
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: 13,
     borderRadius: 12,

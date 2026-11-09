@@ -116,7 +116,7 @@ const estilos: Record<string, React.CSSProperties> = {
     height: 38,
     borderRadius: "50%",
     background: "var(--accent-soft)",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

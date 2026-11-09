@@ -202,8 +202,11 @@ export default function Dashboard({
       if (compararCompetencia(alvo, competenciaAtual()) < 0) return;
 
       gerarLancamentosRecorrentes(alvo.mes, alvo.ano)
-        .then((novos) => {
-          if (novos.length > 0) carregar();
+        .then(async (novos) => {
+          // Com a lista já na tela, a geração atualiza por baixo. Recarregar
+          // do jeito normal trocava tudo por blocos de carregamento na
+          // primeira visita a cada mês — e ao abrir o app no começo do mês.
+          if (novos.length > 0 && !(await carregar({ silencioso: true }))) setFalhaAoAtualizar(true);
         })
         .catch((e) => {
           console.error(e);
@@ -262,18 +265,30 @@ export default function Dashboard({
 
   // A faixa de "Não consegui atualizar" reflete a rodada inteira: some quando
   // tudo voltou, fica se qualquer parte falhou.
-  const atualizarTudo = useCallback(async () => {
-    const recorrenciasOk = listarRecorrencias()
-      .then((r) => {
-        setRecorrencias(r);
-        return true;
-      })
-      .catch((e) => {
-        console.error(e);
-        return false;
-      });
-    const partes = await Promise.all([carregar({ silencioso: true }), carregarContasEmAberto(), recorrenciasOk]);
-    setFalhaAoAtualizar(partes.some((ok) => !ok));
+  //
+  // Voltar ao app dispara "visibilitychange" e "focus" juntos, e o puxar pode
+  // cair no meio: uma rodada em curso atende a todos, em vez de buscar tudo
+  // duas vezes.
+  const rodadaEmCurso = useRef<Promise<void> | null>(null);
+  const atualizarTudo = useCallback((): Promise<void> => {
+    if (rodadaEmCurso.current) return rodadaEmCurso.current;
+    const rodada = (async () => {
+      const recorrenciasOk = listarRecorrencias()
+        .then((r) => {
+          setRecorrencias(r);
+          return true;
+        })
+        .catch((e) => {
+          console.error(e);
+          return false;
+        });
+      const partes = await Promise.all([carregar({ silencioso: true }), carregarContasEmAberto(), recorrenciasOk]);
+      setFalhaAoAtualizar(partes.some((ok) => !ok));
+    })().finally(() => {
+      rodadaEmCurso.current = null;
+    });
+    rodadaEmCurso.current = rodada;
+    return rodada;
   }, [carregar, carregarContasEmAberto]);
 
   // Puxar a tela para baixo, no topo, faz a mesma atualização — para quem
@@ -688,6 +703,24 @@ export default function Dashboard({
       delete document.documentElement.dataset.periodo;
     };
   }, [periodo]);
+
+  // O app fica dias aberto no iPhone, em segundo plano. Virando o mês nesse
+  // meio-tempo, o topo já dizia "1 nov" e a tela continuava em outubro — e as
+  // recorrências de novembro só nasciam quando se navegava até lá. Quem
+  // estava no mês corrente passa para o novo; quem tinha ido olhar outro mês
+  // fica onde está.
+  const competenciaDeHoje = agora.getFullYear() * 12 + agora.getMonth();
+  const competenciaConhecida = useRef(competenciaDeHoje);
+  useEffect(() => {
+    const antes = competenciaConhecida.current;
+    if (competenciaDeHoje === antes) return;
+    competenciaConhecida.current = competenciaDeHoje;
+    if (ano * 12 + mes === antes) {
+      setMes(competenciaDeHoje % 12);
+      setAno(Math.floor(competenciaDeHoje / 12));
+    }
+    // Só a virada importa: mes e ano são lidos como estavam nela.
+  }, [competenciaDeHoje]);
 
   // Trocar de mês agora se vê: o conteúdo entra deslizando do lado de onde
   // o mês veio — avançar traz da direita, voltar traz da esquerda, o mesmo
@@ -1239,7 +1272,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   navDesktopBtnAtivo: {
     background: "var(--surface)",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     boxShadow: "var(--shadow)",
   },
   cards: {
@@ -1326,7 +1359,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 6,
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: "9px 16px",
     borderRadius: 11,
@@ -1385,7 +1418,7 @@ const styles: Record<string, React.CSSProperties> = {
   recorrenciasLink: {
     background: "none",
     border: "none",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     fontWeight: 600,
     fontSize: 13,
     cursor: "pointer",
@@ -1394,7 +1427,7 @@ const styles: Record<string, React.CSSProperties> = {
   recorrenciasLinkInline: {
     background: "none",
     border: "none",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     fontWeight: 600,
     fontSize: 13,
     cursor: "pointer",
@@ -1445,7 +1478,7 @@ const styles: Record<string, React.CSSProperties> = {
   recorrenciasMais: {
     background: "none",
     border: "none",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     fontWeight: 600,
     fontSize: 13,
     cursor: "pointer",

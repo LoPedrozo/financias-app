@@ -229,6 +229,6 @@ const styles: Record<string, React.CSSProperties> = {
   },
   cellSelected: {
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
   },
 };

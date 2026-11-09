@@ -228,7 +228,9 @@ export default function Recorrencias({
         <EmptyState
           icon={<Repeat size={24} />}
           titulo="Nenhuma recorrência cadastrada"
-          sugestao="Clique em '+ Nova' para começar"
+          // "Clique em '+ Nova'" falava com o computador e não dizia para que
+          // serve. Agora explica, e serve ao toque e ao clique.
+          sugestao="Aluguel, assinatura, salário: cadastre uma vez e ela entra sozinha todo mês."
         />
       ) : (
         <div style={styles.list}>
@@ -367,7 +369,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 6,
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: "9px 16px",
     borderRadius: 11,

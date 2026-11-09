@@ -109,7 +109,7 @@ const estilos: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     gap: 7,
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: 13,
     borderRadius: 12,
