@@ -16,8 +16,8 @@ export default function BottomNav({
   onNovo,
   mostrarContas = true,
 }: Props) {
-  const corInicio = abaAtiva === "inicio" ? "var(--accent)" : "var(--text-faint)";
-  const corContas = abaAtiva === "contas" ? "var(--accent)" : "var(--text-faint)";
+  const corInicio = abaAtiva === "inicio" ? "var(--destaque-texto)" : "var(--text-faint)";
+  const corContas = abaAtiva === "contas" ? "var(--destaque-texto)" : "var(--text-faint)";
 
   if (!mostrarContas) {
     return (
@@ -113,12 +113,13 @@ const styles: Record<string, React.CSSProperties> = {
     height: 52,
     borderRadius: "50%",
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    boxShadow: "0 4px 14px rgba(201, 168, 106, 0.4), 0 2px 4px rgba(0, 0, 0, 0.08)",
+    // A sombra tem a cor do botão (era o dourado fixo, com qualquer cor).
+    boxShadow: "0 4px 14px color-mix(in srgb, var(--accent) 40%, transparent), 0 2px 4px rgba(0, 0, 0, 0.08)",
     marginBottom: 8,
   },
   // Sozinho no centro o botão vira o único elemento da barra: um pouco maior

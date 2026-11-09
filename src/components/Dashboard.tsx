@@ -1239,7 +1239,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   navDesktopBtnAtivo: {
     background: "var(--surface)",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     boxShadow: "var(--shadow)",
   },
   cards: {
@@ -1326,7 +1326,7 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     gap: 6,
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: "9px 16px",
     borderRadius: 11,
@@ -1385,7 +1385,7 @@ const styles: Record<string, React.CSSProperties> = {
   recorrenciasLink: {
     background: "none",
     border: "none",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     fontWeight: 600,
     fontSize: 13,
     cursor: "pointer",
@@ -1394,7 +1394,7 @@ const styles: Record<string, React.CSSProperties> = {
   recorrenciasLinkInline: {
     background: "none",
     border: "none",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     fontWeight: 600,
     fontSize: 13,
     cursor: "pointer",
@@ -1445,7 +1445,7 @@ const styles: Record<string, React.CSSProperties> = {
   recorrenciasMais: {
     background: "none",
     border: "none",
-    color: "var(--accent)",
+    color: "var(--destaque-texto)",
     fontWeight: 600,
     fontSize: 13,
     cursor: "pointer",

@@ -52,13 +52,14 @@ const estilos: Record<string, React.CSSProperties> = {
     position: "relative",
     zIndex: 60,
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     fontSize: 13.5,
     boxShadow: "0 2px 12px rgba(16,24,40,0.12)",
   },
   texto: { flex: 1, fontWeight: 500 },
+  // O botão é a faixa ao contrário: a tinta vira fundo e o destaque, texto.
   atualizar: {
-    background: "#fff",
+    background: "var(--sobre-destaque)",
     color: "var(--accent)",
     border: "none",
     borderRadius: 9,
@@ -71,7 +72,7 @@ const estilos: Record<string, React.CSSProperties> = {
   dispensar: {
     background: "none",
     border: "none",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     display: "flex",
     alignItems: "center",
     padding: 2,

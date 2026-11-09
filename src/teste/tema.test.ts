@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { DESTAQUES } from "../lib/preferencias";
 
 // O tema escuro e as cores de destaque são só redefinições de tokens. As
@@ -34,15 +34,48 @@ function token(bloco: string, nome: string): string {
 const claro = corpo(":root");
 const escuro = corpo(':root[data-tema="escuro"]');
 
-// Contraste WCAG entre o branco e uma cor. É o texto dos botões de destaque.
-function luminancia(hex: string): number {
-  const [r, g, b] = [1, 3, 5].map((i) => {
-    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+function mapa(bloco: string): Record<string, string> {
+  return Object.fromEntries(
+    [...bloco.matchAll(/(--[a-z-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim().toLowerCase()])
+  );
 }
-const contrasteComBranco = (hex: string) => 1.05 / (luminancia(hex) + 0.05);
+
+// Os tokens de uma combinação, resolvidos como o navegador resolve: a base do
+// tema (e do preto), e por cima o bloco da cor. O dourado mora na base.
+function tokensDaCor(id: string, variante: "claro" | "escuro", preto = false): Record<string, string> {
+  const base =
+    variante === "claro"
+      ? mapa(claro)
+      : { ...mapa(claro), ...mapa(escuro), ...(preto ? mapa(corpo(':root[data-tema="escuro"][data-preto]')) : {}) };
+  if (id === "dourado") return base;
+  const seletor =
+    variante === "claro" ? `:root[data-destaque="${id}"]` : `:root[data-tema="escuro"][data-destaque="${id}"]`;
+  return { ...base, ...mapa(corpo(seletor)) };
+}
+
+// Contraste WCAG. As cores chegam em hex ou rgba; o alfa é composto sobre o
+// que estiver embaixo com `sobre`.
+type Rgb = [number, number, number];
+const hex = (h: string): Rgb => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as Rgb;
+const misturar = (a: Rgb, b: Rgb, t: number): Rgb => a.map((x, i) => t * x + (1 - t) * b[i]) as Rgb;
+function sobre(rgba: string, fundo: Rgb): Rgb {
+  const m = rgba.match(/rgba\(\s*(\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\s*\)/)!;
+  return misturar([Number(m[1]) / 255, Number(m[2]) / 255, Number(m[3]) / 255], fundo, Number(m[4]));
+}
+function luminancia([r, g, b]: Rgb): number {
+  const f = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+function contraste(a: Rgb, b: Rgb): number {
+  const [x, y] = [luminancia(a), luminancia(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+const combinacoes = DESTAQUES.flatMap((d) => [
+  { d, variante: "claro" as const, preto: false, onde: `${d.nome} no claro` },
+  { d, variante: "escuro" as const, preto: false, onde: `${d.nome} no escuro` },
+  { d, variante: "escuro" as const, preto: true, onde: `${d.nome} no preto total` },
+]);
 
 describe("tema escuro", () => {
   it("redefine todas as cores do tema claro", () => {
@@ -84,25 +117,85 @@ describe("cores de destaque", () => {
       const noEscuro = corpo(`:root[data-tema="escuro"][data-destaque="${d.id}"]`);
       expect(token(noClaro, "--accent")).toBe(d.claro);
       expect(token(noEscuro, "--accent")).toBe(d.escuro);
-      // Sem o soft, o card do saldo e os ícones ficariam com o dourado.
-      expect(tokensDe(noClaro)).toEqual(["--accent", "--accent-soft"]);
-      expect(tokensDe(noEscuro)).toEqual(["--accent", "--accent-soft"]);
+      // Faltando um, aquele pedaço ficaria com o do dourado: a tinta escura
+      // sobre uma cor funda, ou o texto dourado no meio do azul.
+      const esperados = ["--accent", "--accent-soft", "--destaque-texto", "--saldo-degrade", "--sobre-destaque"];
+      expect(tokensDe(noClaro)).toEqual(esperados);
+      expect(tokensDe(noEscuro)).toEqual(esperados);
     });
   }
 
-  // O texto dos botões de destaque é branco fixo. Trocar a cor não pode
-  // deixar o botão de lançar mais ilegível do que o dourado já é.
-  it("nenhuma cor tem contraste com o branco pior que o dourado", () => {
-    const dourado = DESTAQUES.find((d) => d.id === "dourado")!;
-    for (const variante of ["claro", "escuro"] as const) {
-      const minimo = contrasteComBranco(dourado[variante]);
-      for (const d of DESTAQUES) {
-        expect(
-          contrasteComBranco(d[variante]),
-          `${d.nome} no ${variante}`
-        ).toBeGreaterThanOrEqual(minimo - 0.001);
+  // A tinta é a cor do texto e dos ícones em cima do destaque: o "Salvar",
+  // o +, o "Editar" da lista, a faixa de versão nova. Era branco fixo, e o
+  // branco sobre o dourado do escuro dava 1,9:1.
+  it("a tinta sobre o destaque passa de 4,5:1, em toda cor e tema", () => {
+    for (const { d, variante, preto, onde } of combinacoes) {
+      const t = tokensDaCor(d.id, variante, preto);
+      expect(contraste(hex(t["--sobre-destaque"]), hex(t["--accent"])), onde).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  // O card do saldo é o destaque com um degradê por cima, um brilho branco
+  // no canto de cima (12%, no CardSaldo) e, quando falta dinheiro, o valor
+  // numa pílula escura (preto a 60%) com texto rosado. A tinta tem de passar
+  // nas duas pontas do degradê e no meio dele, onde fica o brilho.
+  it("card do saldo: a tinta e o valor negativo passam de 4,5:1 em todo o degradê", () => {
+    for (const { d, variante, preto, onde } of combinacoes) {
+      const t = tokensDaCor(d.id, variante, preto);
+      const cor = hex(t["--accent"]);
+      const paradas = t["--saldo-degrade"].match(/rgba\([^)]*\)/g)!;
+      expect(paradas, `degradê de ${onde}`).toHaveLength(2);
+      const [inicio, fim] = paradas.map((p) => sobre(p, cor));
+      const meio = sobre("rgba(255, 255, 255, 0.12)", misturar(inicio, fim, 0.5));
+      for (const [ponto, fundo] of [["começo", inicio], ["meio, sob o brilho", meio], ["fim", fim]] as const) {
+        expect(contraste(hex(t["--sobre-destaque"]), fundo), `tinta · ${onde}, ${ponto}`).toBeGreaterThanOrEqual(4.5);
+        const pilula = sobre("rgba(0, 0, 0, 0.6)", fundo);
+        expect(contraste(hex("#ffd4d4"), pilula), `negativo · ${onde}, ${ponto}`).toBeGreaterThanOrEqual(4.5);
       }
     }
+  });
+
+  // O destaque como texto: links, a aba ativa, "Minhas Finanças" no topo, o
+  // ano do carrossel. Fica sobre o card, o fundo e o véu do período no topo
+  // (âmbar de manhã, o próprio destaque à tarde, anil à noite) — o vidro
+  // tem teste próprio (vidro.test.ts). Sobre o fundo suave do destaque só
+  // aparecem ícones, que pedem 3:1.
+  it("o destaque como texto passa de 4,5:1 sobre o card, o fundo e o véu do topo", () => {
+    for (const { d, variante, preto, onde } of combinacoes) {
+      const t = tokensDaCor(d.id, variante, preto);
+      const texto = hex(t["--destaque-texto"]);
+      const fundo = hex(t["--bg"]);
+      const forca = parseFloat(t["--tom-forca"]) / 100;
+      const fundos: Array<[string, Rgb]> = [
+        ["card", hex(t["--surface"])],
+        ["fundo", fundo],
+        ["véu da manhã", misturar(hex(t["--tom-manha"]), fundo, forca)],
+        ["véu da tarde", misturar(hex(t["--accent"]), fundo, forca)],
+        ["véu da noite", misturar(hex(t["--tom-noite"]), fundo, forca)],
+      ];
+      for (const [nome, f] of fundos) {
+        expect(contraste(texto, f), `${onde}, sobre ${nome}`).toBeGreaterThanOrEqual(4.5);
+      }
+      expect(contraste(texto, hex(t["--accent-soft"])), `${onde}, ícone no fundo suave`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  // A tinta fica nos tokens, e os componentes a usam: um "#fff" esquecido
+  // em cima do destaque volta a ser o branco sobre o dourado.
+  it("nenhum componente pinta branco fixo em cima do destaque", () => {
+    const pasta = "src/components";
+    const arquivos = readdirSync(pasta).filter((a) => a.endsWith(".tsx") && !a.includes(".test."));
+    const achados: string[] = [];
+    for (const a of arquivos) {
+      const fonte = readFileSync(`${pasta}/${a}`, "utf8");
+      // Cada objeto de estilo (o que fica entre chaves sem chaves dentro).
+      for (const m of fonte.matchAll(/\{[^{}]*\}/g)) {
+        if (/var\(--accent\)/.test(m[0]) && /background/.test(m[0]) && /color:\s*"#fff/i.test(m[0])) {
+          achados.push(`${a}: ${m[0].replace(/\s+/g, " ").slice(0, 80)}`);
+        }
+      }
+    }
+    expect(achados).toEqual([]);
   });
 
   // Verde é entrada e vermelho é saída: um botão de lançar verde passaria a

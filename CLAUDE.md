@@ -62,6 +62,10 @@ rm .env.local
   grande, atalhos de data, grade de categorias, botões). Não recriar overlay
   nem estilos de campo dentro do modal. Os do Contas a pagar (desligado)
   ficaram no estilo antigo.
+- Em cima da cor de destaque (botão, +, card do saldo), a tinta é
+  `var(--sobre-destaque)`, nunca `#fff`; o destaque como texto (link, aba
+  ativa) é `var(--destaque-texto)`, não `var(--accent)`. Cada cor tem os
+  seus, com 4,5:1 no pior fundo (há teste). Branco sobre o dourado dava 1,9:1.
 - Cores só por tokens CSS em `src/styles/global.css`. O tema escuro é
   `:root[data-tema="escuro"]` e precisa redefinir todo token de cor do claro
   (há teste). O script no `index.html` aplica tema/cor/lista antes do React e
@@ -156,6 +160,8 @@ escolha (como foi feito com o topo).
 Discutidas e adiadas. Só implemente se for pedido.
 
 - Orçamento por categoria (teto mensal com barra de progresso).
+- Lembrete de contas (notificação no iPhone no dia em que um lançamento
+  agendado vence).
 - Busca e filtro de lançamentos.
 - Aviso, no saldo projetado, do que já está lançado para os meses seguintes.
 - Preferências sincronizadas na conta (hoje ficam no aparelho).

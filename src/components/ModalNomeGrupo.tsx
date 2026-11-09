@@ -138,7 +138,7 @@ const styles: Record<string, React.CSSProperties> = {
   salvar: {
     width: "100%",
     background: "var(--accent)",
-    color: "#fff",
+    color: "var(--sobre-destaque)",
     border: "none",
     padding: 13,
     borderRadius: 12,

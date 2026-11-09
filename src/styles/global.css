@@ -9,6 +9,15 @@
   --text-faint: #9aa3b0;
   --accent: #c9a86a;
   --accent-soft: #f3ecdc;
+  /* A tinta de quem fica em cima do destaque (botões, o +, o card do saldo)
+     e o destaque usado como texto (links, aba ativa). Saem da cor e não são
+     fixos: branco sobre o dourado dava 2,3:1 no claro e 1,9:1 no escuro.
+     Cada cor tem os seus, com 4,5:1 no pior fundo (src/teste/tema.test.ts). */
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #82652f;
+  /* O degradê do card do saldo vai na direção que afasta o fundo da tinta:
+     clareia sob a tinta escura, escurece sob a branca. */
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
   --green: #5a9b78;
   --green-soft: #e6f2ec;
   --red: #d05a5a;
@@ -58,6 +67,9 @@
   --text-faint: #737d8c;
   --accent: #d8bb81;
   --accent-soft: #342c1c;
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #d8bb81;
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
   --green: #74b994;
   --green-soft: #1a2c22;
   --red: #e58282;
@@ -101,28 +113,101 @@
 }
 
 /* Cores de destaque.
-   O dourado é o padrão e mora nos blocos acima; as outras trocam só o par
-   accent/accent-soft. Cada uma tem a versão do escuro, mais clara, pelo mesmo
-   motivo do dourado.
+   O dourado é o padrão e mora nos blocos acima; as outras trocam o par
+   accent/accent-soft e os três tokens que dependem dele. Cada uma tem a
+   versão do escuro, mais clara, pelo mesmo motivo do dourado.
 
    A ordem importa: o seletor com tema e destaque juntos é o mais específico
    e vence os dois sozinhos, então toda combinação cai na cor certa.
 
-   Nenhuma tem contraste com o texto branco pior que o dourado do mesmo tema
-   (há teste para isso) — trocar a cor não pode deixar botão ilegível. */
-:root[data-destaque="laranja"] { --accent: #df7620; --accent-soft: #fceee3; }
-:root[data-destaque="azul"] { --accent: #4a7fc1; --accent-soft: #e6eef8; }
-:root[data-destaque="petroleo"] { --accent: #266d82; --accent-soft: #e1eff4; }
-:root[data-destaque="roxo"] { --accent: #8467c4; --accent-soft: #ede8f8; }
-:root[data-destaque="rosa"] { --accent: #c2649a; --accent-soft: #f7e7f0; }
-:root[data-destaque="grafite"] { --accent: #5b6475; --accent-soft: #e9ebef; }
+   Cada bloco traz também a tinta, o texto e o degradê do card daquela cor
+   (ver o :root). Azul, roxo e rosa do claro são um tom mais fundos do que
+   eram, o bastante para o branco passar de 4,5:1 em cima deles. */
+:root[data-destaque="laranja"] {
+  --accent: #df7620;
+  --accent-soft: #fceee3;
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #a15517;
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
+}
+:root[data-destaque="azul"] {
+  --accent: #3e74b6;
+  --accent-soft: #e6eef8;
+  --sobre-destaque: #ffffff;
+  --destaque-texto: #396aa6;
+  --saldo-degrade: linear-gradient(135deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.42) 100%);
+}
+:root[data-destaque="petroleo"] {
+  --accent: #266d82;
+  --accent-soft: #e1eff4;
+  --sobre-destaque: #ffffff;
+  --destaque-texto: #266d82;
+  --saldo-degrade: linear-gradient(135deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.42) 100%);
+}
+:root[data-destaque="roxo"] {
+  --accent: #7f61c2;
+  --accent-soft: #ede8f8;
+  --sobre-destaque: #ffffff;
+  --destaque-texto: #7555bd;
+  --saldo-degrade: linear-gradient(135deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.42) 100%);
+}
+:root[data-destaque="rosa"] {
+  --accent: #b84a89;
+  --accent-soft: #f7e7f0;
+  --sobre-destaque: #ffffff;
+  --destaque-texto: #a9427d;
+  --saldo-degrade: linear-gradient(135deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.42) 100%);
+}
+:root[data-destaque="grafite"] {
+  --accent: #5b6475;
+  --accent-soft: #e9ebef;
+  --sobre-destaque: #ffffff;
+  --destaque-texto: #5b6475;
+  --saldo-degrade: linear-gradient(135deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.42) 100%);
+}
 
-:root[data-tema="escuro"][data-destaque="laranja"] { --accent: #ee9953; --accent-soft: #37271b; }
-:root[data-tema="escuro"][data-destaque="azul"] { --accent: #6f9bd6; --accent-soft: #1c2636; }
-:root[data-tema="escuro"][data-destaque="petroleo"] { --accent: #59a8c0; --accent-soft: #192d33; }
-:root[data-tema="escuro"][data-destaque="roxo"] { --accent: #a28ae0; --accent-soft: #262036; }
-:root[data-tema="escuro"][data-destaque="rosa"] { --accent: #d886b4; --accent-soft: #33202b; }
-:root[data-tema="escuro"][data-destaque="grafite"] { --accent: #8a93a3; --accent-soft: #262a32; }
+:root[data-tema="escuro"][data-destaque="laranja"] {
+  --accent: #ee9953;
+  --accent-soft: #37271b;
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #ee9953;
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
+}
+:root[data-tema="escuro"][data-destaque="azul"] {
+  --accent: #6f9bd6;
+  --accent-soft: #1c2636;
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #7fa6db;
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
+}
+:root[data-tema="escuro"][data-destaque="petroleo"] {
+  --accent: #59a8c0;
+  --accent-soft: #192d33;
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #64aec4;
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
+}
+:root[data-tema="escuro"][data-destaque="roxo"] {
+  --accent: #a28ae0;
+  --accent-soft: #262036;
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #ad98e4;
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
+}
+:root[data-tema="escuro"][data-destaque="rosa"] {
+  --accent: #d886b4;
+  --accent-soft: #33202b;
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #da8bb7;
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
+}
+:root[data-tema="escuro"][data-destaque="grafite"] {
+  --accent: #8a93a3;
+  --accent-soft: #262a32;
+  --sobre-destaque: #1a1f2b;
+  --destaque-texto: #9ca4b1;
+  --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
+}
 
 /* O resumo do mês (Renda | Gastos) e o card do saldo ocupam a linha inteira
    dos cards em qualquer largura — no celular e no desktop. Ver o comentário
@@ -342,7 +427,7 @@ input, select {
 .mp-cell.mp-cell-selected,
 .mp-cell.mp-cell-selected:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--sobre-destaque);
 }
 
 .bottom-nav {
@@ -614,7 +699,7 @@ input, select {
   margin-top: 4px;
 }
 .topo-app {
-  color: var(--accent);
+  color: var(--destaque-texto);
   font-weight: 700;
 }
 .cabecalho-acoes {
@@ -645,7 +730,7 @@ input, select {
   color: var(--text);
 }
 .botao-cabecalho[aria-pressed="true"] {
-  color: var(--accent);
+  color: var(--destaque-texto);
 }
 
 /* Carrossel de meses (MonthPicker).
@@ -733,7 +818,7 @@ input, select {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: var(--accent);
+  color: var(--destaque-texto);
 }
 
 /* Tablet: o carrossel não precisa da largura toda — uma faixa de meses de

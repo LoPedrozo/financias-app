@@ -48,10 +48,10 @@ export const DESTAQUES: Array<{
 }> = [
   { id: "dourado", nome: "Dourado", claro: "#c9a86a", escuro: "#d8bb81" },
   { id: "laranja", nome: "Laranja", claro: "#df7620", escuro: "#ee9953" },
-  { id: "azul", nome: "Azul", claro: "#4a7fc1", escuro: "#6f9bd6" },
+  { id: "azul", nome: "Azul", claro: "#3e74b6", escuro: "#6f9bd6" },
   { id: "petroleo", nome: "Azul-petróleo", claro: "#266d82", escuro: "#59a8c0" },
-  { id: "roxo", nome: "Roxo", claro: "#8467c4", escuro: "#a28ae0" },
-  { id: "rosa", nome: "Rosa", claro: "#c2649a", escuro: "#d886b4" },
+  { id: "roxo", nome: "Roxo", claro: "#7f61c2", escuro: "#a28ae0" },
+  { id: "rosa", nome: "Rosa", claro: "#b84a89", escuro: "#d886b4" },
   { id: "grafite", nome: "Grafite", claro: "#5b6475", escuro: "#8a93a3" },
 ];
 

@@ -215,12 +215,12 @@ function Linha({
           {/* Sempre no DOM e alcançáveis pelo VoiceOver: focar um deles abre a
               linha, para quem navega sem deslizar ver o que está tocando. */}
           <button type="button" aria-label="Editar lançamento" onFocus={onAbrir} onClick={onEditar}
-            style={{ ...estilos.acaoFundo, background: "var(--accent)" }}>
+            style={{ ...estilos.acaoFundo, background: "var(--accent)", color: "var(--sobre-destaque)" }}>
             <Pencil size={18} />
             Editar
           </button>
           <button type="button" aria-label="Excluir lançamento" onFocus={onAbrir} onClick={onExcluir}
-            style={{ ...estilos.acaoFundo, background: "var(--red)" }}>
+            style={{ ...estilos.acaoFundo, background: "var(--red)", color: "var(--surface)" }}>
             <Trash2 size={18} />
             Apagar
           </button>
@@ -338,7 +338,6 @@ const estilos: Record<string, React.CSSProperties> = {
   acaoFundo: {
     width: LARGURA_ACOES / 2,
     border: "none",
-    color: "#fff",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",

@@ -21,7 +21,7 @@ export default function IndicadorAtualizar({ distancia, estado }: { distancia: n
           transform: `translate(-50%, ${distancia - 46}px)`,
           // Seguindo o dedo, sem atraso; soltando, desliza para o lugar.
           transition: estado === "puxando" || estado === "pronto" ? "none" : "transform 0.25s ease, opacity 0.25s ease",
-          color: ativo ? "var(--accent)" : "var(--text-faint)",
+          color: ativo ? "var(--destaque-texto)" : "var(--text-faint)",
         }}
       >
         <RefreshCw
