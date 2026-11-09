@@ -230,8 +230,10 @@ export default function ModalAdicionar({
   }
 
   return (
+    // O mesmo nome do botão que traz até aqui: "Adicionar" parecia outra
+    // tela, e não o "Escrever ou colar vários" que se acabou de tocar.
     <Folha
-      titulo="Adicionar"
+      titulo="Escrever ou colar vários"
       onFechar={onFechar}
       largura={460}
       rodape={

@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { X } from "lucide-react";
 import { useAreaVisivel } from "../hooks/useAreaVisivel";
+import { podeAnimar } from "../lib/movimento";
 
 // A casca de todo modal do app.
 //
@@ -37,6 +38,40 @@ export default function Folha({ titulo, onFechar, children, rodape, largura = 44
   // também passeava pela tela coberta. Quem abriu é lido no primeiro render,
   // antes de um campo com autoFocus lá dentro tomar o foco para si.
   const [quemAbriu] = useState(() => document.activeElement);
+  const overlayRef = useRef<HTMLDivElement>(null);
+
+  // Ao fechar, a folha desce (no celular) ou some aos poucos (no computador).
+  // Quem fecha é sempre o pai, que a tira da tela na hora — depois de salvar,
+  // no X, no Esc. Em vez de ensinar cada modal a esperar a animação, a folha
+  // deixa no lugar uma cópia de si, só imagem, que anima e some.
+  useLayoutEffect(() => {
+    const overlay = overlayRef.current;
+    return () => {
+      if (!overlay || !podeAnimar()) return;
+      const copia = overlay.cloneNode(true) as HTMLElement;
+      const rolagem = overlay.querySelector(".folha-corpo")?.scrollTop ?? 0;
+      // Sem papel de modal, sem ids repetidos, sem foco e sem toque: quem
+      // procura "tem modal aberto?" não pode achar a cópia.
+      copia.removeAttribute("data-modal");
+      copia.setAttribute("aria-hidden", "true");
+      copia.setAttribute("inert", "");
+      copia.querySelectorAll("[role], [id]").forEach((el) => {
+        el.removeAttribute("role");
+        el.removeAttribute("id");
+      });
+      copia.classList.add("folha-saindo");
+      // Só depois do commit dá para saber se a folha saiu mesmo: no modo
+      // estrito do React, montar já simula uma desmontagem, e ela continua
+      // na tela.
+      queueMicrotask(() => {
+        if (overlay.isConnected) return;
+        document.body.appendChild(copia);
+        const corpo = copia.querySelector(".folha-corpo");
+        if (corpo) corpo.scrollTop = rolagem;
+        window.setTimeout(() => copia.remove(), 260);
+      });
+    };
+  }, []);
   useEffect(() => {
     const folha = folhaRef.current;
     if (folha && !folha.contains(document.activeElement)) folha.focus({ preventScroll: true });
@@ -60,6 +95,7 @@ export default function Folha({ titulo, onFechar, children, rodape, largura = 44
 
   return (
     <div
+      ref={overlayRef}
       className="folha-overlay"
       data-modal
       data-teclado={tecladoAberto ? "" : undefined}

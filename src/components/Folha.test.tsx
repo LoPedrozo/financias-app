@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
-import { useState } from "react";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { StrictMode, useState } from "react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import Folha from "./Folha";
 
@@ -45,5 +45,55 @@ describe("Folha", () => {
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(abrir).toHaveFocus();
+  });
+});
+
+// Fechar desce a folha: como quem fecha é o pai (que a tira da tela na hora),
+// fica uma cópia só de imagem fazendo a animação.
+describe("Folha fechando", () => {
+  function animarDeVerdade() {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as never;
+  }
+  afterEach(() => {
+    // @ts-expect-error — o jsdom não tem matchMedia; tira o mock.
+    delete window.matchMedia;
+    document.querySelectorAll(".folha-saindo").forEach((el) => el.remove());
+  });
+
+  it("deixa uma cópia que anima e some, sem contar como modal aberto", async () => {
+    animarDeVerdade();
+    render(<Teste />);
+    fireEvent.click(screen.getByRole("button", { name: "Abrir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    await act(async () => {});
+    const copia = document.querySelector(".folha-saindo");
+    expect(copia).not.toBeNull();
+    expect(copia).toHaveAttribute("aria-hidden", "true");
+    expect(copia!.querySelector("[role], [id]")).toBeNull();
+    // Quem pergunta "tem modal aberto?" (o deslizar de mês, o puxar) não acha.
+    expect(document.querySelector("[data-modal]")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(document.querySelector(".folha-saindo")).toBeNull());
+  });
+
+  it("aberta no modo estrito do React, não deixa cópia nenhuma", async () => {
+    animarDeVerdade();
+    render(
+      <StrictMode>
+        <Teste />
+      </StrictMode>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Abrir" }));
+    await act(async () => {});
+    expect(document.querySelector(".folha-saindo")).toBeNull();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("com menos movimento pedido, fecha sem cópia", async () => {
+    render(<Teste />);
+    fireEvent.click(screen.getByRole("button", { name: "Abrir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    await act(async () => {});
+    expect(document.querySelector(".folha-saindo")).toBeNull();
   });
 });

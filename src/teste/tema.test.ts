@@ -180,6 +180,22 @@ describe("cores de destaque", () => {
     }
   });
 
+  // Verde e vermelho também são texto: os valores da lista, o "Renda" e o
+  // "Gastos", os avisos de erro em cima do fundo suave deles.
+  it("verde e vermelho como texto passam de 4,5:1 no card, no fundo e no fundo suave", () => {
+    for (const variante of ["claro", "escuro"] as const) {
+      for (const preto of variante === "escuro" ? [false, true] : [false]) {
+        const t = tokensDaCor("dourado", variante, preto);
+        for (const cor of ["--green", "--red"]) {
+          const onde = `${cor} no ${preto ? "preto" : variante}`;
+          for (const fundo of ["--surface", "--bg", `${cor}-soft`]) {
+            expect(contraste(hex(t[cor]), hex(t[fundo])), `${onde}, sobre ${fundo}`).toBeGreaterThanOrEqual(4.5);
+          }
+        }
+      }
+    }
+  });
+
   // A tinta fica nos tokens, e os componentes a usam: um "#fff" esquecido
   // em cima do destaque volta a ser o branco sobre o dourado.
   it("nenhum componente pinta branco fixo em cima do destaque", () => {

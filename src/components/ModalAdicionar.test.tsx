@@ -39,6 +39,11 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("ModalAdicionar", () => {
+  it("tem o nome do botão que leva até ela", () => {
+    abrir();
+    expect(screen.getByRole("dialog", { name: "Escrever ou colar vários" })).toBeInTheDocument();
+  });
+
   it("lê as linhas, mostra a prévia e salva tudo de uma vez", async () => {
     const { onSalvar } = abrir();
     await userEvent.type(document.querySelector("textarea")!, "almoço 25{Enter}+ mesada 500");

@@ -157,3 +157,51 @@ describe("correção rápida do valor", () => {
     expect(onCorrigirValor).not.toHaveBeenCalled();
   });
 });
+
+// Animação é enfeite (lib/movimento): só roda onde o navegador anima e a
+// pessoa não pediu menos movimento. O jsdom não anima; aqui ele finge.
+describe("animações da lista", () => {
+  function animarDeVerdade() {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as never;
+    const animacoes: Array<{ onfinish: null | (() => void); oncancel: null | (() => void) }> = [];
+    const animar = vi.fn(() => {
+      const a = { onfinish: null, oncancel: null };
+      animacoes.push(a);
+      return a;
+    });
+    Object.defineProperty(HTMLElement.prototype, "animate", { value: animar, configurable: true });
+    return { animacoes, animar };
+  }
+  afterEach(() => {
+    delete (HTMLElement.prototype as { animate?: unknown }).animate;
+  });
+
+  it("apagar encolhe a linha e só então tira da lista — e um toque a mais não apaga duas vezes", () => {
+    const { animacoes, animar } = animarDeVerdade();
+    const { onExcluir } = montar();
+    const lixeira = within(linha("uber")).getByRole("button", { name: "Excluir lançamento" });
+    fireEvent.click(lixeira);
+    expect(onExcluir).not.toHaveBeenCalled();
+    expect(animar).toHaveBeenCalledWith(
+      [expect.objectContaining({ opacity: 1 }), { height: "0px", opacity: 0 }],
+      expect.objectContaining({ fill: "forwards" })
+    );
+    fireEvent.click(lixeira);
+    expect(animacoes).toHaveLength(1);
+    animacoes[0].onfinish!();
+    expect(onExcluir).toHaveBeenCalledTimes(1);
+    expect(onExcluir).toHaveBeenCalledWith(expect.objectContaining({ id: "uber" }));
+  });
+
+  it("sem animação (reduzir movimento, navegador antigo), apaga na hora", () => {
+    const { onExcluir } = montar();
+    fireEvent.click(within(linha("uber")).getByRole("button", { name: "Excluir lançamento" }));
+    expect(onExcluir).toHaveBeenCalledTimes(1);
+  });
+
+  it("os destacados acendem; os outros não", () => {
+    montar({ destacados: new Set(["uber"]) });
+    expect(linha("uber")).toHaveAttribute("data-novo");
+    expect(linha("mercado")).not.toHaveAttribute("data-novo");
+  });
+});

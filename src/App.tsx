@@ -89,8 +89,11 @@ export default function App() {
     if (!session) return <Login />;
 
     // O token sobrevive à tela de login: quem recebeu o link sem ter conta se
-    // cadastra e cai direto no convite.
-    if (convite) {
+    // cadastra e cai direto no convite. A chave na frente não muda nada na
+    // tela (sem ela o convite já é nulo), mas deixa o build ver que o ramo
+    // nunca roda e cortar a tela de convite do pacote, como já faz com o
+    // resto do Contas a pagar.
+    if (CONTAS_A_PAGAR_HABILITADO && convite) {
       return (
         <AceitarConvite
           token={convite}
