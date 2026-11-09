@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
 import Dashboard from "./Dashboard";
 import { listarLancamentos } from "../lib/lancamentos";
+import { gerarLancamentosRecorrentes } from "../lib/recorrencias";
 import type { Lancamento } from "../types";
 
 // A atualização de fundo — voltar ao app, puxar a tela, o "tentar de novo"
@@ -80,6 +81,20 @@ describe("atualização de fundo", () => {
     await screen.findByText(/Não consegui atualizar/);
     await userEvent.click(screen.getByRole("button", { name: /tentar de novo/i }));
     await waitFor(() => expect(screen.queryByText(/Não consegui atualizar/)).not.toBeInTheDocument());
+  });
+
+  it("recorrências geradas ao abrir o mês entram sem trocar a lista por blocos de carregamento", async () => {
+    let gerar!: (v: Lancamento[]) => void;
+    vi.mocked(gerarLancamentosRecorrentes).mockImplementationOnce(() => new Promise((r) => (gerar = r)));
+    render(<Dashboard session={sessao} />);
+    await screen.findByText("mercado");
+    let entregar!: (v: Lancamento[]) => void;
+    vi.mocked(listarLancamentos).mockImplementationOnce(() => new Promise((r) => (entregar = r)));
+    await act(async () => gerar([l("netflix", 55.9)]));
+    expect(screen.getByText("mercado")).toBeInTheDocument();
+    expect(document.querySelector(".skeleton-pulse")).toBeNull();
+    await act(async () => entregar([l("mercado"), l("netflix", 55.9)]));
+    expect(await screen.findByText("netflix")).toBeInTheDocument();
   });
 
   it("no celular, puxar a tela para baixo no topo atualiza", async () => {

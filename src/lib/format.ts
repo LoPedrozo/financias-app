@@ -30,3 +30,24 @@ export function lerValor(bruto: string): number | null {
   if (!Number.isFinite(valor) || valor <= 0) return null;
   return Math.round(valor * 100) / 100;
 }
+
+/** Acima disto é quase certo um dedo a mais. */
+const VALOR_MAXIMO = 1_000_000_000;
+
+// O erro do campo de valor de um formulário, ou null se o valor serve. Lê
+// com o lerValor, como a lista colada e a correção na lista: antes o
+// formulário tinha regra própria e recusava "1.234,56", que o resto do app
+// aceita. Mais de dois dígitos depois da vírgula continua recusado — não é
+// dinheiro, é engano.
+export function erroDoValor(bruto: string): string | null {
+  const limpo = bruto.trim();
+  if (!limpo) return "Informe um valor numérico maior que zero.";
+  const valor = lerValor(limpo);
+  const naoENumero = !/^[\d.,\s]+$/.test(limpo) || /,\d{3,}$/.test(limpo);
+  if (naoENumero || (valor === null && /[1-9]/.test(limpo))) {
+    return "Formato inválido. Use ex: 10,50 ou 1.234,50";
+  }
+  if (valor === null) return "Informe um valor numérico maior que zero.";
+  if (valor > VALOR_MAXIMO) return "Valor muito alto. Verifique se digitou corretamente.";
+  return null;
+}

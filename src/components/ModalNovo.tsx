@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { Check, ClipboardPaste } from "lucide-react";
 import type { Lancamento, NovoLancamento, Tipo } from "../types";
 import { hojeLocal } from "../lib/calculos";
+import { erroDoValor, lerValor } from "../lib/format";
 import Folha from "./Folha";
 import {
   AlternarTipo,
@@ -54,10 +55,7 @@ interface Erros {
 // O campo aceita "10,50" e também texto pela metade. Vale só o que já é
 // número; o resto vira undefined e não atrapalha quem está de saída.
 function valorNumerico(valor: string): number | undefined {
-  const limpo = valor.trim().replace(",", ".");
-  if (!limpo) return undefined;
-  const n = parseFloat(limpo);
-  return Number.isFinite(n) && n > 0 ? n : undefined;
+  return lerValor(valor) ?? undefined;
 }
 
 export default function ModalNovo({
@@ -116,18 +114,8 @@ export default function ModalNovo({
 
   function validar(): Erros {
     const novos: Erros = {};
-    const valorLimpo = valor.trim();
-    const formatoValido = /^\d+([.,]\d{1,2})?$/.test(valorLimpo);
-    const v = parseFloat(valorLimpo.replace(",", "."));
-    if (!valorLimpo) {
-      novos.valor = "Informe um valor numérico maior que zero.";
-    } else if (!formatoValido) {
-      novos.valor = "Formato inválido. Use ex: 10,50 ou 10.50";
-    } else if (isNaN(v) || v <= 0) {
-      novos.valor = "Informe um valor numérico maior que zero.";
-    } else if (v > 1_000_000_000) {
-      novos.valor = "Valor muito alto. Verifique se digitou corretamente.";
-    }
+    const erroValor = erroDoValor(valor);
+    if (erroValor) novos.valor = erroValor;
     if (descricao.trim().length < 3) {
       novos.descricao = "Descrição obrigatória (mínimo 3 caracteres).";
     }
@@ -146,7 +134,7 @@ export default function ModalNovo({
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
 
-    const v = parseFloat(valor.replace(",", "."));
+    const v = lerValor(valor)!;
     const [yyyy, mm] = data.split("-");
     const ano = Number(yyyy);
     const mes = Number(mm) - 1;

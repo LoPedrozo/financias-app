@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { X } from "lucide-react";
 import { useAreaVisivel } from "../hooks/useAreaVisivel";
@@ -29,6 +29,21 @@ export default function Folha({ titulo, onFechar, children, rodape, largura = 44
   const id = useId();
   const area = useAreaVisivel();
   const corpoRef = useRef<HTMLDivElement>(null);
+  const folhaRef = useRef<HTMLDivElement>(null);
+
+  // O foco entra na folha ao abrir e volta para quem a abriu ao fechar. Sem
+  // isso o Esc não fechava nada no computador: a tecla vai para quem tem o
+  // foco, e o foco ficava no botão de trás (a engrenagem, o Exportar). O Tab
+  // também passeava pela tela coberta. Quem abriu é lido no primeiro render,
+  // antes de um campo com autoFocus lá dentro tomar o foco para si.
+  const [quemAbriu] = useState(() => document.activeElement);
+  useEffect(() => {
+    const folha = folhaRef.current;
+    if (folha && !folha.contains(document.activeElement)) folha.focus({ preventScroll: true });
+    return () => {
+      if (quemAbriu instanceof HTMLElement && quemAbriu.isConnected) quemAbriu.focus({ preventScroll: true });
+    };
+  }, [quemAbriu]);
 
   // O teclado do iPhone abre depois do foco e encolhe a área visível: o campo
   // que estava à vista pode acabar atrás dele. Com a área nova, ele volta.
@@ -58,6 +73,8 @@ export default function Folha({ titulo, onFechar, children, rodape, largura = 44
       }}
     >
       <div
+        ref={folhaRef}
+        tabIndex={-1}
         className="folha"
         role="dialog"
         aria-modal="true"

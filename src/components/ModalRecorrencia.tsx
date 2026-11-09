@@ -10,7 +10,7 @@ import type {
 } from "../types";
 import { datasParaRecorrencia, podeGerarNaCompetencia } from "../lib/recorrencias";
 import { chaveDaConta } from "../lib/duplicatas";
-import { brl } from "../lib/format";
+import { brl, erroDoValor, lerValor } from "../lib/format";
 import Folha from "./Folha";
 import {
   AlternarTipo,
@@ -163,18 +163,8 @@ export default function ModalRecorrencia({
 
   function validar(): Erros {
     const novos: Erros = {};
-    const valorLimpo = valor.trim();
-    const formatoValido = /^\d+([.,]\d{1,2})?$/.test(valorLimpo);
-    const v = parseFloat(valorLimpo.replace(",", "."));
-    if (!valorLimpo) {
-      novos.valor = "Informe um valor numérico maior que zero.";
-    } else if (!formatoValido) {
-      novos.valor = "Formato inválido. Use ex: 10,50 ou 10.50";
-    } else if (isNaN(v) || v <= 0) {
-      novos.valor = "Informe um valor numérico maior que zero.";
-    } else if (v > 1_000_000_000) {
-      novos.valor = "Valor muito alto. Verifique se digitou corretamente.";
-    }
+    const erroValor = erroDoValor(valor);
+    if (erroValor) novos.valor = erroValor;
     if (descricao.trim().length < 3) {
       novos.descricao = "Descrição obrigatória (mínimo 3 caracteres).";
     }
@@ -196,7 +186,7 @@ export default function ModalRecorrencia({
     setErros(novosErros);
     if (Object.keys(novosErros).length > 0) return;
 
-    const v = parseFloat(valor.replace(",", "."));
+    const v = lerValor(valor)!;
     const dados: NovaRecorrencia = {
       tipo,
       valor: v,

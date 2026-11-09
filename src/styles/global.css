@@ -433,6 +433,9 @@ input, select {
 .bottom-nav {
   display: none;
 }
+.toast {
+  bottom: 24px;
+}
 
 .desktop-nav {
   display: flex;
@@ -465,6 +468,12 @@ input, select {
   /* Botão que só faz sentido onde não existe a barra de baixo. */
   .so-desktop {
     display: none !important;
+  }
+  /* O aviso fica acima da barra de baixo (64px) e do + que sobressai
+     dela: em cima, cobria o + por até 7 segundos — justo quando se quer
+     lançar o próximo. */
+  .toast {
+    bottom: calc(84px + env(safe-area-inset-bottom));
   }
 
   /* No celular a ordem da tela é outra.
@@ -557,6 +566,11 @@ input, select {
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(16, 24, 40, 0.18);
   animation: fadeUp 0.25s ease;
+}
+/* A folha recebe o foco ao abrir (para o Esc chegar nela), mas não é um
+   controle: o contorno de foco em volta dela inteira só confundiria. */
+.folha:focus {
+  outline: none;
 }
 .folha-corpo {
   flex: 1 1 auto;

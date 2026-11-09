@@ -202,8 +202,11 @@ export default function Dashboard({
       if (compararCompetencia(alvo, competenciaAtual()) < 0) return;
 
       gerarLancamentosRecorrentes(alvo.mes, alvo.ano)
-        .then((novos) => {
-          if (novos.length > 0) carregar();
+        .then(async (novos) => {
+          // Com a lista já na tela, a geração atualiza por baixo. Recarregar
+          // do jeito normal trocava tudo por blocos de carregamento na
+          // primeira visita a cada mês — e ao abrir o app no começo do mês.
+          if (novos.length > 0 && !(await carregar({ silencioso: true }))) setFalhaAoAtualizar(true);
         })
         .catch((e) => {
           console.error(e);
@@ -688,6 +691,24 @@ export default function Dashboard({
       delete document.documentElement.dataset.periodo;
     };
   }, [periodo]);
+
+  // O app fica dias aberto no iPhone, em segundo plano. Virando o mês nesse
+  // meio-tempo, o topo já dizia "1 nov" e a tela continuava em outubro — e as
+  // recorrências de novembro só nasciam quando se navegava até lá. Quem
+  // estava no mês corrente passa para o novo; quem tinha ido olhar outro mês
+  // fica onde está.
+  const competenciaDeHoje = agora.getFullYear() * 12 + agora.getMonth();
+  const competenciaConhecida = useRef(competenciaDeHoje);
+  useEffect(() => {
+    const antes = competenciaConhecida.current;
+    if (competenciaDeHoje === antes) return;
+    competenciaConhecida.current = competenciaDeHoje;
+    if (ano * 12 + mes === antes) {
+      setMes(competenciaDeHoje % 12);
+      setAno(Math.floor(competenciaDeHoje / 12));
+    }
+    // Só a virada importa: mes e ano são lidos como estavam nela.
+  }, [competenciaDeHoje]);
 
   // Trocar de mês agora se vê: o conteúdo entra deslizando do lado de onde
   // o mês veio — avançar traz da direita, voltar traz da esquerda, o mesmo

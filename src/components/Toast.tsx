@@ -35,18 +35,24 @@ export default function Toast({ toast, onFechar }: Props) {
   const cor = toast.tipo === "sucesso" ? "var(--green)" : "var(--red)";
   const corSoft =
     toast.tipo === "sucesso" ? "var(--green-soft)" : "var(--red-soft)";
+  const corBorda = `color-mix(in srgb, ${cor} 27%, transparent)`;
 
   return (
     <div
       role="status"
+      // A altura fica no CSS (.toast): no celular ela sobe para cima da barra
+      // de baixo, senão o aviso cobria o + por até 7 segundos.
+      className="toast"
       style={{
         position: "fixed",
-        bottom: 24,
         left: "50%",
         transform: "translateX(-50%)",
         background: "var(--surface)",
-        border: `1px solid ${cor}44`,
-        borderLeft: `4px solid ${cor}`,
+        // Bordas por partes: "1px solid var(--green)44" (o alfa colado no
+        // var) é inválido, e o navegador jogava a borda fina fora.
+        borderStyle: "solid",
+        borderWidth: "1px 1px 1px 4px",
+        borderColor: `${corBorda} ${corBorda} ${corBorda} ${cor}`,
         borderRadius: 12,
         padding: "12px 16px",
         display: "flex",
