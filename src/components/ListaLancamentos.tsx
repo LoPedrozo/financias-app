@@ -5,7 +5,7 @@ import { agruparPorDia, ehFuturo, rotuloCurto } from "../lib/agruparPorDia";
 import { lerValor } from "../lib/format";
 import { useDinheiro } from "../hooks/usePreferencias";
 import { useToque } from "../hooks/useToque";
-import { vibrar } from "../lib/movimento";
+import { podeAnimar, vibrar } from "../lib/movimento";
 import IconeCategoria from "./IconeCategoria";
 
 // A lista de lançamentos do mês, agrupada por dia (opção A dos protótipos).
@@ -25,12 +25,14 @@ interface Props {
   onEditar: (l: Lancamento) => void;
   onExcluir: (l: Lancamento) => void;
   onCorrigirValor: (l: Lancamento, novoValor: number) => void;
+  /** Os que acabaram de entrar ou mudar: acendem de leve na lista. */
+  destacados?: ReadonlySet<string>;
 }
 
 // Largura dos dois botões que aparecem ao deslizar.
 const LARGURA_ACOES = 152;
 
-export default function ListaLancamentos({ lancamentos, hoje, onEditar, onExcluir, onCorrigirValor }: Props) {
+export default function ListaLancamentos({ lancamentos, hoje, onEditar, onExcluir, onCorrigirValor, destacados }: Props) {
   const dinheiro = useDinheiro();
   const toque = useToque();
   const grupos = useMemo(() => agruparPorDia(lancamentos, hoje), [lancamentos, hoje]);
@@ -61,6 +63,7 @@ export default function ListaLancamentos({ lancamentos, hoje, onEditar, onExclui
               key={l.id}
               l={l}
               futuro={ehFuturo(l, hoje)}
+              novo={destacados?.has(l.id) ?? false}
               toque={toque}
               aberta={aberta === l.id}
               onAbrir={() => {
@@ -93,6 +96,7 @@ export default function ListaLancamentos({ lancamentos, hoje, onEditar, onExclui
 interface LinhaProps {
   l: Lancamento;
   futuro: boolean;
+  novo: boolean;
   toque: boolean;
   aberta: boolean;
   onAbrir: () => void;
@@ -105,7 +109,7 @@ interface LinhaProps {
 }
 
 function Linha({
-  l, futuro, toque, aberta, onAbrir, onFechar, onEditar, onExcluir,
+  l, futuro, novo, toque, aberta, onAbrir, onFechar, onEditar, onExcluir,
   editando, onEditarValor, onFimEdicaoValor,
 }: LinhaProps) {
   const dinheiro = useDinheiro();
@@ -182,6 +186,31 @@ function Linha({
     : {};
   const posicao = arrasto ?? (toque && aberta ? -LARGURA_ACOES : 0);
 
+  // Apagar encolhe a linha até sumir, e só então ela sai da lista: sumindo
+  // de uma vez, as de baixo pulavam para cima e o olho perdia o lugar. O
+  // Desfazer continua igual — ele devolve a linha inteira.
+  const raizRef = useRef<HTMLDivElement | null>(null);
+  const saindo = useRef(false);
+  function apagar() {
+    if (saindo.current) return;
+    const el = raizRef.current;
+    if (!el || !podeAnimar() || typeof el.animate !== "function") {
+      onExcluir();
+      return;
+    }
+    saindo.current = true;
+    const animacao = el.animate(
+      [
+        { height: `${el.offsetHeight}px`, opacity: 1 },
+        { height: "0px", opacity: 0 },
+      ],
+      { duration: 220, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards" }
+    );
+    const fim = () => onExcluir();
+    animacao.onfinish = fim;
+    animacao.oncancel = fim;
+  }
+
   const valor = editando ? (
     <CampoValor l={l} cor={corValor} onFim={onFimEdicaoValor} />
   ) : (
@@ -198,10 +227,13 @@ function Linha({
 
   return (
     <div
+      ref={raizRef}
       className="item-lancamento"
       // Com os botões de baixo à vista, a linha precisa de fundo para
       // cobri-los — no vidro ela é transparente fora disso (global.css).
       data-deslizando={toque && (aberta || arrasto !== null) ? "" : undefined}
+      // Acabou de entrar ou de mudar: acende de leve (global.css).
+      data-novo={novo ? "" : undefined}
       style={estilos.item}
     >
       {toque && (
@@ -219,7 +251,7 @@ function Linha({
             <Pencil size={18} />
             Editar
           </button>
-          <button type="button" aria-label="Excluir lançamento" onFocus={onAbrir} onClick={onExcluir}
+          <button type="button" aria-label="Excluir lançamento" onFocus={onAbrir} onClick={apagar}
             style={{ ...estilos.acaoFundo, background: "var(--red)", color: "var(--surface)" }}>
             <Trash2 size={18} />
             Apagar
@@ -266,7 +298,7 @@ function Linha({
             <button type="button" style={estilos.acaoMouse} onClick={onEditar} aria-label="Editar lançamento" title="Editar">
               <Pencil size={15} />
             </button>
-            <button type="button" style={estilos.acaoMouse} onClick={onExcluir} aria-label="Excluir lançamento" title="Excluir">
+            <button type="button" style={estilos.acaoMouse} onClick={apagar} aria-label="Excluir lançamento" title="Excluir">
               <Trash2 size={15} />
             </button>
           </span>

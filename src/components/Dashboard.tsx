@@ -139,6 +139,16 @@ export default function Dashboard({
     quantidade: 0,
   });
   const [falhaAoAtualizar, setFalhaAoAtualizar] = useState(false);
+  // O que acabou de entrar ou mudar acende de leve na lista (ListaLancamentos)
+  // e apaga sozinho: depois de salvar, o olho acha onde a linha foi parar.
+  const [destacados, setDestacados] = useState<ReadonlySet<string>>(() => new Set());
+  const relogioDestaque = useRef<ReturnType<typeof setTimeout>>();
+  const destacar = useCallback((ids: string[]) => {
+    setDestacados(new Set(ids));
+    clearTimeout(relogioDestaque.current);
+    relogioDestaque.current = setTimeout(() => setDestacados(new Set()), 1600);
+  }, []);
+  useEffect(() => () => clearTimeout(relogioDestaque.current), []);
   const mostrarToast = useCallback(
     (tipo: ToastDados["tipo"], mensagem: string, acao?: ToastAcao) => {
       setToast({ id: Date.now(), tipo, mensagem, acao });
@@ -348,6 +358,7 @@ export default function Dashboard({
     try {
       const novo = await criarLancamento(item);
       setLancamentos((atual) => [novo, ...atual]);
+      destacar([novo.id]);
       mostrarToast("sucesso", "Lançamento salvo!");
       return true;
     } catch (e) {
@@ -393,6 +404,7 @@ export default function Dashboard({
     try {
       const novos = await criarLancamentosEmLote(itens);
       setLancamentos((atual) => [...novos, ...atual]);
+      destacar(novos.map((n) => n.id));
       // O que estava escrito virou lançamento: o rascunho perdeu a função.
       if (origem === "adicionar") limparRascunho();
       fecharAdicionar();
@@ -498,6 +510,7 @@ export default function Dashboard({
       setLancamentos((atual) =>
         atual.map((l) => (l.id === atualizado.id ? atualizado : l))
       );
+      destacar([atualizado.id]);
       mostrarToast("sucesso", "Valor atualizado!");
     } catch (e) {
       console.error(e);
@@ -524,6 +537,7 @@ export default function Dashboard({
         atual.map((l) => (l.id === atualizado.id ? atualizado : l))
       );
       setEditando(null);
+      destacar([atualizado.id]);
       mostrarToast("sucesso", "Lançamento atualizado!");
       return true;
     } catch (e) {
@@ -544,8 +558,12 @@ export default function Dashboard({
     mostrarToast("sucesso", `"${l.descricao || "Lançamento"}" excluído.`, {
       rotulo: "Desfazer",
       onAcao: () => {
-        if (remocao.desfazer(l.id)) mostrarToast("sucesso", "Lançamento de volta.");
-        else mostrarToast("erro", "Não deu tempo: ele já tinha sido excluído.");
+        if (remocao.desfazer(l.id)) {
+          destacar([l.id]);
+          mostrarToast("sucesso", "Lançamento de volta.");
+        } else {
+          mostrarToast("erro", "Não deu tempo: ele já tinha sido excluído.");
+        }
       },
     });
   }
@@ -1018,6 +1036,7 @@ export default function Dashboard({
             onEditar={setEditando}
             onExcluir={excluir}
             onCorrigirValor={corrigirValor}
+            destacados={destacados}
           />
         )}
       </div>

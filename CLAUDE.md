@@ -99,7 +99,10 @@ Já discutidas e fechadas. Não desfaça sem perguntar.
 - **Renda e Gastos ficam num card só**, dividido ao meio, acima do cartão do
   saldo.
 - **Animação é enfeite**: números que rolam terminam sempre no valor exato
-  (há teste), e "reduzir movimento" do sistema desliga tudo.
+  (há teste), e "reduzir movimento" do sistema desliga tudo. A folha desce
+  ao fechar (uma cópia só de imagem, em `Folha.tsx`, porque quem fecha é o
+  pai), a linha apagada encolhe antes de sair e o que acabou de entrar ou
+  mudar acende de leve na lista.
 - **Excluir não pergunta "tem certeza?"**: o lançamento some e aparece
   "Desfazer" por 7s. A exclusão no servidor só vai quando a janela fecha (ou
   na hora, se o app for para o segundo plano) — desfazer devolve o mesmo
@@ -154,6 +157,11 @@ escolha (como foi feito com o topo).
    é silenciosa: mantém a lista à vista e falha vira a faixa "Não consegui
    atualizar", não a tela de erro. Descartados: "lançar de novo" num toque
    (o Lorenzo não quis) e atalhos do ícone (só Android).
+7. ~~**Auditoria.**~~ Feita: contraste sobre a cor de destaque, virada do mês
+   com o app aberto, Esc nas folhas, aviso acima do +, valor com milhar nos
+   formulários, verde e vermelho legíveis no claro, animações de fechar,
+   apagar e destacar. O build já corta o Contas a pagar desligado (a chave em
+   `flags.ts` é constante); não vale separar em arquivo à parte.
 
 ## Ideias guardadas
 

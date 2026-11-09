@@ -63,6 +63,15 @@ describe("excluir com Desfazer", () => {
     expect(removerLancamento).not.toHaveBeenCalled();
   });
 
+  it("a linha que volta pelo Desfazer acende de leve, e o destaque apaga sozinho", async () => {
+    await excluirMercado();
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    const linha = (await screen.findByText("Mercado")).closest(".item-lancamento")!;
+    expect(linha).toHaveAttribute("data-novo");
+    await act(async () => { vi.advanceTimersByTime(2000); });
+    expect(linha).not.toHaveAttribute("data-novo");
+  });
+
   it("sem Desfazer, apaga no servidor uma vez, com o lançamento inteiro", async () => {
     await excluirMercado();
     await act(async () => { vi.advanceTimersByTime(7000); });

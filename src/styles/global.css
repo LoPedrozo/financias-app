@@ -18,9 +18,12 @@
   /* O degradê do card do saldo vai na direção que afasta o fundo da tinta:
      clareia sob a tinta escura, escurece sob a branca. */
   --saldo-degrade: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0) 100%);
-  --green: #5a9b78;
+  /* Verde é entrada e vermelho é saída, e os dois aparecem como texto (os
+     valores da lista, os avisos): com 4,5:1 até sobre o fundo suave deles.
+     Os de antes (#5a9b78 e #d05a5a) davam 3,3:1 e 4,0:1 no branco. */
+  --green: #45765c;
   --green-soft: #e6f2ec;
-  --red: #d05a5a;
+  --red: #c43838;
   --red-soft: #fbeaea;
   --shadow: 0 1px 3px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.04);
   --radius: 16px;
@@ -537,6 +540,75 @@ input, select {
   }
 }
 
+/* O lançamento que acabou de entrar (ou de mudar) acende de leve na cor de
+   destaque e apaga, para o olho achar onde ele foi parar na lista. Uma
+   camada por cima, e não o fundo da linha: no vidro a linha é transparente. */
+.item-lancamento[data-novo]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  animation: acenderLinha 1.4s ease-out;
+}
+@keyframes acenderLinha {
+  0%,
+  20% {
+    opacity: 0.18;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item-lancamento[data-novo]::after {
+    animation: none;
+  }
+}
+
+/* Ao fechar, fica uma cópia da folha que faz o caminho de volta (Folha.tsx):
+   o fundo clareia e a folha desce, no celular, ou some descendo um pouco, no
+   computador. A cópia não recebe toque. */
+@keyframes descerFolha {
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes sumirFolha {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+/* Só o véu escuro clareia: com opacidade no conjunto, a folha ficava
+   transparente no caminho e a lista aparecia através dela. */
+@keyframes clarearFundo {
+  to {
+    background-color: transparent;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+}
+@keyframes escurecerFundo {
+  from {
+    background-color: transparent;
+    backdrop-filter: blur(0);
+    -webkit-backdrop-filter: blur(0);
+  }
+}
+.folha-overlay {
+  animation: escurecerFundo 0.2s ease;
+}
+.folha-saindo {
+  pointer-events: none;
+  animation: clarearFundo 0.22s ease forwards;
+}
+.folha-saindo .folha {
+  animation: sumirFolha 0.2s ease forwards;
+}
+
 /* Folha: a casca de todo modal (components/Folha.tsx).
    É uma coluna: o corpo rola e o rodapé, com o botão principal, fica sempre
    no fim dela, à vista. O overlay não usa inset: 0 — o top e a altura vêm da
@@ -610,6 +682,9 @@ input, select {
     border-radius: 22px 22px 0 0;
     animation: subirFolha 0.22s ease;
   }
+  .folha-saindo .folha {
+    animation: descerFolha 0.22s ease forwards;
+  }
   .folha-corpo {
     padding: 16px 18px 8px;
   }
@@ -633,7 +708,8 @@ input, select {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .folha {
+  .folha,
+  .folha-overlay {
     animation: none;
   }
 }
