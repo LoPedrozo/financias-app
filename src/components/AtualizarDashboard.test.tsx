@@ -61,6 +61,19 @@ describe("atualização de fundo", () => {
     expect(await screen.findByText("farmácia")).toBeInTheDocument();
   });
 
+  it("voltar ao app (visibilitychange e focus juntos) busca uma vez só", async () => {
+    render(<Dashboard session={sessao} />);
+    await screen.findByText("mercado");
+    const antes = vi.mocked(listarLancamentos).mock.calls.length;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+      window.dispatchEvent(new Event("focus"));
+    });
+    await waitFor(() => expect(vi.mocked(listarLancamentos).mock.calls.length).toBe(antes + 1));
+    await act(async () => {});
+    expect(vi.mocked(listarLancamentos).mock.calls.length).toBe(antes + 1);
+  });
+
   it("falha na atualização de fundo: os dados ficam e aparece a faixa, não a tela de erro", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(<Dashboard session={sessao} />);

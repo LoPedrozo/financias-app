@@ -265,18 +265,30 @@ export default function Dashboard({
 
   // A faixa de "Não consegui atualizar" reflete a rodada inteira: some quando
   // tudo voltou, fica se qualquer parte falhou.
-  const atualizarTudo = useCallback(async () => {
-    const recorrenciasOk = listarRecorrencias()
-      .then((r) => {
-        setRecorrencias(r);
-        return true;
-      })
-      .catch((e) => {
-        console.error(e);
-        return false;
-      });
-    const partes = await Promise.all([carregar({ silencioso: true }), carregarContasEmAberto(), recorrenciasOk]);
-    setFalhaAoAtualizar(partes.some((ok) => !ok));
+  //
+  // Voltar ao app dispara "visibilitychange" e "focus" juntos, e o puxar pode
+  // cair no meio: uma rodada em curso atende a todos, em vez de buscar tudo
+  // duas vezes.
+  const rodadaEmCurso = useRef<Promise<void> | null>(null);
+  const atualizarTudo = useCallback((): Promise<void> => {
+    if (rodadaEmCurso.current) return rodadaEmCurso.current;
+    const rodada = (async () => {
+      const recorrenciasOk = listarRecorrencias()
+        .then((r) => {
+          setRecorrencias(r);
+          return true;
+        })
+        .catch((e) => {
+          console.error(e);
+          return false;
+        });
+      const partes = await Promise.all([carregar({ silencioso: true }), carregarContasEmAberto(), recorrenciasOk]);
+      setFalhaAoAtualizar(partes.some((ok) => !ok));
+    })().finally(() => {
+      rodadaEmCurso.current = null;
+    });
+    rodadaEmCurso.current = rodada;
+    return rodada;
   }, [carregar, carregarContasEmAberto]);
 
   // Puxar a tela para baixo, no topo, faz a mesma atualização — para quem
