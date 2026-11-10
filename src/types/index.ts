@@ -12,6 +12,9 @@ export interface Lancamento {
   data: string | null; // ISO YYYY-MM-DD; null para lançamentos antigos
   created_at: string;
   recorrencia_id?: string | null;
+  /** Fatura do cartão calculada das compras (lib/fatura.ts): não existe no
+   *  banco, não se edita nem se apaga — tocar nela abre a fatura. */
+  fatura?: { cartao_id: string; fechamento: string };
 }
 
 // Dados para criar um lançamento (sem os campos gerados pelo banco)
@@ -37,6 +40,71 @@ export interface Recorrencia {
 }
 
 export type NovaRecorrencia = Omit<Recorrencia, "id" | "user_id" | "created_at">;
+
+// Cartão de crédito.
+//
+// A compra no cartão não sai do saldo no dia: o dinheiro sai quando a fatura
+// vence. Por isso as compras moram numa tabela própria, e a fatura de cada
+// ciclo é calculada delas (lib/fatura.ts) e entra nas contas como um
+// lançamento no dia do vencimento. Lançar a fatura à mão, como antes, contaria
+// tudo duas vezes.
+export interface Cartao {
+  id: string;
+  user_id: string;
+  nome: string;
+  /** Dia em que a fatura fecha. Compra feita nesse dia já vai para a próxima. */
+  dia_fechamento: number;
+  dia_vencimento: number;
+  /** Quanto se pretende gastar por fatura, e quanto disso é essencial. */
+  meta_total: number | null;
+  meta_essenciais: number | null;
+  /** Vencimento da primeira fatura acompanhada (AAAA-MM-DD). As de antes
+   *  foram lançadas à mão e não são recalculadas. */
+  inicio: string;
+  created_at: string;
+}
+
+export type NovoCartao = Omit<Cartao, "id" | "user_id" | "created_at">;
+
+export type ComoPagou = "aproximacao" | "online";
+
+export interface CompraCartao {
+  id: string;
+  user_id: string;
+  cartao_id: string;
+  descricao: string;
+  /** Valor total da compra; parcelada, ele se divide pelas faturas. */
+  valor: number;
+  categoria: string;
+  /** Dia da compra (AAAA-MM-DD). */
+  data: string;
+  parcelas: number;
+  /** null: segue a categoria (CATEGORIAS_ESSENCIAIS). */
+  essencial: boolean | null;
+  como: ComoPagou | null;
+  created_at: string;
+}
+
+export type NovaCompraCartao = Omit<CompraCartao, "id" | "user_id" | "created_at">;
+
+// Gasto que se repete e ainda vai acontecer — o lanche de toda sexta. Não
+// vira compra sozinho: entra só na previsão da fatura, até o dia passar.
+export interface PrevistoCartao {
+  id: string;
+  user_id: string;
+  cartao_id: string;
+  descricao: string;
+  valor: number;
+  categoria: string;
+  frequencia: Frequencia;
+  dia_semana: number | null;
+  dia_mes: number | null;
+  essencial: boolean | null;
+  ativo: boolean;
+  created_at: string;
+}
+
+export type NovoPrevistoCartao = Omit<PrevistoCartao, "id" | "user_id" | "created_at">;
 
 // Uma "pilha" de contas: tem nome, dono e membros próprios. É o que permite
 // dividir um conjunto de contas com uma pessoa e outro com outra, sem misturar.
