@@ -196,6 +196,21 @@ describe("cores de destaque", () => {
     }
   });
 
+  // O cartão de crédito é escuro nos dois temas, com texto claro: tem de se
+  // ler nas duas pontas do degradê.
+  it("o texto do cartão de crédito passa de 4,5:1 nas duas pontas do degradê", () => {
+    for (const variante of ["claro", "escuro"] as const) {
+      const t = tokensDaCor("dourado", variante);
+      const pontas = t["--cartao-fundo"].match(/#[0-9a-f]{6}/g)!;
+      expect(pontas, variante).toHaveLength(2);
+      for (const ponta of pontas) {
+        for (const texto of ["--cartao-texto", "--cartao-suave"]) {
+          expect(contraste(hex(t[texto]), hex(ponta)), `${texto} sobre ${ponta} no ${variante}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+  });
+
   // A tinta fica nos tokens, e os componentes a usam: um "#fff" esquecido
   // em cima do destaque volta a ser o branco sobre o dourado.
   it("nenhum componente pinta branco fixo em cima do destaque", () => {

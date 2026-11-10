@@ -46,6 +46,26 @@ import { CONTAS_A_PAGAR_HABILITADO } from "../lib/flags";
 import { filtrarPeriodo, gerarCsv, nomeDoArquivo } from "../lib/csv";
 import type { Periodo } from "../lib/csv";
 import ModalExportar from "./ModalExportar";
+import CardCartao from "./CardCartao";
+import FolhaCartao from "./FolhaCartao";
+import ModalCompra from "./ModalCompra";
+import ModalPrevisto from "./ModalPrevisto";
+import ModalConfigCartao from "./ModalConfigCartao";
+import {
+  atualizarCartao,
+  atualizarCompra,
+  atualizarPrevisto,
+  criarCartao,
+  criarCompra,
+  criarPrevisto,
+  listarCompras,
+  listarPrevistos,
+  obterCartao,
+  removerCompra,
+  removerPrevisto,
+} from "../lib/cartao";
+import { cicloDaData, cicloSeguinte, dataNoMes, faturaDoCiclo, faturasComoLancamentos } from "../lib/fatura";
+import type { Cartao, CompraCartao, NovaCompraCartao, NovoCartao, NovoPrevistoCartao, PrevistoCartao } from "../types";
 import ModalPreferencias from "./ModalPreferencias";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
@@ -149,6 +169,15 @@ export default function Dashboard({
     relogioDestaque.current = setTimeout(() => setDestacados(new Set()), 1600);
   }, []);
   useEffect(() => () => clearTimeout(relogioDestaque.current), []);
+
+  // Cartão de crédito. undefined: ainda carregando; null: não configurado.
+  const [cartao, setCartao] = useState<Cartao | null | undefined>(undefined);
+  const [compras, setCompras] = useState<CompraCartao[]>([]);
+  const [previstos, setPrevistos] = useState<PrevistoCartao[]>([]);
+  const [folhaCartao, setFolhaCartao] = useState<{ fechamento?: string } | null>(null);
+  const [modalCompra, setModalCompra] = useState<{ compra?: CompraCartao } | null>(null);
+  const [modalPrevisto, setModalPrevisto] = useState<{ previsto?: PrevistoCartao } | null>(null);
+  const [modalConfigCartao, setModalConfigCartao] = useState(false);
   const mostrarToast = useCallback(
     (tipo: ToastDados["tipo"], mensagem: string, acao?: ToastAcao) => {
       setToast({ id: Date.now(), tipo, mensagem, acao });
@@ -170,6 +199,39 @@ export default function Dashboard({
     },
   });
   const idEsperandoRemocao = remocao.idEsperando;
+
+  // Apagar compra do cartão: o mesmo Desfazer dos lançamentos.
+  const remocaoCompra = useRemocaoComDesfazer<CompraCartao>({
+    remover: (c) => removerCompra(c.id),
+    aoTirar: (c) => setCompras((atual) => atual.filter((x) => x.id !== c.id)),
+    aoDevolver: (c) => setCompras((atual) => (atual.some((x) => x.id === c.id) ? atual : [c, ...atual])),
+    aoFalhar: (c, e) => {
+      console.error(e);
+      setCompras((atual) => (atual.some((x) => x.id === c.id) ? atual : [c, ...atual]));
+      mostrarToast("erro", "Não foi possível apagar a compra. Verifique sua conexão.");
+    },
+  });
+  const idCompraEsperando = remocaoCompra.idEsperando;
+
+  // O cartão, as compras e os previstos. Devolve se deu certo, como o carregar.
+  const carregarCartao = useCallback(async (): Promise<boolean> => {
+    try {
+      const c = await obterCartao();
+      if (!c) {
+        setCartao(null);
+        return true;
+      }
+      const [cs, ps] = await Promise.all([listarCompras(c.id), listarPrevistos(c.id)]);
+      const esperando = idCompraEsperando();
+      setCartao(c);
+      setCompras(esperando ? cs.filter((x) => x.id !== esperando) : cs);
+      setPrevistos(ps);
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  }, [idCompraEsperando]);
 
   // Silencioso é a atualização de fundo (voltar ao app, puxar a tela, o
   // "tentar de novo" da faixa): com a lista já na tela, ela fica à vista em
@@ -273,6 +335,12 @@ export default function Dashboard({
     carregarContasEmAberto();
   }, [carregarContasEmAberto]);
 
+  useEffect(() => {
+    carregarCartao().then((ok) => {
+      if (!ok) setFalhaAoAtualizar(true);
+    });
+  }, [carregarCartao]);
+
   // A faixa de "Não consegui atualizar" reflete a rodada inteira: some quando
   // tudo voltou, fica se qualquer parte falhou.
   //
@@ -292,14 +360,19 @@ export default function Dashboard({
           console.error(e);
           return false;
         });
-      const partes = await Promise.all([carregar({ silencioso: true }), carregarContasEmAberto(), recorrenciasOk]);
+      const partes = await Promise.all([
+        carregar({ silencioso: true }),
+        carregarContasEmAberto(),
+        recorrenciasOk,
+        carregarCartao(),
+      ]);
       setFalhaAoAtualizar(partes.some((ok) => !ok));
     })().finally(() => {
       rodadaEmCurso.current = null;
     });
     rodadaEmCurso.current = rodada;
     return rodada;
-  }, [carregar, carregarContasEmAberto]);
+  }, [carregar, carregarContasEmAberto, carregarCartao]);
 
   // Puxar a tela para baixo, no topo, faz a mesma atualização — para quem
   // lançou pelo computador e quer ver no celular sem sair do app.
@@ -429,7 +502,7 @@ export default function Dashboard({
 
   async function exportarCsv(periodo: Periodo) {
     setModalExportar(false);
-    const alvo = filtrarPeriodo(lancamentos, periodo);
+    const alvo = filtrarPeriodo(todos, periodo);
     // O modal já desliga a opção vazia; isto é a rede para o caso de a lista
     // ter mudado entre abrir o modal e tocar.
     if (alvo.length === 0) {
@@ -568,20 +641,151 @@ export default function Dashboard({
     });
   }
 
+  // A fatura do cartão entra nas contas como uma saída no dia do vencimento
+  // (lib/fatura.ts). `todos` é o que as contas e a lista enxergam;
+  // `lancamentos` continua sendo só o que existe no banco — é nele que se
+  // edita, apaga e repete mês.
+  const hojeIso = hojeLocal();
+  const faturasVirtuais = useMemo(() => {
+    if (!cartao) return [];
+    const [anoHoje, mesHoje] = [Number(hojeIso.slice(0, 4)), Number(hojeIso.slice(5, 7)) - 1];
+    // Até o mês da tela, e pelo menos dois à frente: a fatura aberta vence
+    // no mês que vem e precisa existir para o saldo projetado de lá.
+    const ate = [dataNoMes(ano, mes, 31), dataNoMes(anoHoje, mesHoje + 2, 31)].sort()[1];
+    return faturasComoLancamentos(cartao, compras, previstos, hojeIso, ate);
+  }, [cartao, compras, previstos, hojeIso, mes, ano]);
+  const todos = useMemo(
+    () => (faturasVirtuais.length > 0 ? [...lancamentos, ...faturasVirtuais] : lancamentos),
+    [lancamentos, faturasVirtuais]
+  );
+  const faturaAberta = useMemo(
+    () => (cartao ? faturaDoCiclo(cicloDaData(hojeIso, cartao), cartao, compras, previstos, hojeIso) : null),
+    [cartao, compras, previstos, hojeIso]
+  );
+  // A que fechou e ainda não venceu: é a próxima a sair do saldo.
+  const faturaAPagar = useMemo(() => {
+    if (!cartao) return null;
+    const c = cicloSeguinte(cicloDaData(hojeIso, cartao), cartao, -1);
+    if (hojeIso >= c.vencimento || c.vencimento < cartao.inicio) return null;
+    const f = faturaDoCiclo(c, cartao, compras, previstos, hojeIso);
+    return f.total > 0 ? f : null;
+  }, [cartao, compras, previstos, hojeIso]);
+
+  // ——— Cartão de crédito ———
+
+  async function salvarCompra(dados: NovaCompraCartao): Promise<boolean> {
+    const original = modalCompra?.compra;
+    try {
+      const salva = original ? await atualizarCompra(original.id, dados) : await criarCompra(dados);
+      setCompras((atual) => (original ? atual.map((c) => (c.id === salva.id ? salva : c)) : [salva, ...atual]));
+      setModalCompra(null);
+      mostrarToast("sucesso", original ? "Compra atualizada!" : "Compra salva!");
+      return true;
+    } catch (e) {
+      console.error(e);
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+      return false;
+    }
+  }
+
+  function apagarCompra(c: CompraCartao) {
+    setModalCompra(null);
+    remocaoCompra.apagar(c);
+    mostrarToast("sucesso", `"${c.descricao || "Compra"}" apagada.`, {
+      rotulo: "Desfazer",
+      onAcao: () => {
+        if (remocaoCompra.desfazer(c.id)) mostrarToast("sucesso", "Compra de volta.");
+        else mostrarToast("erro", "Não deu tempo: ela já tinha sido apagada.");
+      },
+    });
+  }
+
+  async function salvarPrevisto(dados: NovoPrevistoCartao): Promise<boolean> {
+    const original = modalPrevisto?.previsto;
+    try {
+      const salvo = original ? await atualizarPrevisto(original.id, dados) : await criarPrevisto(dados);
+      setPrevistos((atual) => (original ? atual.map((x) => (x.id === salvo.id ? salvo : x)) : [...atual, salvo]));
+      setModalPrevisto(null);
+      mostrarToast("sucesso", original ? "Previsto atualizado!" : "Previsto salvo!");
+      return true;
+    } catch (e) {
+      console.error(e);
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+      return false;
+    }
+  }
+
+  async function apagarPrevisto(alvo: PrevistoCartao) {
+    setModalPrevisto(null);
+    setPrevistos((atual) => atual.filter((x) => x.id !== alvo.id));
+    try {
+      await removerPrevisto(alvo.id);
+      mostrarToast("sucesso", "Previsto apagado.");
+    } catch (e) {
+      console.error(e);
+      setPrevistos((atual) => (atual.some((x) => x.id === alvo.id) ? atual : [...atual, alvo]));
+      mostrarToast("erro", "Não foi possível apagar. Verifique sua conexão.");
+    }
+  }
+
+  async function salvarConfigCartao(dados: NovoCartao, jaNaFatura: number | null): Promise<boolean> {
+    try {
+      if (cartao) {
+        setCartao(await atualizarCartao(cartao.id, dados));
+        setModalConfigCartao(false);
+        mostrarToast("sucesso", "Cartão atualizado!");
+        return true;
+      }
+      // O cartão vai para a tela assim que existe: se a compra inicial falhar
+      // depois, tentar de novo não pode criar um segundo cartão.
+      const novo = await criarCartao(dados);
+      setCartao(novo);
+      setCompras([]);
+      setPrevistos([]);
+      setModalConfigCartao(false);
+      setFolhaCartao({});
+      if (jaNaFatura) {
+        try {
+          const inicial = await criarCompra({
+            cartao_id: novo.id,
+            descricao: "Já estava na fatura",
+            valor: jaNaFatura,
+            categoria: "Outros",
+            data: cicloDaData(hojeIso, novo).abre,
+            parcelas: 1,
+            essencial: null,
+            como: null,
+          });
+          setCompras([inicial]);
+        } catch (e) {
+          console.error(e);
+          mostrarToast("erro", "O cartão está pronto, mas não consegui lançar o que já estava na fatura. Lance como compra.");
+          return true;
+        }
+      }
+      mostrarToast("sucesso", "Cartão pronto! Lance as compras por aqui.");
+      return true;
+    } catch (e) {
+      console.error(e);
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+      return false;
+    }
+  }
+
   function dataOrdenacao(l: Lancamento): string {
     return l.data ?? l.created_at.slice(0, 10);
   }
 
   const doMes = useMemo(
     () =>
-      filtrarPorMes(lancamentos, mes, ano)
+      filtrarPorMes(todos, mes, ano)
         .slice()
         .sort((a, b) => {
           const cmp = dataOrdenacao(b).localeCompare(dataOrdenacao(a));
           if (cmp !== 0) return cmp;
           return b.created_at.localeCompare(a.created_at);
         }),
-    [lancamentos, mes, ano]
+    [todos, mes, ano]
   );
 
   const anterior = useMemo(
@@ -606,13 +810,13 @@ export default function Dashboard({
   const gastos = somarPorTipo(doMes, "saida");
 
   const saldoAcumulado = useMemo(
-    () => calcularSaldoAcumulado(lancamentos, mes, ano),
-    [lancamentos, mes, ano]
+    () => calcularSaldoAcumulado(todos, mes, ano),
+    [todos, mes, ano]
   );
 
   const pendentesLancamentos = useMemo(
-    () => calcularPendentes(lancamentos, mes, ano),
-    [lancamentos, mes, ano]
+    () => calcularPendentes(todos, mes, ano),
+    [todos, mes, ano]
   );
 
   // As contas a pagar em aberto das pilhas marcadas somam às saídas previstas.
@@ -632,21 +836,20 @@ export default function Dashboard({
 
   const saldoProjetado = useMemo(
     () =>
-      calcularSaldoProjetado(lancamentos, mes, ano) - contasEmAberto.total,
-    [lancamentos, mes, ano, contasEmAberto]
+      calcularSaldoProjetado(todos, mes, ano) - contasEmAberto.total,
+    [todos, mes, ano, contasEmAberto]
   );
 
   // Os dois cards no lugar dos gráficos. As contas (lib/resumoMes.ts) usam a
   // mesma regra dos cards de Renda e Gastos — só conta o que já aconteceu — e
   // comparam o mês atual com o MESMO PERÍODO do anterior.
-  const hojeIso = hojeLocal();
   const resumo = useMemo(
-    () => resumoDoMes(lancamentos, mes, ano, hojeIso),
-    [lancamentos, mes, ano, hojeIso]
+    () => resumoDoMes(todos, mes, ano, hojeIso),
+    [todos, mes, ano, hojeIso]
   );
   const categorias = useMemo(
-    () => calcularPorCategoria(lancamentos, mes, ano, tipoGrafico, hojeIso),
-    [lancamentos, mes, ano, tipoGrafico, hojeIso]
+    () => calcularPorCategoria(todos, mes, ano, tipoGrafico, hojeIso),
+    [todos, mes, ano, tipoGrafico, hojeIso]
   );
 
   const email = session.user.email ?? "";
@@ -683,6 +886,10 @@ export default function Dashboard({
     setEditando(null);
     setFormulario(null);
     setVerRecorrencias(false);
+    setFolhaCartao(null);
+    setModalCompra(null);
+    setModalPrevisto(null);
+    setModalConfigCartao(false);
     setAbaAtiva(aba);
   }
 
@@ -924,6 +1131,16 @@ export default function Dashboard({
               : undefined
           }
         />
+        {cartao !== undefined && (
+          <CardCartao
+            cartao={cartao}
+            aberta={faturaAberta}
+            aPagar={faturaAPagar}
+            hoje={hojeIso}
+            onAbrir={() => setFolhaCartao({})}
+            onConfigurar={() => setModalConfigCartao(true)}
+          />
+        )}
       </div>
 
       <div style={styles.grid} className="graficos-no-fim anima-mes">
@@ -1036,6 +1253,7 @@ export default function Dashboard({
             onEditar={setEditando}
             onExcluir={excluir}
             onCorrigirValor={corrigirValor}
+            onAbrirFatura={(fechamento) => setFolhaCartao({ fechamento })}
             destacados={destacados}
           />
         )}
@@ -1132,9 +1350,57 @@ export default function Dashboard({
         <ModalExportar
           mes={mes}
           ano={ano}
-          lancamentos={lancamentos}
+          lancamentos={todos}
           onExportar={exportarCsv}
           onFechar={() => setModalExportar(false)}
+        />
+      )}
+
+      {folhaCartao && cartao && (
+        <FolhaCartao
+          key={folhaCartao.fechamento ?? "aberta"}
+          cartao={cartao}
+          compras={compras}
+          previstos={previstos}
+          lancamentos={lancamentos}
+          hoje={hojeIso}
+          fechamento={folhaCartao.fechamento}
+          onNovaCompra={() => setModalCompra({})}
+          onEditarCompra={(c) => setModalCompra({ compra: c })}
+          onNovoPrevisto={() => setModalPrevisto({})}
+          onEditarPrevisto={(x) => setModalPrevisto({ previsto: x })}
+          onConfigurar={() => setModalConfigCartao(true)}
+          onApagarLancamento={excluir}
+          onFechar={() => setFolhaCartao(null)}
+        />
+      )}
+
+      {modalCompra && cartao && (
+        <ModalCompra
+          cartao={cartao}
+          compra={modalCompra.compra}
+          onSalvar={salvarCompra}
+          onApagar={modalCompra.compra ? () => apagarCompra(modalCompra.compra!) : undefined}
+          onFechar={() => setModalCompra(null)}
+        />
+      )}
+
+      {modalPrevisto && cartao && (
+        <ModalPrevisto
+          cartao={cartao}
+          previsto={modalPrevisto.previsto}
+          onSalvar={salvarPrevisto}
+          onApagar={modalPrevisto.previsto ? () => apagarPrevisto(modalPrevisto.previsto!) : undefined}
+          onFechar={() => setModalPrevisto(null)}
+        />
+      )}
+
+      {modalConfigCartao && (
+        <ModalConfigCartao
+          cartao={cartao ?? undefined}
+          hoje={hojeIso}
+          onSalvar={salvarConfigCartao}
+          onFechar={() => setModalConfigCartao(false)}
         />
       )}
 

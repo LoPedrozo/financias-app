@@ -1,4 +1,5 @@
 import type { Cartao, CompraCartao, Lancamento, PrevistoCartao } from "../types";
+import { MESES } from "../types";
 
 // A conta da fatura do cartão.
 //
@@ -305,4 +306,19 @@ export function faturasComoLancamentos(
     });
   }
   return saida;
+}
+
+// ——— Textos ———
+
+/** "10 dez". */
+export function diaEMes(iso: string): string {
+  const { mes, dia } = partes(iso);
+  return `${dia} ${MESES[mes].slice(0, 3).toLowerCase()}`;
+}
+
+/** "dezembro" — a fatura leva o nome do mês em que vence; de outro ano, com o ano. */
+export function nomeDaFatura(ciclo: Ciclo, hoje: string): string {
+  const { ano, mes } = partes(ciclo.vencimento);
+  const nome = MESES[mes].toLowerCase();
+  return ano === Number(hoje.slice(0, 4)) ? nome : `${nome} de ${ano}`;
 }

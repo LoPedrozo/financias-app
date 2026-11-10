@@ -44,6 +44,14 @@
   --vidro: rgba(255, 255, 255, 0.75);
   --vidro-borda: rgba(255, 255, 255, 0.8);
   --vidro-mancha: 22%;
+  /* O cartão de crédito da tela principal é escuro nos dois temas, como um
+     cartão de verdade, e não usa a cor de destaque: ela já é do card do
+     saldo, logo acima, e dois cards iguais se confundiriam. Textos com mais
+     de 4,5:1 em todo o degradê (há teste). */
+  --cartao-fundo: linear-gradient(135deg, #3a3f4b 0%, #16181d 100%);
+  --cartao-texto: #f4f5f7;
+  --cartao-suave: #c9ced8;
+  --cartao-trilho: rgba(255, 255, 255, 0.18);
   color-scheme: light;
 }
 
@@ -88,6 +96,11 @@
   --vidro: rgba(28, 32, 39, 0.7);
   --vidro-borda: rgba(255, 255, 255, 0.07);
   --vidro-mancha: 34%;
+  /* No escuro o cartão sobe um degrau, senão some no fundo. */
+  --cartao-fundo: linear-gradient(135deg, #434a58 0%, #22262e 100%);
+  --cartao-texto: #f4f5f7;
+  --cartao-suave: #c9ced8;
+  --cartao-trilho: rgba(255, 255, 255, 0.18);
   /* Faz o navegador desenhar o calendário do campo de data e a lista do
      select em escuro. Sem isto, tocar na data abre um painel branco no meio
      da tela escura. */

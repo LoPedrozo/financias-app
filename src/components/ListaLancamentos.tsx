@@ -27,12 +27,14 @@ interface Props {
   onCorrigirValor: (l: Lancamento, novoValor: number) => void;
   /** Os que acabaram de entrar ou mudar: acendem de leve na lista. */
   destacados?: ReadonlySet<string>;
+  /** Tocar na fatura do cartão (calculada, não se edita) abre a fatura. */
+  onAbrirFatura?: (fechamento: string) => void;
 }
 
 // Largura dos dois botões que aparecem ao deslizar.
 const LARGURA_ACOES = 152;
 
-export default function ListaLancamentos({ lancamentos, hoje, onEditar, onExcluir, onCorrigirValor, destacados }: Props) {
+export default function ListaLancamentos({ lancamentos, hoje, onEditar, onExcluir, onCorrigirValor, destacados, onAbrirFatura }: Props) {
   const dinheiro = useDinheiro();
   const toque = useToque();
   const grupos = useMemo(() => agruparPorDia(lancamentos, hoje), [lancamentos, hoje]);
@@ -58,7 +60,15 @@ export default function ListaLancamentos({ lancamentos, hoje, onEditar, onExclui
               {dinheiro(Math.abs(g.total))}
             </span>
           </div>
-          {g.itens.map((l) => (
+          {g.itens.map((l) =>
+            l.fatura ? (
+              <LinhaFatura
+                key={l.id}
+                l={l}
+                futuro={ehFuturo(l, hoje)}
+                onAbrir={() => onAbrirFatura?.(l.fatura!.fechamento)}
+              />
+            ) : (
             <Linha
               key={l.id}
               l={l}
@@ -86,7 +96,8 @@ export default function ListaLancamentos({ lancamentos, hoje, onEditar, onExclui
                 if (novo !== null && novo !== l.valor) onCorrigirValor(l, novo);
               }}
             />
-          ))}
+            )
+          )}
         </section>
       ))}
     </div>
@@ -310,6 +321,40 @@ function Linha({
 
 // A correção rápida do valor, igual à de antes: Enter salva, Esc desiste,
 // tocar fora salva. Valor inválido ou igual não vira ida ao servidor.
+// A fatura do cartão na lista: ela é a soma das compras (lib/fatura.ts), não
+// um lançamento do banco. Não desliza, não se edita nem se apaga aqui —
+// tocar abre a fatura, onde estão as compras.
+function LinhaFatura({ l, futuro, onAbrir }: { l: Lancamento; futuro: boolean; onAbrir: () => void }) {
+  const dinheiro = useDinheiro();
+  return (
+    <div className="item-lancamento" style={estilos.item}>
+      <button
+        type="button"
+        className="linha-conteudo"
+        onClick={onAbrir}
+        aria-label={`${l.descricao}, ${dinheiro(l.valor)}. Abrir a fatura.`}
+        style={{ ...estilos.conteudo, width: "100%", textAlign: "left", borderWidth: 0, borderStyle: "solid", cursor: "pointer" }}
+      >
+        <span style={{ display: "flex", opacity: futuro ? 0.72 : 1 }}>
+          <IconeCategoria tipo={l.tipo} categoria={l.categoria} />
+        </span>
+        <span style={{ ...estilos.textos, opacity: futuro ? 0.72 : 1 }}>
+          <span className="descricao-lancamento" style={estilos.descricao}>
+            {l.descricao}
+          </span>
+          <span className="tag-categoria" style={estilos.categoria}>
+            {futuro && l.data ? `${rotuloCurto(l.data)} · ` : ""}
+            {futuro ? "prevista" : "das compras"} · toque para ver
+          </span>
+        </span>
+        <span className="valor-lancamento" style={{ ...estilos.valor, color: "var(--red)", cursor: "pointer" }}>
+          {futuro ? "≈ " : ""}− {dinheiro(l.valor)}
+        </span>
+      </button>
+    </div>
+  );
+}
+
 function CampoValor({ l, cor, onFim }: { l: Lancamento; cor: string; onFim: (novo: number | null) => void }) {
   const [texto, setTexto] = useState(l.valor.toFixed(2).replace(".", ","));
   const cancelando = useRef(false);

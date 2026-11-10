@@ -16,6 +16,12 @@ import { supabase } from "../lib/supabase";
 vi.mock("../lib/supabase", () => ({
   supabase: { auth: { signOut: vi.fn() } },
 }));
+// Sem cartão configurado: o Dashboard busca o cartão a cada atualização.
+vi.mock("../lib/cartao", () => ({
+  obterCartao: vi.fn(async () => null),
+  listarCompras: vi.fn(async () => []),
+  listarPrevistos: vi.fn(async () => []),
+}));
 vi.mock("../lib/lancamentos", () => ({
   listarLancamentos: vi.fn(async () => []),
   criarLancamento: vi.fn(),
