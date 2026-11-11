@@ -193,8 +193,8 @@ export default function FolhaCartao(props: Props) {
                 </span>
                 <span style={estilos.textos}>
                   <span style={estilos.descricao}>{p.previsto.descricao}</span>
+                  {/* O valor de cada vez fica no formulário; aqui, quando ainda cai. */}
                   <span style={estilos.sub}>
-                    {dinheiro(p.previsto.valor)}{" "}
                     {p.previsto.frequencia === "semanal" ? `toda ${DIAS_SEMANA[p.previsto.dia_semana ?? 0]}` : `todo dia ${p.previsto.dia_mes}`} ·{" "}
                     {listaDeDias(p.datas)}
                   </span>

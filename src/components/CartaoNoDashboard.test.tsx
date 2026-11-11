@@ -195,7 +195,7 @@ describe("cartão de crédito no Dashboard", () => {
       cartao_id: "c1", descricao: "Lanche de sexta", valor: 70, categoria: "Lazer", frequencia: "semanal",
       dia_semana: 5, dia_mes: null, essencial: null, ativo: true,
     });
-    expect(await within(folha).findByText(/R\$\s70,00 toda sexta · 13, 20 e 27 nov/)).toBeInTheDocument();
+    expect(await within(folha).findByText(/toda sexta · 13, 20 e 27 nov/)).toBeInTheDocument();
     // 248,55 comprado + 210 previsto.
     expect(screen.getByRole("button", { name: /Cartão de crédito: fatura/ })).toHaveTextContent("≈ R$ 458,55 previsto");
   });

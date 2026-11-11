@@ -39,6 +39,26 @@ export default function Folha({ titulo, onFechar, children, rodape, largura = 44
   // antes de um campo com autoFocus lá dentro tomar o foco para si.
   const [quemAbriu] = useState(() => document.activeElement);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const fechar = useRef(onFechar);
+  fechar.current = onFechar;
+
+  // Esc fecha a folha de cima, esteja o foco onde estiver. Ouvindo só a
+  // própria folha, um toque fora dela (o Desfazer do aviso, por exemplo)
+  // levava o foco embora e o Esc parava de funcionar.
+  useEffect(() => {
+    function aoTeclar(e: KeyboardEvent) {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      const abertas = [...document.querySelectorAll<HTMLElement>(".folha-overlay[data-modal]")];
+      const camada = (el: HTMLElement) => Number(getComputedStyle(el).zIndex) || 0;
+      // A de cima: maior camada; empatando, a que veio por último.
+      const topo = abertas.reduce<HTMLElement | null>((a, b) => (!a || camada(b) >= camada(a) ? b : a), null);
+      if (topo !== overlayRef.current) return;
+      e.preventDefault();
+      fechar.current();
+    }
+    document.addEventListener("keydown", aoTeclar);
+    return () => document.removeEventListener("keydown", aoTeclar);
+  }, []);
 
   // Ao fechar, a folha desce (no celular) ou some aos poucos (no computador).
   // Quem fecha é sempre o pai, que a tira da tela na hora — depois de salvar,
@@ -76,7 +96,13 @@ export default function Folha({ titulo, onFechar, children, rodape, largura = 44
     const folha = folhaRef.current;
     if (folha && !folha.contains(document.activeElement)) folha.focus({ preventScroll: true });
     return () => {
-      if (quemAbriu instanceof HTMLElement && quemAbriu.isConnected) quemAbriu.focus({ preventScroll: true });
+      // Só quando a folha saiu mesmo. No modo estrito do React, montar já
+      // simula uma desmontagem: devolver o foco ali tirava o foco do campo
+      // de valor, e a folha, ao "voltar", ficava com ele.
+      queueMicrotask(() => {
+        if (folha?.isConnected) return;
+        if (quemAbriu instanceof HTMLElement && quemAbriu.isConnected) quemAbriu.focus({ preventScroll: true });
+      });
     };
   }, [quemAbriu]);
 
@@ -101,12 +127,6 @@ export default function Folha({ titulo, onFechar, children, rodape, largura = 44
       data-teclado={tecladoAberto ? "" : undefined}
       style={{ top: area?.top ?? 0, height: area?.height ?? "100%", zIndex }}
       onClick={onFechar}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.stopPropagation();
-          onFechar();
-        }
-      }}
     >
       <div
         ref={folhaRef}

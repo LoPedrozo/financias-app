@@ -37,6 +37,48 @@ describe("Folha", () => {
     expect(abrir).toHaveFocus();
   });
 
+  it("no modo estrito do React, o campo que se focou sozinho continua com o foco", async () => {
+    render(
+      <StrictMode>
+        <Teste comCampo />
+      </StrictMode>
+    );
+    const abrir = screen.getByRole("button", { name: "Abrir" });
+    await userEvent.click(abrir);
+    await act(async () => {});
+    expect(screen.getByLabelText("Valor")).toHaveFocus();
+    await userEvent.keyboard("{Escape}");
+    await act(async () => {});
+    expect(abrir).toHaveFocus();
+  });
+
+  it("Esc fecha mesmo com o foco fora da folha (depois de tocar no Desfazer do aviso)", async () => {
+    render(<Teste />);
+    await userEvent.click(screen.getByRole("button", { name: "Abrir" }));
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("com uma folha por cima da outra, Esc fecha só a de cima", async () => {
+    const fechouBaixo = vi.fn();
+    const fechouCima = vi.fn();
+    render(
+      <>
+        <Folha titulo="Fatura" onFechar={fechouBaixo}>
+          <p>fatura</p>
+        </Folha>
+        <Folha titulo="Compra" onFechar={fechouCima} zIndex={70}>
+          <p>compra</p>
+        </Folha>
+      </>
+    );
+    await userEvent.keyboard("{Escape}");
+    expect(fechouCima).toHaveBeenCalledTimes(1);
+    expect(fechouBaixo).not.toHaveBeenCalled();
+  });
+
   it("não tira o foco de um campo que já se focou sozinho", async () => {
     render(<Teste comCampo />);
     const abrir = screen.getByRole("button", { name: "Abrir" });
