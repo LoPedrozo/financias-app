@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { Session } from "@supabase/supabase-js";
 import Dashboard from "./Dashboard";
 import { listarLancamentos } from "../lib/lancamentos";
-import { criarCartao, criarCompra, criarPrevisto, listarCompras, obterCartao, removerCompra } from "../lib/cartao";
+import { criarCartao, criarCompra, criarPrevisto, listarCompras, listarFaturas, obterCartao, removerCompra, salvarInicial } from "../lib/cartao";
 import type { Cartao, CompraCartao, Lancamento } from "../types";
 
 // O cartão de crédito dentro do app: a compra não sai do saldo no dia; a
@@ -27,6 +27,9 @@ vi.mock("../lib/cartao", () => ({
   obterCartao: vi.fn(async () => null),
   listarCompras: vi.fn(async () => []),
   listarPrevistos: vi.fn(async () => []),
+  listarFaturas: vi.fn(async () => []),
+  salvarInicial: vi.fn(),
+  apagarInicial: vi.fn(async () => {}),
   criarCartao: vi.fn(),
   atualizarCartao: vi.fn(),
   criarCompra: vi.fn(),
@@ -57,6 +60,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date(2026, 10, 10, 12)); // terça, 10 nov 2026
   vi.mocked(listarLancamentos).mockResolvedValue([lanc("Salário", "entrada", 5000, "2026-11-05")]);
   vi.mocked(obterCartao).mockResolvedValue(nubank);
+  vi.mocked(listarFaturas).mockResolvedValue([]);
   vi.mocked(listarCompras).mockResolvedValue([
     compra("Mercado", "2026-11-08", 230.15),
     compra("Uber", "2026-11-06", 18.4, { categoria: "Transporte" }),
@@ -157,12 +161,14 @@ describe("cartão de crédito no Dashboard", () => {
     vi.mocked(obterCartao).mockResolvedValue(null);
     vi.mocked(criarCartao).mockImplementation(async (d) => ({ ...d, id: "c9", user_id: "u1", created_at: "" }));
     vi.mocked(criarCompra).mockImplementation(async (d) => ({ ...d, id: "ja", user_id: "u1", created_at: "" }));
+    vi.mocked(salvarInicial).mockImplementation(async (cartao_id, fechamento, inicial) => ({ id: "f1", user_id: "u1", cartao_id, fechamento, inicial, created_at: "" }));
     render(<Dashboard session={sessao} />);
     fireEvent.click(await screen.findByRole("button", { name: /Configurar/ }));
     const form = await screen.findByRole("dialog", { name: "Configurar o cartão" });
     // Fecha 3 e vence 10 já vêm preenchidos (o Nubank do Lorenzo).
     expect(within(form).getByRole("radio", { name: /De dezembro \(aberta\)/ })).toHaveAttribute("aria-checked", "true");
-    await userEvent.type(within(form).getByLabelText("Já está na fatura de dezembro"), "320");
+    await userEvent.type(within(form).getByLabelText("Seus gastos nela"), "320");
+    await userEvent.type(within(form).getByLabelText("Outra pessoa paga"), "1800");
     await userEvent.type(within(form).getByLabelText("Meta da fatura"), "1000");
     await userEvent.type(within(form).getByLabelText("Dela, essenciais"), "500");
     fireEvent.click(within(form).getByRole("button", { name: "Começar" }));
@@ -174,6 +180,7 @@ describe("cartão de crédito no Dashboard", () => {
     await waitFor(() => expect(criarCompra).toHaveBeenCalledTimes(1));
     // No primeiro dia do ciclo aberto, para cair na fatura de dezembro.
     expect(criarCompra).toHaveBeenCalledWith(expect.objectContaining({ cartao_id: "c9", valor: 320, data: "2026-11-03" }));
+    expect(salvarInicial).toHaveBeenCalledWith("c9", "2026-12-03", 1800);
     expect(await screen.findByRole("dialog", { name: "Fatura de dezembro" })).toHaveTextContent("Já estava na fatura");
   });
 
@@ -198,6 +205,42 @@ describe("cartão de crédito no Dashboard", () => {
     expect(await within(folha).findByText(/toda sexta · 13, 20 e 27 nov/)).toBeInTheDocument();
     // 248,55 comprado + 210 previsto.
     expect(screen.getByRole("button", { name: /Cartão de crédito: fatura/ })).toHaveTextContent("≈ R$ 458,55 previsto");
+  });
+
+  it("a fatura começou com 1.800 que a mãe paga: a meta vira 1.200 e o saldo não muda", async () => {
+    vi.mocked(obterCartao).mockResolvedValue({ ...nubank, meta_total: 3000, meta_essenciais: 500 });
+    vi.mocked(listarFaturas).mockResolvedValue([
+      { id: "f1", user_id: "u1", cartao_id: "c1", fechamento: "2026-12-03", inicial: 1800, created_at: "" },
+    ]);
+    render(<Dashboard session={sessao} />);
+    const cartao = await screen.findByRole("button", { name: /Cartão de crédito: fatura de dezembro/ });
+    expect(cartao).toHaveTextContent("sua meta R$ 1.200,00");
+    expect(cartao).toHaveTextContent("+ R$ 1.800,00 de outra pessoa");
+    expect(cartao).toHaveTextContent("banco R$ 2.048,55");
+    fireEvent.click(cartao);
+    const folha = await screen.findByRole("dialog", { name: "Fatura de dezembro" });
+    expect(folha).toHaveTextContent("Começou com R$ 1.800,00 · outra pessoa paga");
+    expect(folha).toHaveTextContent("Sua meta: R$ 1.200,00 (R$ 3.000,00 − R$ 1.800,00 de outra pessoa)");
+    // Essenciais 500; livre 1.200 − 500 = 700.
+    expect(folha).toHaveTextContent(/Livre.*de R\$\s700,00/);
+    fireEvent.click(within(folha).getByRole("button", { name: "Fechar" }));
+    proximoMes();
+    await screen.findByRole("button", { name: /Fatura do cartão, R\$\s248,55/ });
+    // Do saldo sai só a parte dele: 5.000 − 248,55.
+    expect(document.querySelector(".card-saldo")).toHaveTextContent("R$ 4.751,45");
+  });
+
+  it("informar pela fatura quanto ela começou", async () => {
+    vi.mocked(salvarInicial).mockImplementation(async (cartao_id, fechamento, inicial) => ({ id: "f1", user_id: "u1", cartao_id, fechamento, inicial, created_at: "" }));
+    render(<Dashboard session={sessao} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Cartão de crédito: fatura/ }));
+    const folha = await screen.findByRole("dialog", { name: "Fatura de dezembro" });
+    fireEvent.click(within(folha).getByRole("button", { name: "informar" }));
+    const form = (await screen.findAllByRole("dialog", { name: "Fatura de dezembro" }))[1];
+    await userEvent.type(within(form).getByLabelText("Começou com"), "1.800,00");
+    fireEvent.click(within(form).getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(salvarInicial).toHaveBeenCalledWith("c1", "2026-12-03", 1800));
+    expect(await within(folha).findByText(/outra pessoa paga/)).toBeInTheDocument();
   });
 
   it("um mês com só a fatura calculada não oferece Repetir", async () => {

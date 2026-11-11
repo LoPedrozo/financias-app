@@ -1,4 +1,4 @@
-import type { Cartao, CompraCartao, Lancamento, PrevistoCartao } from "../types";
+import type { Cartao, CompraCartao, FaturaCartao, Lancamento, PrevistoCartao } from "../types";
 import { MESES } from "../types";
 
 // A conta da fatura do cartão.
@@ -19,7 +19,11 @@ import { MESES } from "../types";
 // 5. O previsto (o lanche de toda sexta) só conta nos dias que ainda vão
 //    chegar — de amanhã até o fechamento. O de hoje já aconteceu ou não; se
 //    aconteceu, a compra está lançada.
-// 6. Tudo em centavos inteiros; reais só na saída.
+// 6. A fatura pode começar com uma parte que outra pessoa paga direto ao
+//    banco (a da mãe). Ela ocupa a meta — de 3.000, sobram 1.200 se a parte
+//    dela é 1.800 — mas não sai do saldo: o que entra nas contas do app é só
+//    o que é seu (compras e previstos).
+// 7. Tudo em centavos inteiros; reais só na saída.
 //
 // Datas são sempre "AAAA-MM-DD" e as contas de calendário são feitas em UTC,
 // para nenhum fuso ou horário de verão mover um dia.
@@ -198,8 +202,14 @@ export interface Fatura {
   gasto: number;
   /** Ainda vai acontecer, pelos previstos (reais). */
   previsto: number;
-  /** gasto + previsto: o que se espera pagar no vencimento. */
+  /** gasto + previsto: a sua parte, o que sai do seu saldo no vencimento. */
   total: number;
+  /** A parte que outra pessoa paga direto (reais); 0 se não foi informada. */
+  inicial: number;
+  /** Se a parte de outra pessoa foi informada para esta fatura. */
+  inicialInformado: boolean;
+  /** inicial + total: o que o banco vai cobrar. */
+  banco: number;
   essenciais: { gasto: number; previsto: number };
   livre: { gasto: number; previsto: number };
 }
@@ -217,9 +227,12 @@ export function faturaDoCiclo(
   cartao: Cartao,
   compras: CompraCartao[],
   previstos: PrevistoCartao[],
-  hoje: string
+  hoje: string,
+  faturas: FaturaCartao[] = []
 ): Fatura {
   const estado = estadoDoCiclo(ciclo, hoje);
+  const registro = faturas.find((x) => x.cartao_id === cartao.id && x.fechamento === ciclo.fechamento);
+  const inicial = registro ? Math.round(registro.inicial * 100) : 0;
   const itens: ItemFatura[] = [];
   for (const compra of compras) {
     if (compra.cartao_id !== cartao.id) continue;
@@ -261,9 +274,34 @@ export function faturaDoCiclo(
     gasto: reais(gasto),
     previsto: reais(previsto),
     total: reais(gasto + previsto),
+    inicial: reais(inicial),
+    inicialInformado: !!registro,
+    banco: reais(inicial + gasto + previsto),
     essenciais: { gasto: reais(soma(itens, true)), previsto: reais(soma(naFatura, true)) },
     livre: { gasto: reais(soma(itens, false)), previsto: reais(soma(naFatura, false)) },
   };
+}
+
+// ——— A meta de uma fatura ———
+
+export interface Metas {
+  /** A meta da fatura inteira, como está no cartão. */
+  total: number;
+  /** A sua parte: a meta menos o que outra pessoa paga. */
+  propria: number;
+  /** Das suas, quanto é essencial e quanto é livre (null sem divisão). */
+  essenciais: number | null;
+  livre: number | null;
+}
+
+/** Sem meta no cartão, null. A parte de outra pessoa sai da meta antes da divisão. */
+export function metasDaFatura(cartao: Pick<Cartao, "meta_total" | "meta_essenciais">, inicial: number): Metas | null {
+  if (!cartao.meta_total) return null;
+  const total = Math.round(cartao.meta_total * 100);
+  const propria = Math.max(0, total - Math.round(inicial * 100));
+  if (cartao.meta_essenciais == null) return { total: reais(total), propria: reais(propria), essenciais: null, livre: null };
+  const essenciais = Math.min(Math.round(cartao.meta_essenciais * 100), propria);
+  return { total: reais(total), propria: reais(propria), essenciais: reais(essenciais), livre: reais(propria - essenciais) };
 }
 
 // ——— A fatura nas contas do app ———

@@ -106,6 +106,18 @@ export interface PrevistoCartao {
 
 export type NovoPrevistoCartao = Omit<PrevistoCartao, "id" | "user_id" | "created_at">;
 
+// O que uma fatura já traz e outra pessoa paga direto ao banco (a parte da
+// mãe). Muda de fatura para fatura. Ocupa a meta, mas não sai do saldo.
+export interface FaturaCartao {
+  id: string;
+  user_id: string;
+  cartao_id: string;
+  /** Dia do fechamento: identifica a fatura. */
+  fechamento: string;
+  inicial: number;
+  created_at: string;
+}
+
 // Uma "pilha" de contas: tem nome, dono e membros próprios. É o que permite
 // dividir um conjunto de contas com uma pessoa e outro com outra, sem misturar.
 export interface Grupo {

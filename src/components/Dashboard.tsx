@@ -51,6 +51,7 @@ import FolhaCartao from "./FolhaCartao";
 import ModalCompra from "./ModalCompra";
 import ModalPrevisto from "./ModalPrevisto";
 import ModalConfigCartao from "./ModalConfigCartao";
+import ModalInicial from "./ModalInicial";
 import {
   atualizarCartao,
   atualizarCompra,
@@ -58,14 +59,25 @@ import {
   criarCartao,
   criarCompra,
   criarPrevisto,
+  apagarInicial,
   listarCompras,
+  listarFaturas,
   listarPrevistos,
   obterCartao,
   removerCompra,
   removerPrevisto,
+  salvarInicial,
 } from "../lib/cartao";
-import { cicloDaData, cicloSeguinte, dataNoMes, faturaDoCiclo, faturasComoLancamentos } from "../lib/fatura";
-import type { Cartao, CompraCartao, NovaCompraCartao, NovoCartao, NovoPrevistoCartao, PrevistoCartao } from "../types";
+import { cicloDaData, cicloSeguinte, dataNoMes, faturaDoCiclo, faturasComoLancamentos, nomeDaFatura, somarDias } from "../lib/fatura";
+import type {
+  Cartao,
+  CompraCartao,
+  FaturaCartao,
+  NovaCompraCartao,
+  NovoCartao,
+  NovoPrevistoCartao,
+  PrevistoCartao,
+} from "../types";
 import ModalPreferencias from "./ModalPreferencias";
 import { limparRascunho } from "../lib/rascunho";
 import AvisoDesatualizado from "./AvisoDesatualizado";
@@ -174,6 +186,8 @@ export default function Dashboard({
   const [cartao, setCartao] = useState<Cartao | null | undefined>(undefined);
   const [compras, setCompras] = useState<CompraCartao[]>([]);
   const [previstos, setPrevistos] = useState<PrevistoCartao[]>([]);
+  const [faturas, setFaturas] = useState<FaturaCartao[]>([]);
+  const [modalInicial, setModalInicial] = useState<{ fechamento: string } | null>(null);
   const [folhaCartao, setFolhaCartao] = useState<{ fechamento?: string } | null>(null);
   const [modalCompra, setModalCompra] = useState<{ compra?: CompraCartao } | null>(null);
   const [modalPrevisto, setModalPrevisto] = useState<{ previsto?: PrevistoCartao } | null>(null);
@@ -221,11 +235,12 @@ export default function Dashboard({
         setCartao(null);
         return true;
       }
-      const [cs, ps] = await Promise.all([listarCompras(c.id), listarPrevistos(c.id)]);
+      const [cs, ps, fs] = await Promise.all([listarCompras(c.id), listarPrevistos(c.id), listarFaturas(c.id)]);
       const esperando = idCompraEsperando();
       setCartao(c);
       setCompras(esperando ? cs.filter((x) => x.id !== esperando) : cs);
       setPrevistos(ps);
+      setFaturas(fs);
       return true;
     } catch (e) {
       console.error(e);
@@ -659,17 +674,24 @@ export default function Dashboard({
     [lancamentos, faturasVirtuais]
   );
   const faturaAberta = useMemo(
-    () => (cartao ? faturaDoCiclo(cicloDaData(hojeIso, cartao), cartao, compras, previstos, hojeIso) : null),
-    [cartao, compras, previstos, hojeIso]
+    () => (cartao ? faturaDoCiclo(cicloDaData(hojeIso, cartao), cartao, compras, previstos, hojeIso, faturas) : null),
+    [cartao, compras, previstos, hojeIso, faturas]
   );
+  // A fatura anterior teve parte de outra pessoa e a aberta ainda não: o
+  // cartão lembra de informar (o valor muda de fatura para fatura).
+  const lembrarInicial = useMemo(() => {
+    if (!cartao || !faturaAberta || faturaAberta.inicialInformado) return false;
+    const anterior = cicloSeguinte(faturaAberta.ciclo, cartao, -1).fechamento;
+    return faturas.some((x) => x.fechamento === anterior && x.inicial > 0);
+  }, [cartao, faturaAberta, faturas]);
   // A que fechou e ainda não venceu: é a próxima a sair do saldo.
   const faturaAPagar = useMemo(() => {
     if (!cartao) return null;
     const c = cicloSeguinte(cicloDaData(hojeIso, cartao), cartao, -1);
     if (hojeIso >= c.vencimento || c.vencimento < cartao.inicio) return null;
-    const f = faturaDoCiclo(c, cartao, compras, previstos, hojeIso);
+    const f = faturaDoCiclo(c, cartao, compras, previstos, hojeIso, faturas);
     return f.total > 0 ? f : null;
-  }, [cartao, compras, previstos, hojeIso]);
+  }, [cartao, compras, previstos, hojeIso, faturas]);
 
   // ——— Cartão de crédito ———
 
@@ -728,7 +750,26 @@ export default function Dashboard({
     }
   }
 
-  async function salvarConfigCartao(dados: NovoCartao, jaNaFatura: number | null): Promise<boolean> {
+  async function salvarInicialFatura(fechamento: string, valor: number | null): Promise<boolean> {
+    if (!cartao) return false;
+    try {
+      if (valor == null) {
+        await apagarInicial(cartao.id, fechamento);
+        setFaturas((atual) => atual.filter((x) => x.fechamento !== fechamento));
+      } else {
+        const salva = await salvarInicial(cartao.id, fechamento, valor);
+        setFaturas((atual) => [...atual.filter((x) => x.fechamento !== fechamento), salva]);
+      }
+      setModalInicial(null);
+      return true;
+    } catch (e) {
+      console.error(e);
+      mostrarToast("erro", "Não foi possível salvar. Verifique sua conexão.");
+      return false;
+    }
+  }
+
+  async function salvarConfigCartao(dados: NovoCartao, jaNaFatura: number | null, parteDeOutro: number | null): Promise<boolean> {
     try {
       if (cartao) {
         setCartao(await atualizarCartao(cartao.id, dados));
@@ -742,8 +783,18 @@ export default function Dashboard({
       setCartao(novo);
       setCompras([]);
       setPrevistos([]);
+      setFaturas([]);
       setModalConfigCartao(false);
       setFolhaCartao({});
+      if (parteDeOutro) {
+        try {
+          setFaturas([await salvarInicial(novo.id, cicloDaData(hojeIso, novo).fechamento, parteDeOutro)]);
+        } catch (e) {
+          console.error(e);
+          mostrarToast("erro", "O cartão está pronto, mas não consegui guardar a parte de outra pessoa. Informe na fatura.");
+          return true;
+        }
+      }
       if (jaNaFatura) {
         try {
           const inicial = await criarCompra({
@@ -890,6 +941,7 @@ export default function Dashboard({
     setModalCompra(null);
     setModalPrevisto(null);
     setModalConfigCartao(false);
+    setModalInicial(null);
     setAbaAtiva(aba);
   }
 
@@ -1137,6 +1189,7 @@ export default function Dashboard({
             aberta={faturaAberta}
             aPagar={faturaAPagar}
             hoje={hojeIso}
+            lembrarInicial={lembrarInicial}
             onAbrir={() => setFolhaCartao({})}
             onConfigurar={() => setModalConfigCartao(true)}
           />
@@ -1362,9 +1415,11 @@ export default function Dashboard({
           cartao={cartao}
           compras={compras}
           previstos={previstos}
+          faturas={faturas}
           lancamentos={lancamentos}
           hoje={hojeIso}
           fechamento={folhaCartao.fechamento}
+          onInformarInicial={(fechamento) => setModalInicial({ fechamento })}
           onNovaCompra={() => setModalCompra({})}
           onEditarCompra={(c) => setModalCompra({ compra: c })}
           onNovoPrevisto={() => setModalPrevisto({})}
@@ -1392,6 +1447,19 @@ export default function Dashboard({
           onSalvar={salvarPrevisto}
           onApagar={modalPrevisto.previsto ? () => apagarPrevisto(modalPrevisto.previsto!) : undefined}
           onFechar={() => setModalPrevisto(null)}
+        />
+      )}
+
+      {modalInicial && cartao && (
+        <ModalInicial
+          nomeDaFatura={nomeDaFatura(cicloDaData(somarDias(modalInicial.fechamento, -1), cartao), hojeIso)}
+          atual={faturas.find((x) => x.fechamento === modalInicial.fechamento)?.inicial ?? null}
+          anterior={
+            faturas.find((x) => x.fechamento === cicloSeguinte(cicloDaData(somarDias(modalInicial.fechamento, -1), cartao), cartao, -1).fechamento)
+              ?.inicial ?? null
+          }
+          onSalvar={(v) => salvarInicialFatura(modalInicial.fechamento, v)}
+          onFechar={() => setModalInicial(null)}
         />
       )}
 

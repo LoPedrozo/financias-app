@@ -2,7 +2,7 @@ import { CreditCard, Nfc } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { Cartao } from "../types";
 import type { Fatura } from "../lib/fatura";
-import { diaEMes, nomeDaFatura } from "../lib/fatura";
+import { diaEMes, metasDaFatura, nomeDaFatura } from "../lib/fatura";
 import { useDinheiro } from "../hooks/usePreferencias";
 
 // O cartão de crédito na tela principal (opção 2 dos protótipos): um cartão
@@ -18,11 +18,13 @@ interface Props {
   /** A que já fechou e ainda não venceu, se houver: é a próxima a sair do saldo. */
   aPagar: Fatura | null;
   hoje: string;
+  /** A anterior teve parte de outra pessoa e esta ainda não: lembrar de informar. */
+  lembrarInicial?: boolean;
   onAbrir: () => void;
   onConfigurar: () => void;
 }
 
-export default function CardCartao({ cartao, aberta, aPagar, hoje, onAbrir, onConfigurar }: Props) {
+export default function CardCartao({ cartao, aberta, aPagar, hoje, lembrarInicial, onAbrir, onConfigurar }: Props) {
   const dinheiro = useDinheiro();
 
   if (!cartao || !aberta) {
@@ -40,12 +42,13 @@ export default function CardCartao({ cartao, aberta, aPagar, hoje, onAbrir, onCo
     );
   }
 
-  const meta = cartao.meta_total;
-  // A barra é proporção da meta; sem meta, do próprio total previsto.
-  const base = meta && meta > 0 ? meta : Math.max(aberta.total, 1);
+  // A sua meta: a do cartão menos a parte de outra pessoa nesta fatura.
+  const metas = metasDaFatura(cartao, aberta.inicial);
+  // A barra é proporção da sua meta; sem meta, do próprio total previsto.
+  const base = metas && metas.propria > 0 ? metas.propria : Math.max(aberta.total, 1);
   const parteGasto = Math.min(100, (aberta.gasto / base) * 100);
   const partePrevisto = Math.min(100 - parteGasto, (aberta.previsto / base) * 100);
-  const passou = meta ? aberta.total - meta : 0;
+  const passou = metas ? aberta.total - metas.propria : 0;
 
   return (
     <button
@@ -73,9 +76,25 @@ export default function CardCartao({ cartao, aberta, aPagar, hoje, onAbrir, onCo
       <span style={estilos.rodape}>
         <span>{aberta.previsto > 0 ? `≈ ${dinheiro(aberta.total)} previsto` : "sem previstos"}</span>
         <span>
-          {meta ? (passou > 0.004 ? `${dinheiro(passou)} acima da meta` : `meta ${dinheiro(meta)}`) : "sem meta"}
+          {metas
+            ? passou > 0.004
+              ? `${dinheiro(passou)} acima da meta`
+              : aberta.inicial > 0
+              ? `sua meta ${dinheiro(metas.propria)}`
+              : `meta ${dinheiro(metas.total)}`
+            : "sem meta"}
         </span>
       </span>
+      {aberta.inicial > 0 && (
+        <span style={{ ...estilos.rodape, marginTop: 4 }}>
+          <span>+ {dinheiro(aberta.inicial)} de outra pessoa</span>
+          <span>
+            banco {aberta.previsto > 0 ? "≈ " : ""}
+            {dinheiro(aberta.banco)}
+          </span>
+        </span>
+      )}
+      {lembrarInicial && <span style={estilos.outra}>Quanto esta fatura começou? Toque para informar.</span>}
       {aPagar && (
         <span style={estilos.aPagar}>
           Fatura de {nomeDaFatura(aPagar.ciclo, hoje)} fechou: {dinheiro(aPagar.total)} · vence{" "}
@@ -145,15 +164,20 @@ const estilos: Record<string, CSSProperties> = {
     background: "repeating-linear-gradient(135deg, var(--cartao-texto) 0 4px, transparent 4px 7px)",
     opacity: 0.6,
   },
+  // Cada item quebra de linha inteiro: "≈ R$ 773,35 previsto" partido ao
+  // meio, em 320px, virava duas linhas soltas.
   rodape: {
     position: "relative",
     display: "flex",
+    flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 10,
+    gap: "2px 10px",
+    whiteSpace: "nowrap",
     fontSize: 12.5,
     color: "var(--cartao-suave)",
     marginTop: 8,
   },
+  outra: { position: "relative", fontSize: 12.5, color: "var(--cartao-suave)", marginTop: 4 },
   aPagar: {
     position: "relative",
     fontSize: 12.5,

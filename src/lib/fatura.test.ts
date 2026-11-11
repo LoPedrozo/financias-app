@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Cartao, CompraCartao, PrevistoCartao } from "../types";
+import type { Cartao, CompraCartao, FaturaCartao, PrevistoCartao } from "../types";
 import {
   cicloDaData,
   cicloSeguinte,
@@ -7,6 +7,7 @@ import {
   ehEssencial,
   faturaDoCiclo,
   faturasComoLancamentos,
+  metasDaFatura,
   parcelasDaCompra,
   primeiroCiclo,
   somarDias,
@@ -168,6 +169,42 @@ describe("a fatura", () => {
     expect(ehEssencial({ essencial: null, categoria: "Lazer" })).toBe(false);
     expect(ehEssencial({ essencial: true, categoria: "Lazer" })).toBe(true);
     expect(ehEssencial({ essencial: false, categoria: "Saúde" })).toBe(false);
+  });
+});
+
+describe("a parte que outra pessoa paga", () => {
+  const hoje = "2026-11-10";
+  const ciclo = cicloDaData(hoje, nubank);
+  const parte = (fechamento: string, inicial: number): FaturaCartao => ({
+    id: `f${fechamento}`, user_id: "u1", cartao_id: "c1", fechamento, inicial, created_at: "",
+  });
+
+  it("a fatura começou com 1.800 da mãe: o banco cobra tudo, mas o seu total não muda", () => {
+    const compras = [compra("2026-11-08", 230.15)];
+    const f = faturaDoCiclo(ciclo, nubank, compras, [previsto({})], hoje, [parte(ciclo.fechamento, 1800), parte("2027-01-03", 999)]);
+    expect(f.inicial).toBe(1800);
+    expect(f.inicialInformado).toBe(true);
+    expect(f.total).toBe(440.15);
+    expect(f.banco).toBe(2240.15);
+    // Outra fatura não pega o valor desta.
+    const outra = faturaDoCiclo(cicloSeguinte(ciclo, nubank), nubank, [], [], hoje, [parte(ciclo.fechamento, 1800)]);
+    expect([outra.inicial, outra.inicialInformado]).toEqual([0, false]);
+  });
+
+  it("não entra no saldo: a fatura nas contas é só a sua parte", () => {
+    const l = faturasComoLancamentos(nubank, [compra("2026-11-08", 230.15)], [], hoje, "2026-12-31");
+    expect(l.map((x) => x.valor)).toEqual([230.15]);
+  });
+
+  it("sai da meta antes de dividir: 3.000 − 1.800 = 1.200, sendo 500 essenciais e 700 livre", () => {
+    expect(metasDaFatura(nubank, 0)).toEqual({ total: 1000, propria: 1000, essenciais: 500, livre: 500 });
+    const tres = { meta_total: 3000, meta_essenciais: 500 };
+    expect(metasDaFatura(tres, 1800)).toEqual({ total: 3000, propria: 1200, essenciais: 500, livre: 700 });
+    // Sobrando menos que os essenciais, a parte livre zera; passando da meta, nada sobra.
+    expect(metasDaFatura(tres, 2900)).toEqual({ total: 3000, propria: 100, essenciais: 100, livre: 0 });
+    expect(metasDaFatura(tres, 3500)).toEqual({ total: 3000, propria: 0, essenciais: 0, livre: 0 });
+    expect(metasDaFatura({ meta_total: 3000, meta_essenciais: null }, 1800.1)).toEqual({ total: 3000, propria: 1199.9, essenciais: null, livre: null });
+    expect(metasDaFatura({ meta_total: null, meta_essenciais: null }, 1800)).toBeNull();
   });
 });
 

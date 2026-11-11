@@ -62,9 +62,24 @@ create table public.previstos_cartao (
 create index previstos_cartao_cartao_idx on public.previstos_cartao (cartao_id);
 create index previstos_cartao_user_id_idx on public.previstos_cartao (user_id);
 
+-- O que cada fatura já traz e outra pessoa paga direto ao banco (a parte da
+-- mãe). Muda de fatura para fatura; ocupa a meta, mas não sai do saldo.
+create table public.faturas_cartao (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  cartao_id uuid not null references public.cartoes (id) on delete cascade,
+  -- Dia do fechamento: identifica a fatura.
+  fechamento date not null,
+  inicial numeric(12, 2) not null check (inicial >= 0 and inicial <= 1000000000),
+  created_at timestamptz not null default now(),
+  unique (cartao_id, fechamento)
+);
+create index faturas_cartao_user_id_idx on public.faturas_cartao (user_id);
+
 alter table public.cartoes enable row level security;
 alter table public.compras_cartao enable row level security;
 alter table public.previstos_cartao enable row level security;
+alter table public.faturas_cartao enable row level security;
 
 -- "(select auth.uid())" é avaliado uma vez por consulta, e não uma por linha
 -- (lint 0003 do Supabase).
@@ -108,4 +123,19 @@ create policy "editar os proprios previstos" on public.previstos_cartao
     and exists (select 1 from public.cartoes c where c.id = cartao_id and c.user_id = (select auth.uid()))
   );
 create policy "apagar os proprios previstos" on public.previstos_cartao
+  for delete to authenticated using ((select auth.uid()) = user_id);
+
+create policy "ver as proprias faturas" on public.faturas_cartao
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "criar fatura no proprio cartao" on public.faturas_cartao
+  for insert to authenticated with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from public.cartoes c where c.id = cartao_id and c.user_id = (select auth.uid()))
+  );
+create policy "editar as proprias faturas" on public.faturas_cartao
+  for update to authenticated using ((select auth.uid()) = user_id) with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from public.cartoes c where c.id = cartao_id and c.user_id = (select auth.uid()))
+  );
+create policy "apagar as proprias faturas" on public.faturas_cartao
   for delete to authenticated using ((select auth.uid()) = user_id);

@@ -14,8 +14,9 @@ import { BotaoPrincipal, campoComErro, estiloErro, estiloRotulo } from "./campos
 interface Props {
   cartao?: Cartao;
   hoje: string;
-  /** `jaNaFatura`: só na primeira vez, o que já estava na fatura de início. */
-  onSalvar: (dados: NovoCartao, jaNaFatura: number | null) => Promise<boolean>;
+  /** Só na primeira vez: as suas compras que já estavam na fatura aberta, e
+   *  a parte dela que outra pessoa paga direto. */
+  onSalvar: (dados: NovoCartao, jaNaFatura: number | null, parteDeOutro: number | null) => Promise<boolean>;
   onFechar: () => void;
 }
 
@@ -25,6 +26,7 @@ interface Erros {
   meta?: string;
   essenciais?: string;
   jaNaFatura?: string;
+  parteDeOutro?: string;
 }
 
 const dinheiroDoCampo = (v: number | null | undefined) => (v == null ? "" : v.toFixed(2).replace(".", ","));
@@ -37,6 +39,7 @@ export default function ModalConfigCartao({ cartao, hoje, onSalvar, onFechar }: 
   const [meta, setMeta] = useState(dinheiroDoCampo(cartao?.meta_total));
   const [essenciais, setEssenciais] = useState(dinheiroDoCampo(cartao?.meta_essenciais));
   const [jaNaFatura, setJaNaFatura] = useState("");
+  const [parteDeOutro, setParteDeOutro] = useState("");
   // O vencimento da primeira fatura acompanhada. Sem escolha, a aberta.
   const [inicioEscolhido, setInicioEscolhido] = useState<string | null>(cartao?.inicio ?? null);
   const [erros, setErros] = useState<Erros>({});
@@ -71,6 +74,10 @@ export default function ModalConfigCartao({ cartao, hoje, onSalvar, onFechar }: 
       const e = erroDoValor(jaNaFatura);
       if (e) novos.jaNaFatura = e;
     }
+    if (parteDeOutro.trim()) {
+      const e = erroDoValor(parteDeOutro);
+      if (e) novos.parteDeOutro = e;
+    }
     return novos;
   }
 
@@ -90,7 +97,8 @@ export default function ModalConfigCartao({ cartao, hoje, onSalvar, onFechar }: 
           meta_essenciais: essenciais.trim() ? lerValor(essenciais) : null,
           inicio,
         },
-        !cartao && inicio === atual?.vencimento && jaNaFatura.trim() ? lerValor(jaNaFatura) : null
+        !cartao && inicio === atual?.vencimento && jaNaFatura.trim() ? lerValor(jaNaFatura) : null,
+        !cartao && inicio === atual?.vencimento && parteDeOutro.trim() ? lerValor(parteDeOutro) : null
       );
     } finally {
       setSalvando(false);
@@ -184,10 +192,22 @@ export default function ModalConfigCartao({ cartao, hoje, onSalvar, onFechar }: 
 
       {!cartao && atual && inicio === atual.vencimento && (
         <>
-          <label htmlFor={`${ids}-ja`} style={estiloRotulo}>Já está na fatura de {nomeDaFatura(atual, hoje)}</label>
-          {campoValor(`${ids}-ja`, jaNaFatura, setJaNaFatura, erros.jaNaFatura)}
-          {erros.jaNaFatura && <p style={estiloErro}>{erros.jaNaFatura}</p>}
-          <p style={estilos.dica}>O total que o app do banco mostra hoje, comprado antes de você começar a lançar aqui.</p>
+          <div style={estilos.lado}>
+            <div>
+              <label htmlFor={`${ids}-outro`} style={estiloRotulo}>Outra pessoa paga</label>
+              {campoValor(`${ids}-outro`, parteDeOutro, setParteDeOutro, erros.parteDeOutro)}
+              {erros.parteDeOutro && <p style={estiloErro}>{erros.parteDeOutro}</p>}
+            </div>
+            <div>
+              <label htmlFor={`${ids}-ja`} style={estiloRotulo}>Seus gastos nela</label>
+              {campoValor(`${ids}-ja`, jaNaFatura, setJaNaFatura, erros.jaNaFatura)}
+              {erros.jaNaFatura && <p style={estiloErro}>{erros.jaNaFatura}</p>}
+            </div>
+          </div>
+          <p style={estilos.dica}>
+            Do que já está na fatura de {nomeDaFatura(atual, hoje)}: a parte que outra pessoa paga direto ao banco (não sai
+            do seu saldo) e o que você comprou antes de começar a lançar aqui.
+          </p>
         </>
       )}
 

@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import type {
   Cartao,
   CompraCartao,
+  FaturaCartao,
   NovaCompraCartao,
   NovoCartao,
   NovoPrevistoCartao,
@@ -16,6 +17,7 @@ const CAMPOS_CARTAO =
   "id, user_id, nome, dia_fechamento, dia_vencimento, meta_total, meta_essenciais, inicio, created_at";
 const CAMPOS_COMPRA =
   "id, user_id, cartao_id, descricao, valor, categoria, data, parcelas, essencial, como, created_at";
+const CAMPOS_FATURA = "id, user_id, cartao_id, fechamento, inicial, created_at";
 const CAMPOS_PREVISTO =
   "id, user_id, cartao_id, descricao, valor, categoria, frequencia, dia_semana, dia_mes, essencial, ativo, created_at";
 
@@ -154,5 +156,44 @@ export async function atualizarPrevisto(id: string, dados: NovoPrevistoCartao): 
 export async function removerPrevisto(id: string): Promise<void> {
   const userId = await usuario();
   const { error } = await supabase.from("previstos_cartao").delete().eq("user_id", userId).eq("id", id);
+  if (error) throw error;
+}
+
+// A parte de cada fatura que outra pessoa paga direto (uma linha por fatura).
+
+export async function listarFaturas(cartaoId: string): Promise<FaturaCartao[]> {
+  const userId = await usuario();
+  const { data, error } = await supabase
+    .from("faturas_cartao")
+    .select(CAMPOS_FATURA)
+    .eq("user_id", userId)
+    .eq("cartao_id", cartaoId)
+    .order("fechamento", { ascending: true });
+  if (error) throw error;
+  return ((data ?? []) as FaturaCartao[]).map((f) => ({ ...f, inicial: Number(f.inicial) }));
+}
+
+/** Grava (ou troca) quanto a fatura começou. */
+export async function salvarInicial(cartaoId: string, fechamento: string, inicial: number): Promise<FaturaCartao> {
+  const userId = await usuario();
+  const { data, error } = await supabase
+    .from("faturas_cartao")
+    .upsert({ user_id: userId, cartao_id: cartaoId, fechamento, inicial }, { onConflict: "cartao_id,fechamento" })
+    .select(CAMPOS_FATURA)
+    .single();
+  if (error) throw error;
+  const f = data as FaturaCartao;
+  return { ...f, inicial: Number(f.inicial) };
+}
+
+/** Volta a "não informado". */
+export async function apagarInicial(cartaoId: string, fechamento: string): Promise<void> {
+  const userId = await usuario();
+  const { error } = await supabase
+    .from("faturas_cartao")
+    .delete()
+    .eq("user_id", userId)
+    .eq("cartao_id", cartaoId)
+    .eq("fechamento", fechamento);
   if (error) throw error;
 }

@@ -1,13 +1,14 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, Globe, Nfc, Plus, Repeat, Settings2 } from "lucide-react";
-import type { Cartao, CompraCartao, Lancamento, PrevistoCartao } from "../types";
+import type { Cartao, CompraCartao, FaturaCartao, Lancamento, PrevistoCartao } from "../types";
 import {
   CATEGORIA_FATURA,
   cicloDaData,
   cicloSeguinte,
   diaEMes,
   faturaDoCiclo,
+  metasDaFatura,
   nomeDaFatura,
   primeiroCiclo,
   somarDias,
@@ -27,6 +28,8 @@ interface Props {
   cartao: Cartao;
   compras: CompraCartao[];
   previstos: PrevistoCartao[];
+  /** A parte de outra pessoa em cada fatura. */
+  faturas: FaturaCartao[];
   /** Os lançamentos de verdade, para achar a fatura lançada à mão. */
   lancamentos: Lancamento[];
   hoje: string;
@@ -37,6 +40,7 @@ interface Props {
   onNovoPrevisto: () => void;
   onEditarPrevisto: (p: PrevistoCartao) => void;
   onConfigurar: () => void;
+  onInformarInicial: (fechamento: string) => void;
   onApagarLancamento: (l: Lancamento) => void;
   onFechar: () => void;
 }
@@ -71,7 +75,8 @@ export default function FolhaCartao(props: Props) {
   const aberta = cicloDaData(hoje, cartao);
   const [fechamento, setFechamento] = useState(props.fechamento ?? aberta.fechamento);
   const ciclo = cicloDaData(somarDias(fechamento, -1), cartao);
-  const f = faturaDoCiclo(ciclo, cartao, compras, previstos, hoje);
+  const f = faturaDoCiclo(ciclo, cartao, compras, previstos, hoje, props.faturas);
+  const metas = metasDaFatura(cartao, f.inicial);
   const primeiro = primeiroCiclo(cartao);
   const acompanhada = ciclo.fechamento >= primeiro.fechamento;
   const aMao = lancadasAMao(lancamentos, f, cartao);
@@ -85,8 +90,6 @@ export default function FolhaCartao(props: Props) {
       ? "fechada"
       : "vencida";
 
-  const metaTotal = cartao.meta_total;
-  const metaEssenciais = cartao.meta_essenciais;
 
   return (
     <Folha
@@ -122,6 +125,19 @@ export default function FolhaCartao(props: Props) {
         </button>
       </div>
 
+      <div style={estilos.inicial}>
+        {f.inicial > 0 ? (
+          <span>
+            Começou com <b>{dinheiro(f.inicial)}</b> · outra pessoa paga
+          </span>
+        ) : (
+          <span>{f.inicialInformado ? "Começou sem parte de outra pessoa" : "Começou com uma parte que outra pessoa paga?"}</span>
+        )}
+        <button type="button" style={estilos.link} onClick={() => props.onInformarInicial(ciclo.fechamento)}>
+          {f.inicialInformado ? "alterar" : "informar"}
+        </button>
+      </div>
+
       <div style={estilos.resumo}>
         <div>
           <small style={estilos.rotulo}>{f.estado === "fechada" ? "Total" : "Já gastou"}</small>
@@ -129,21 +145,34 @@ export default function FolhaCartao(props: Props) {
         </div>
         {f.previsto > 0 && (
           <div style={{ textAlign: "right" }}>
-            <small style={estilos.rotulo}>Fatura prevista</small>
+            <small style={estilos.rotulo}>Sua parte prevista</small>
             <div style={estilos.medio}>≈ {dinheiro(f.total)}</div>
           </div>
         )}
       </div>
+      {f.inicial > 0 && (
+        <p style={estilos.nota}>
+          Com a parte de outra pessoa, o banco cobra {f.previsto > 0 ? "≈ " : ""}
+          {dinheiro(f.banco)}. Do seu saldo sai só a sua parte.
+        </p>
+      )}
 
-      {metaTotal ? (
-        metaEssenciais != null ? (
-          <>
-            <Barra rotulo="Essenciais" usado={f.essenciais.gasto} previsto={f.essenciais.previsto} meta={metaEssenciais} cor="var(--destaque-texto)" />
-            <Barra rotulo="Livre" usado={f.livre.gasto} previsto={f.livre.previsto} meta={metaTotal - metaEssenciais} cor="var(--text-soft)" />
-          </>
-        ) : (
-          <Barra rotulo="Meta" usado={f.gasto} previsto={f.previsto} meta={metaTotal} cor="var(--destaque-texto)" />
-        )
+      {metas ? (
+        <>
+          {f.inicial > 0 && (
+            <p style={estilos.nota}>
+              Sua meta: {dinheiro(metas.propria)} ({dinheiro(metas.total)} − {dinheiro(f.inicial)} de outra pessoa)
+            </p>
+          )}
+          {metas.essenciais != null && metas.livre != null ? (
+            <>
+              <Barra rotulo="Essenciais" usado={f.essenciais.gasto} previsto={f.essenciais.previsto} meta={metas.essenciais} cor="var(--destaque-texto)" />
+              <Barra rotulo="Livre" usado={f.livre.gasto} previsto={f.livre.previsto} meta={metas.livre} cor="var(--text-soft)" />
+            </>
+          ) : (
+            <Barra rotulo="Sua meta" usado={f.gasto} previsto={f.previsto} meta={metas.propria} cor="var(--destaque-texto)" />
+          )}
+        </>
       ) : (
         <p style={estilos.semMeta}>
           Essenciais {dinheiro(f.essenciais.gasto + f.essenciais.previsto)} · Livre {dinheiro(f.livre.gasto + f.livre.previsto)} ·{" "}
@@ -305,6 +334,19 @@ const estilos: Record<string, CSSProperties> = {
     justifyContent: "center",
   },
   datas: { flex: 1, textAlign: "center", fontSize: 12.5, color: "var(--text-faint)" },
+  inicial: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+    fontSize: 13,
+    color: "var(--text-soft)",
+    background: "var(--bg)",
+    borderRadius: 12,
+    padding: "4px 12px",
+    marginTop: 4,
+  },
+  nota: { fontSize: 12.5, color: "var(--text-faint)", lineHeight: 1.45, margin: "4px 0 0" },
   resumo: { display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, margin: "10px 0 6px" },
   rotulo: { fontSize: 12.5, color: "var(--text-soft)" },
   grande: { fontFamily: "'Sora', sans-serif", fontSize: 26, fontWeight: 800, letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums" },
