@@ -124,6 +124,17 @@ Já discutidas e fechadas. Não desfaça sem perguntar.
   (dia 6 contra 1 a 6 do mês passado); mês que já passou, inteiro contra
   inteiro. Contas em centavos, em `src/lib/resumoMes.ts`, com sorteio contra
   gabarito nos testes.
+- **Cartão de crédito** (Nubank: fecha dia 3, vence dia 10; aproximação do
+  iPhone e compras online). Compras ficam em tabela própria e **não contam
+  no dia da compra**: cada fatura vira um lançamento virtual no vencimento,
+  com a parte do Lorenzo (compras + previstos). Compra no dia do fechamento
+  já vai para a próxima fatura; parcelas em centavos, a sobra na primeira.
+  Previstos ("R$ 70 toda sexta") só de amanhã até o fechamento. Essencial ou
+  livre vem da categoria e dá para trocar por compra. A fatura pode começar
+  com a **parte que outra pessoa paga direto ao banco** (a mãe): informada a
+  cada fatura, ocupa a meta (3.000 − 1.800 = 1.200 para ele) e **não sai do
+  saldo**. Com o cartão, a fatura não se lança mais à mão (a folha avisa se
+  achar uma). Contas em `src/lib/fatura.ts`, com sorteio contra gabarito.
 
 ## Roteiro combinado
 
@@ -175,3 +186,6 @@ Discutidas e adiadas. Só implemente se for pedido.
 - Preferências sincronizadas na conta (hoje ficam no aparelho).
 - Ícone do app na cor de destaque escolhida.
 - Teste visual automatizado em navegador real dentro do projeto.
+- Cartão, próximas fases: lançar a compra sozinho pela automação
+  "Transação" do Atalhos (Apple Pay) e importar a fatura do Nubank. Open
+  Finance ficou para depois.
